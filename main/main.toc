@@ -1,0 +1,48 @@
+\babel@toc {english}{}\relax 
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Motivation for the Research}{4}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Problem Statement}{4}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Goals and Objectives}{4}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Research Questions}{5}{subsection.1.4}%
+\contentsline {subsection}{\numberline {1.5}Significance of the Research}{5}{subsection.1.5}%
+\contentsline {subsection}{\numberline {1.6}Structure of the Thesis}{6}{subsection.1.6}%
+\contentsline {section}{\numberline {2}Background and Related Work}{7}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Traditional Software Testing Methods}{8}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Challenges in Modern Software Testing}{9}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Overview of Machine Learning in Software Engineering}{11}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Existing Approaches to Bug Prediction}{11}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Summary of Related Literature}{11}{subsection.2.5}%
+\contentsline {section}{\numberline {3}Machine Learning for Software Testing}{12}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Types of Machine Learning}{12}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Feature Extraction in Software Testing}{12}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Commonly Used Models for Bug Prediction}{12}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Evaluation Metrics}{12}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Data Collection and Preprocessing}{13}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Sources of Data}{13}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Data Cleaning and Preprocessing Steps}{13}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Labeling Data for Supervised Learning}{13}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Challenges in Data Preparation}{13}{subsection.4.4}%
+\contentsline {section}{\numberline {5}Proposed Methodology}{14}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Selection of Machine Learning Models}{14}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Feature Selection and Engineering}{14}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Model Training and Hyperparameter Tuning}{14}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Experimental Setup}{14}{subsection.5.4}%
+\contentsline {section}{\numberline {6}Implementation}{15}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Tools and Technologies Used}{15}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Implementation of the Selected Models}{15}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Training Pipeline and Testing Framework}{15}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Results and Evaluation}{16}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Performance of Models on the Dataset}{16}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Comparison with Traditional Testing Methods}{16}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Discussion of Findings}{16}{subsection.7.3}%
+\contentsline {section}{\numberline {8}Discussion and Limitations}{17}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Interpretation of Results}{17}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Limitations of the Study}{17}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Potential Improvements}{17}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Conclusion and Future Work}{18}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Summary of Findings}{18}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Practical Implications}{18}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Future Research Directions}{18}{subsection.9.3}%
+\contentsline {section}{\numberline {10}Appendices}{19}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Additional Figures}{19}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Datasets or Code Snippets}{19}{subsection.10.2}%

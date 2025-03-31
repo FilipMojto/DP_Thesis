@@ -1,0 +1,418 @@
+\documentclass[english, a4paper]{article}
+
+\usepackage[english]{babel} % Required for automatically changing names of document elements to English
+\usepackage{graphicx} % Required for inserting images
+\usepackage{url} % Required for inserting links
+\usepackage{hyperref} % Required for links
+
+\begin{document}
+
+\tableofcontents
+
+\newpage
+
+\section*{List of abbreviations and symbols}
+
+\vspace{15pt}
+
+\begin{tabular}{@{}p{2cm}lll} % Adjust the width of the first column as needed
+AI & umelá inteligencia\\
+API & aplikačné programové rozhranie \\
+B2B & obchodná interakcia medzi 2 spoločnosťami \\
+DPM & proces poskytovania a údržby dát\\
+DSP & proces sťahovania a spracovania dát\\
+EDI & elektronická výmena údajov\\
+GPOS  & operačný systém určený na všeobecné účely\\
+GUI & grafické užívateľské rozhranie\\
+IDP & inteligentné spracovanie dokumentov\\
+ML & strojové učenie\\
+OOP & objektovo-orientované programovanie \\
+OS & operačný systém \\
+RPA & automatizácia podnikových procesov\\
+RTOS & operačný systém založený na reálnom čase\\
+UNSPNC & kódex štandardných produktov a služieb OSN v elektronickom obchode\\
+URL  & jednotný vyhľadávač prostriedku \\
+\end{tabular}
+
+\newpage
+
+\section{Introduction}
+\subsection{Motivation for the Research}
+
+Software testing is an essential part of the software development process.
+ It ensures that the software meets the required quality standards and 
+ performs as expected. However, traditional software testing methods are 
+ time-consuming and labor-intensive, especially for large-scale projects. 
+ With the increasing complexity of modern software systems and the pressure
+  to deliver products faster, there is a need to improve the efficiency 
+  and effectiveness of software testing.
+
+Machine learning has the potential to revolutionize software testing by
+ automating the bug detection process and predicting potential bug locations.
+  By analyzing historical data and identifying patterns indicative of bugs,
+   machine learning algorithms can help testers prioritize their testing 
+   efforts and focus on areas of the software that are most likely to contain
+    bugs. This can significantly reduce the time and resources required for
+     testing while improving the overall quality of the software.
+
+
+
+\subsection{Problem Statement}
+
+One of the key challenges in software testing is identifying potential
+ areas of the software that are most likely to contain bugs. This requires
+  a deep understanding of the software codebase and the ability to predict
+   where bugs are likely to occur. Machine learning can significantly 
+   improve the efficiency of software testing by predicting possible bug
+    locations. This allows resources to be focused on the most vulnerable
+     areas of the system, reducing overall testing costs and increasing 
+     its accuracy.
+
+Another challenge in software testing is the lack of automated tools to
+ assist testers in identifying bugs. Traditional testing methods rely on
+  manual inspection and testing, which can be time-consuming and error-prone.
+   Machine learning can automate the bug detection process by analyzing 
+   historical data and identifying patterns that are indicative of bugs. 
+   This can help testers prioritize their testing efforts and focus on 
+   areas of the software that are most likely to contain bugs.
+
+
+
+\subsection{Goals and Objectives}
+
+The goal of this research is to analyze modern machine learning methods
+ applied in software testing. Specifically, the algorithms or structures
+  will be divided according to known techniques applied in machine learning.
+   The most practical methods will be evaluated by examining existing 
+   solutions for predicting software bugs identified from the literature.
+
+The main objectives of this research are:
+
+\begin{itemize}
+    \item To systematically review and analyze different machine learning approaches used in software testing, with a focus on bug prediction and detection
+    \item To evaluate the effectiveness of various machine learning models in identifying potential software bugs
+    \item To compare and contrast traditional testing methods with machine learning-based approaches
+    \item To implement and evaluate selected machine learning models on real-world software testing datasets 
+    \item To develop recommendations for implementing machine learning in software testing processes
+    \item To identify challenges and limitations in applying machine learning to software testing
+    \item To propose future research directions and opportunities for further exploration in this field
+\end{itemize}
+
+\subsection{Research Questions}
+
+To achieve the stated objectives, the following research questions will be addressed: 
+
+\begin{itemize}
+    \item What are the different machine learning techniques used in software testing, and how do they compare to traditional testing methods?
+    \item Which machine learning models are most effective in predicting software bugs, and what are the key factors that influence their performance?
+    \item How do machine learning-based approaches improve the efficiency and effectiveness of software testing compared to traditional methods?
+    \item What are the practical implications of implementing machine learning in software testing, and what are the potential challenges and limitations?
+    \item What are the future research directions and opportunities for further exploration in this field?
+    \item How do the results of this research contribute to the existing body of knowledge in software testing and machine learning?
+\end{itemize}
+
+\subsection{Significance of the Research}
+
+This research is significant for several reasons. First, it addresses a
+ critical need in the software development industry by exploring innovative
+  approaches to software testing that can improve the efficiency and 
+  effectiveness of the testing process. By leveraging machine learning 
+  techniques, testers can identify potential bug locations more accurately
+   and prioritize their testing efforts accordingly.
+
+Second, this research contributes to the growing body of knowledge in the
+ field of software testing and machine learning. By systematically reviewing
+  and analyzing existing literature on bug prediction and detection, this
+   research provides valuable insights into the current state of the art
+    and identifies opportunities for further research and development.
+
+Finally, this research has practical implications for software development
+ organizations looking to enhance their testing processes. By implementing
+  machine learning-based approaches, companies can reduce the time and 
+  resources required for testing, improve the quality of their software, 
+  and deliver products faster to market. This research provides 
+  recommendations and guidelines for organizations seeking to adopt 
+  machine learning in their testing processes.
+
+\subsection{Structure of the Thesis}
+
+This thesis is organized into eight main chapters. Following this
+introduction, Chapter 2 provides background information and reviews 
+related work in the field of software testing and machine learning. 
+Chapter 3 explores the fundamental concepts of machine learning as 
+applied to software testing. Chapter 4 details the data collection 
+and preprocessing methodologies used in this research. Chapter 5 
+presents the proposed methodology for implementing machine learning 
+in software testing. Chapter 6 describes the practical implementation
+ of the selected models. Chapter 7 presents and analyzes the results
+  of the experiments. Chapter 8 discusses the findings, limitations,
+   and potential improvements. Finally, Chapter 9 concludes the thesis
+    and suggests directions for future research.
+
+\newpage
+
+\section{Background and Related Work}
+
+Before diving into the details of machine learning in software testing, it is important to understand its context.
+This section will briefly introduce the reader to the background and terminology of the software testing, as well as 
+the challenges that regularly arise in the testing.
+
+Software testing is an essential part of the software development process.
+It helps to identify defects, flaws\footnote{A bug or error is a manifestation of error in code.\cite{jovanovic2006software}} or errors in the application code that
+must be fixed, which in turn can reduce a considerable amount of time. Proper testing also prevents any post-production flaws or maintenance expenses, which enhances customer satisfaction.
+From the other point of view, the main goals of testing is to ensure quality of the software but also to idenfity
+its correctness and completeness.\cite{khan2012comparative,NAJIHI2022775}
+
+To test software, testers can utilize a particular format called \textbf{test case} which
+is a set of steps, conditions, and actions to verify the functionality of the software. It
+ultimately leads to uncovering issues and ensuring the software behaves as expected.\cite{geeksforgeekshowtowritetestcases,glenfordtheartofsoftwaretesting}
+
+The flow of a test case is shown in the figure below:
+
+\begin{figure}[h]
+    \includegraphics[width=8cm]{../images/flow-of-Test-Case.jpg}
+    \centering
+    \caption{Flow of a test case\cite{geeksforgeekshowtowritetestcases}}
+\end{figure}
+
+Any software testing process should be based on the following approach:
+
+\begin{enumerate}
+    \item \textbf{Verifying the behavior of the software} - ensuring it behaves as specified in the requirements and design documents.
+    \item \textbf{Detecting errors} - finding bugs or defects in the software that need to be fixed.
+    \item \textbf{Reflecting user needs} - assuring the software meets the needs and expectations of the end users.\cite{NAJIHI2022775}
+\end{enumerate}
+
+Testing is carried out on every stage of software life cycle but at different
+levels it has different objectives and range.\cite{luo2001software}
+
+\begin{enumerate}
+    \item \textbf{Unit Testing} - focuses on testing individual units or components of the software. It is usually performed by the developers themselves.\cite{luo2001software}
+    \item \textbf{Integration Testing} - focuses on testing the interactions between different units or components of the software. It is performed after unit testing.\cite{luo2001software}
+    \item \textbf{System Testing} - focuses on testing the entire system as a whole (end-to-end quality) and is based on the requirement specification. It is performed after integration testing.\cite{luo2001software}
+    \item \textbf{Acceptance Testing} - focuses on testing the software from the end user's perspective (software is often handed over from developers to customers). It is performed after system testing.\cite{luo2001software}
+\end{enumerate}
+
+
+
+
+
+
+\subsection{Traditional Software Testing Methods}
+During testing process, certain testing cases must be identified and executed.
+To define test cases, testers can use various testing methods. A testing method
+can be thought of as the specification of strategy used in testing
+to select input cases and analyze the output.\cite{luo2001software} The combination
+of multiple testing methods ensures
+higher effectiveness of the testing process. By involving all important
+software aspects, this structured approach 
+ensures more thorough and complete software validation.\cite{jovanovic2006software}
+
+Another advantage of combining different testing methods is that it allows testers
+to focus on test cases that are most likely to reveal defects. Instead of guessing,
+which test cases to use, testers can rely on these methods to identify scenarios
+where errors are most probable.\cite{jovanovic2006software}
+
+
+To sum up, combining different testing methods allows testers to achieve better results
+than using only one method.\cite{jovanovic2006software} Currently, there several types of most commonly-used  testing methods:
+
+\begin{itemize}
+    \item \textbf{Black-box testing}
+    \item \textbf{White-box testing}
+    \item \textbf{Grey-box testing}
+\end{itemize}
+
+\textbf{White-box testing} (also known as \textbf{structural testing}\cite{luo2001software}) is a detailed investigation of 
+internal logic and structure of the code. It is also known as white box analysis,
+clear box testing or clear box analysis. This technique 
+expects tester to have knowledge of the source code.\cite{jovanovic2006software}\cite{khan2012comparative}
+In some context it is also called security testing.\cite{jovanovic2006software}
+The results of this testing are evaluated based on a set of coverage criteria. These may include
+path coverage, branch coverage, and data-flow coverage.\cite{luo2001software}
+
+
+\textbf{Black-box testing} (also known as \textbf{functional testing}\cite{luo2001software}), on the other hand, is a software testing method that examines the functionality of an application without peering into its internal structures or workings.
+A black box device\footnote{In the context of data mining, a black box device is an algorithm without any clear explanation of how it works.\cite{jovanovic2006software}} is a piece of equipment that performs its function based on the input it receives and produces an output without any knowledge of its internal workings.
+Black box testing is often used for validation and verification testing to ensure that the software meets the requirements specified by the end user.\cite{jovanovic2006software}\cite{khan2012comparative}
+The results of black-box testing can include requirement/design specifications, hand calculated values,
+and simulated results.\cite{luo2001software}
+
+\textbf{Grey-box testing} is a software testing technique that combines elements of both black box testing and white box testing. In grey box testing, the tester has limited knowledge of the internal workings
+ of the software being tested, but they understand at least the fundamental aspects. This testing method is often applied in integration testing between modules, to ensure they interact correctly. Another
+ advantage is quite low bias of the tester, as they do not have full access to the source code.\cite{jovanovic2006software}\cite{khan2012comparative}
+
+\subsection{Challenges in Modern Software Testing}
+
+In this section we will discuss some of the challenges faced by software testers in the modern software development environment. They will serve as a motivation for the research and provide a context for the proposed solution.
+
+\subsubsection*{Complexity of Applications}
+
+Nowadays, software applications are becoming increasingly complex,
+with intricate structures, multiple layers of code and dependencies.
+Testers need to pay meticulous attention to detail and ensure that 
+they understand the overall architecture of the application.\cite{Tasnim}
+
+Cem Karner, a well-known software testing researcher, also states that
+\textbf{complete testing} is impossible due to the complexity of modern software applications 
+and vast number of inputs, states and interactions in software.\cite{Garousi}
+
+This complexity can be managed by using one or more effective approaches, like 
+\textbf{modular testing}. Basically, modular testing is a software testing technique
+that divides the application into smaller, more manageable modules, which are then
+tested individually. This approach helps to identify bugs and defects early in the
+development process and ensures that the application functions correctly as a whole.\cite{Tasnim}
+
+
+\subsubsection*{Lack of Documentation}
+
+One of the biggest challenges in software testing is the lack of proper documentation.
+Without clear and detailed documentation, testers may struggle to understand the
+requirements of the software and the expected behavior of the application. It is
+therefore developers' responsibility to provide comprehensive documentation that
+outlines the functionality of the software and the test cases that need to be executed.\cite{Tasnim}
+
+It is also important to bridge informational gaps between developers and testers
+thorough regular interactions, like meetings or workshops. This can help to clarify
+any ambiguities in the requirements and ensure that the testing process is aligned
+with the development goals.\cite{Tasnim}
+
+\subsubsection*{Evolving Requirements}
+
+During the software development process, requirements may change or evolve, leading
+to modifications in the codebase. This happens mainly when applying 
+\textbf{agile methodologies}\footnote{Agile: \url{https://www.researchgate.net/publication/261017281_Agile_Methodology_Adoption_Benefits_and_Constraints}},
+where the development process is iterative and requirements are refined over time. It is thus 
+essential for testers to be constantly adaptable and vigilant, ensuring that the testing
+process remains aligned with the changing requirements of the software.\cite{Tasnim}
+
+As was the case with the previous problem, regular communication between developers and testers is critical. 
+This ensures that testers are regularly updated on any changes to the requirements and can
+adjust their testing strategies accordingly. Another solution is \textbf{iterative testing},
+where the testing process is carried out in multiple iterations, allowing testers to adapt
+to changing requirements and ensure that the software meets the evolving needs of the users.\cite{Tasnim}
+
+
+\subsubsection*{Misallocation of Resouces}
+
+Software testing is a time-consuming process that requires careful planning and execution.
+Testers need to allocate sufficient time for each testing phase, including test case design,
+execution, and reporting. However, in practice, time constraints are a common challenge in
+software testing, with testers often facing tight deadlines and pressure to deliver results quickly.
+This often stems from the lack of communication between team members which ultimately
+results in delayed detection of bugs and postponement of project deadlines.\cite{Tasnim, NAJIHI2022775}
+
+
+Other than time constraints, testers also face the challenge of allocating financial resources.
+Software testing is especially expensive, making up to 40\% of the total development cost.
+Furthermore, it is often difficult for upper management to persuade clients about this fact.\cite{NAJIHI2022775}
+
+Testers also fall in into process myths, leading to misallocation of time and resources.\cite{Tasnim, Garousi}
+
+To address these challenges, testers can use \textbf{risk-based testing}, where test cases are
+prioritized based on their impact on the software and the likelihood of failure. This allows testers
+to focus on critical areas of the application and ensure that the most important test cases are executed first.\cite{Tasnim}
+
+\subsubsection*{Non-reproducible Bugs}
+
+One of the most frustrating challenges in software testing is dealing with non-reproducible bugs.
+These are bugs that occur sporadically and are difficult to reproduce consistently. Testers may spend
+hours or even days trying to reproduce the bug, only to find that it disappears or cannot be replicated.\cite{Tasnim}
+
+This challenge can be addressed by maintaining \textbf{exhaustive logs} of the testing process, including the
+steps taken, the inputs provided, and the expected and actual outcomes. By keeping detailed records of the testing
+process, testers can identify patterns in the occurrence of non-reproducible bugs and develop strategies to reproduce them consistently.\cite{Tasnim}
+
+\subsubsection*{Lack of Skilled Testers}
+c
+A shortage of talented and skilled testers is a common challenge in software testing. Many teams lack skilled programming testers and clear vision for project that would keep them engaged and challenged.\cite{Garousi}
+Testers need to have a
+deep understanding of the software development process, as well as the ability to identify bugs and defects effectively.\cite{Tasnim}
+
+
+Organizations can address this challenge by investing in training and development programs for their testers,
+ensuring that they have the necessary skills and knowledge to perform their roles effectively. Testers can also benefit
+from continuous learning and professional development opportunities, such as certifications, workshops, and conferences.\cite{Tasnim}
+
+\subsubsection*{Choosing the Right Testing Tools}
+
+A lot of testing tools are available in the market, but choosing the right one can be a challenge. Testers need to
+evaluate the features, functionality, and cost of each tool to determine which one best meets their testing requirements.\cite{Tasnim}
+
+A possible solution to this challenge is to perform an extensive search and \textbf{pilot testing} of different testing tools before making a final decision. Testers can also seek recommendations from other professionals in the field and read reviews and case studies to gain insights into the effectiveness of different testing tools.\cite{Tasnim}
+
+The rest of the challenges of software testing are concerned with security, integration, automation, 
+testing in different environments, and performance and load testing.\cite{Tasnim}
+
+\subsection{Overview of Machine Learning in Software Engineering}
+\subsection{Existing Approaches to Bug Prediction}
+\subsection{Summary of Related Literature}
+
+\newpage
+
+\section{Machine Learning for Software Testing}
+\subsection{Types of Machine Learning}
+\subsection{Feature Extraction in Software Testing}
+\subsection{Commonly Used Models for Bug Prediction}
+\subsection{Evaluation Metrics}
+
+\newpage
+
+\section{Data Collection and Preprocessing}
+\subsection{Sources of Data}
+\subsection{Data Cleaning and Preprocessing Steps}
+\subsection{Labeling Data for Supervised Learning}
+\subsection{Challenges in Data Preparation}
+
+\newpage
+
+\section{Proposed Methodology}
+\subsection{Selection of Machine Learning Models}
+\subsection{Feature Selection and Engineering}
+\subsection{Model Training and Hyperparameter Tuning}
+\subsection{Experimental Setup}
+
+\newpage
+
+\section{Implementation}
+\subsection{Tools and Technologies Used}
+\subsection{Implementation of the Selected Models}
+\subsection{Training Pipeline and Testing Framework}
+
+\newpage
+
+\section{Results and Evaluation}
+\subsection{Performance of Models on the Dataset}
+\subsection{Comparison with Traditional Testing Methods}
+\subsection{Discussion of Findings}
+
+\newpage
+
+\section{Discussion and Limitations}
+\subsection{Interpretation of Results}
+\subsection{Limitations of the Study}
+\subsection{Potential Improvements}
+
+\newpage
+
+\section{Conclusion and Future Work}
+\subsection{Summary of Findings}
+\subsection{Practical Implications}
+\subsection{Future Research Directions}
+
+\newpage
+
+
+
+\section{Appendices}
+    \subsection{Additional Figures}
+    \subsection{Datasets or Code Snippets}
+
+\newpage
+
+
+
+\bibliographystyle{plain} % Choose a citation style
+\bibliography{../literature/literature} % Path to your .bib file (without .bib extension)
+
+\end{document}

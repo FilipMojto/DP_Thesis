@@ -1,0 +1,54 @@
+\begin{thebibliography}{1}
+
+\bibitem{Garousi}
+Vahid Garousi, Michael Felderer, Marco Kuhrmann, Kadir Herkiloğlu, and Sigrid
+  Eldh.
+\newblock Exploring the industry's challenges in software testing: An empirical
+  study.
+\newblock {\em Journal of Software: Evolution and Process}, 32(8):e2251, 2020.
+\newblock e2251 JSME-18-0181.R1.
+
+\bibitem{geeksforgeekshowtowritetestcases}
+GeeksForGeeks.
+\newblock How to write test cases – software testing.
+\newblock 03 2025.
+
+\bibitem{jovanovic2006software}
+Irena Jovanovi{\'c}.
+\newblock Software testing methods and techniques.
+\newblock {\em The IPSI BgD transactions on internet research}, 30, 2006.
+
+\bibitem{khan2012comparative}
+Mohd~Ehmer Khan and Farmeena Khan.
+\newblock A comparative study of white box, black box and grey box testing
+  techniques.
+\newblock {\em International Journal of Advanced Computer Science and
+  Applications}, 3(6), 2012.
+
+\bibitem{luo2001software}
+Lu~Luo.
+\newblock Software testing techniques.
+\newblock {\em Institute for software research international Carnegie mellon
+  university Pittsburgh, PA}, 15232(1-19):19, 2001.
+
+\bibitem{glenfordtheartofsoftwaretesting}
+Glenford~J. Myers, Corey Sandler, and Tom Badgett.
+\newblock {\em The Psychology and Economics of Software Testing}, chapter~2,
+  pages 5--18.
+\newblock John Wiley and Sons, Ltd, 2012.
+
+\bibitem{NAJIHI2022775}
+Soukaina Najihi, Sakina Elhadi, Rachida~Ait Abdelouahid, and Abdelaziz Marzak.
+\newblock Software testing from an agile and traditional view.
+\newblock {\em Procedia Computer Science}, 203:775--782, 2022.
+\newblock 17th International Conference on Future Networks and Communications /
+  19th International Conference on Mobile Systems and Pervasive Computing /
+  12th International Conference on Sustainable Energy Information Technology
+  (FNC/MobiSPC/SEIT 2022), August 9-11, 2022, Niagara Falls, Ontario, Canada.
+
+\bibitem{Tasnim}
+Rahnuma Tasnim.
+\newblock Challenges in software testing: How to handle the testing challenges.
+\newblock 2023.
+
+\end{thebibliography}
