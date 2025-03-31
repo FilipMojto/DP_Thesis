@@ -1,0 +1,52 @@
+\begin{thebibliography}{1}
+
+\bibitem{Assim:software_deffect_prediction}
+Marwa Assim, Qasem Obeidat, and Mustafa Hammad.
+\newblock Software defects prediction using machine learning algorithms.
+\newblock In {\em 2020 International Conference on Data Analytics for Business
+  and Industry: Way Towards a Sustainable Economy (ICDABI)}, pages 1--6, 2020.
+
+\bibitem{Delhine::ICDS}
+S.~Delphine~Immaculate, M.~Farida~Begam, and M.~Floramary.
+\newblock Software bug prediction using supervised machine learning algorithms.
+\newblock In {\em 2019 International Conference on Data Science and
+  Communication (IconDSC)}, pages 1--7, 2019.
+
+\bibitem{Hammad}
+Mustafa Hammad, Abdulla Alqaddoumi, Hadeel Alobaidy, and Khalil Almseidein.
+\newblock Predicting software faults based on k-nearest neighbors
+  classification.
+\newblock 09 2019.
+
+\bibitem{su15065517}
+Aimen Khalid, Gran Badshah, Nasir Ayub, Muhammad Shiraz, and Mohamed Ghouse.
+\newblock Software defect prediction analysis using machine learning
+  techniques.
+\newblock {\em Sustainability}, 15(6), 2023.
+
+\bibitem{9641090}
+T.Shathish Kumar and B.~Booba.
+\newblock A systematic study on machine learning techniques for predicting
+  software faults.
+\newblock In {\em 2021 IEEE Mysore Sub Section International Conference
+  (MysuruCon)}, pages 133--136, 2021.
+
+\bibitem{Samantaray}
+Roshan Samantaray and Himansu Das.
+\newblock Performance analysis of machine learning algorithms using bagging
+  ensemble technique for software fault prediction.
+\newblock In {\em 2023 6th International Conference on Information Systems and
+  Computer Networks (ISCON)}, pages 1--7, 2023.
+
+\bibitem{Tran2019}
+Ha~Manh Tran, Son~Thanh Le, Sinh~Van Nguyen, and Phong~Thanh Ho.
+\newblock An analysis of software bug reports using machine learning
+  techniques.
+\newblock {\em SN Computer Science}, 1(1):4, 2019.
+
+\bibitem{inproceedings}
+Wei Zheng, Fengyao Cai, Tengfei Chen, Teng Yang, Fengyu Yang, and Peng Xiao.
+\newblock Defect prediction method using stable learning.
+\newblock pages 85--90, 05 2023.
+
+\end{thebibliography}
