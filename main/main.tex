@@ -191,11 +191,8 @@ levels it has different objectives and range.\cite{luo2001software}
     \item \textbf{Integration Testing} - focuses on testing the interactions between different units or components of the software. It is performed after unit testing.\cite{luo2001software}
     \item \textbf{System Testing} - focuses on testing the entire system as a whole (end-to-end quality) and is based on the requirement specification. It is performed after integration testing.\cite{luo2001software}
     \item \textbf{Acceptance Testing} - focuses on testing the software from the end user's perspective (software is often handed over from developers to customers). It is performed after system testing.\cite{luo2001software}
+    \item \textbf{Regression Testing} - focueses on retesting the software that has been modified or extended to ensure that the changes have not introduced new defects or caused existing functionality to break.\cite{Lachmann:ML}
 \end{enumerate}
-
-
-
-
 
 
 \subsection{Traditional Software Testing Methods}
@@ -344,9 +341,104 @@ A possible solution to this challenge is to perform an extensive search and \tex
 The rest of the challenges of software testing are concerned with security, integration, automation, 
 testing in different environments, and performance and load testing.\cite{Tasnim}
 
-\subsection{Overview of Machine Learning in Software Engineering}
-\subsection{Existing Approaches to Bug Prediction}
-\subsection{Summary of Related Literature}
+\subsection{Overview of Machine Learning in Software Testing}
+
+In previous sections we have discussed the general aspects of sofware testing and its challenges.
+In this section we will bridge the gap between software testing and machine learning, which is the main focus of this thesis. 
+
+Machine learning is a subfield of artificial intelligence involves building computer
+programs that improve their performance on a specific task through past experience.
+It is based on the idea that systems can learn from data, identify patterns, and make decisions with minimal human intervention.\cite{Zhang2003}\cite{Coursesa:ML}
+
+% \subsubsection{Role of Machine Learning}
+
+
+
+\subsubsection{Key Application Areas}
+
+Some of the key application areas of machine learning in software engineering include:
+
+\begin{enumerate}
+    \item \textbf{Bug Prediction} - Software Bug Prediction is an essential process during software developement as predicting software
+                                    faults earlier can improve software quality, reliability and reducing maintenance costs. It uses historical data
+                                    from previous program versions to identify parts which are most likely to contain bugs.\cite{hammouri2018software}
+                                
+    \item \textbf{Defect Classification} - Once a bug is identified, it is important to categorize it into specific types. Having done that, each of the type of bug can be assigned its
+                                            own priority and impact on software quality. Classifying defects can also help us to discover hidden patterns (trends)
+                                            in data and ultimately reduce their occurrence.\cite{Kaplan:DC}
+    \item \textbf{Effort Estimation} - Effort is one of the most important factors in software development and essentially represents the cost of project. At early
+                                        stages of software development, it must be estimated to devise a planned schedule and budget.
+                                        ML models can be used to predict the effort required for a project based on historical data and other relevant factors.\cite{Baskeles:SOEE}
+    \item \textbf{Test Case Prioritization} - It is not feasible to test the whole functionality during regression testing with limited time and budget. Instead, test 
+                                              cases that are most likely to reveal defects should be prioritized.\cite{Lachmann:ML}
+    \item \textbf{Code Smell Prediction} – Code smells are indicators of poor design or implementation choices in source code that 
+                                              may not cause immediate issues but tend to increase the risk of defects and the likelihood of future code changes.\cite{AZEEM2019115}
+    \item \textbf{Security Vulnerability Detection} - Hidden flaws in software can lead to security vulnerabilities. Attackers can exploit these vulnerabilities 
+    to gain unauthorized access to systems, steal sensitive data, or disrupt services. With the recent rise of publicly available open source repositories, it 
+    is now possible to utilize data-driven approaches to discover patterns in this domain too.\cite{harer2018automatedsoftwarevulnerabilitydetection}
+\end{enumerate}
+
+\subsubsection{Common Techniques and Algorithms}
+
+In this section we will briefly introduce some of the most commonly used machine learning techniques and algorithms in software testing. 
+We will discuss them in more detail in chapter 3.
+
+We can categorize machine learning techniques into three main categories:
+
+\begin{enumerate}
+    \item \textbf{Supervised Learning} - In supervised learning, the algorithm is trained on a labeled dataset, where the input data is paired with the corresponding output labels. The goal is to learn a mapping from inputs to outputs, allowing the model to make predictions on unseen data. Common algorithms include decision trees, support vector machines (SVM), and neural networks.\cite{AJORLOO2024111805}
+    \item \textbf{Unsupervised Learning} - In unsupervised learning, the algorithm is trained on an unlabeled dataset, where the input data does not have corresponding output labels. The goal is to discover patterns or structures within the data. Common algorithms include clustering techniques (e.g., k-means, hierarchical clustering) and dimensionality reduction techniques (e.g., PCA).\cite{AJORLOO2024111805}
+    \item \textbf{Reinforcement Learning} - In reinforcement learning, an agent learns to make decisions by interacting with an environment. The agent receives feedback in the form of rewards or penalties based on its actions, allowing it to learn optimal strategies over time. This approach is often used in scenarios where the environment is dynamic and uncertain.\cite{AJORLOO2024111805}
+    \item \textbf{Hybrid Learning} - To overcome the limitations of individual machine learning (ML) methods, it is essential to integrate them into a unified approach that enhances overall efficiency. Hybrid learning methods are commonly based on the practice of combining two or more approaches, a strategy widely adopted by researchers. These methods are highly adaptable and can be applied to a broad range of problem domains.\cite{AJORLOO2024111805}
+\end{enumerate}
+
+The summary of the most commonly used machine learning techniques in software testing is shown in the figure below:
+
+\begin{figure}[th]
+    \includegraphics[width=1\textwidth]{../images/ml_methods_in_testing.jpg}
+    \centering
+    \caption{Commonly used machine learning techniques in software testing\cite{AJORLOO2024111805}}
+\end{figure}
+
+
+\subsection{Existing ML Approaches to Bug Prediction}
+
+In this section we will briefly introduce some of the existing machine learning approaches to bug prediction.
+They have been selected based on their relevance to the topic and their potential impact on the field of software testing.
+They are also publicly available in the available literature.
+
+\subsubsection*{Security vulnerabilities}
+
+The first paper proposed a novel approach to security vulnerabilities detection in C and C++ software using machine learning techniques.
+To make this possible, the authors costructed a large-scale dataset  composed of hundreds of thousands of functions from open-source projects,
+labeling them using the output of a static analysis tool. Various models were trained and evaluated, including Deep neural networks,
+random forests, and a hybrid approach combining both. The results showed that the \textbf{hybrid model outperformed the others}, achieving the highest accuracy.
+Also, \textbf{models trained directly on source code performed better than those trained on build-derived data}.\cite{harer2018automatedsoftwarevulnerabilitydetection}
+
+\subsubsection*{Test case prioritization for Regression testing}
+
+The second paper designed a novel technique for test case prioritization for manual system-level regression testing based on supervised machine learning.
+To achieve this, meta-data (like \textbf{execution history}) and \textbf{natural language descriptions of test cases} were used.
+The authors applied \textbf{SVM Rank} to rank the test cases based on their likelihood of revealing defects.
+The results showed that the proposed technique outperformed traditional test case prioritization techniques, such as random prioritization and expert-defined test ordering.
+Additionally, \textbf{natural language data} improved the overall effectiveness of failure detection.\cite{Lachmann:ML}
+
+\subsubsection*{Software Bug Prediction using supervised learning classifiers}
+
+The third paper introduces a new SBP model based on supervised learning classifiers, more specifically, \textbf{Naive Bayes}, \textbf{Decision Tree} and
+\textbf{artificial neural networks}. The evalation showed \textbf{high accuracy in predicting future software faults}. Finally,
+the \textbf{solution was compared with other existing techniques and was found to be more effective in terms of accuracy and efficiency}.\cite{hammouri2018software}
+
+
+\paragraph{Summary.}
+Overall, the reviewed studies highlight the increasing applicability and effectiveness of machine learning in various areas of software testing and maintenance, 
+including vulnerability detection, test case prioritization, and bug prediction. Each paper applied supervised learning methods to different aspects of the software 
+quality assurance process—ranging from using deep models to detect security flaws in source code, to prioritizing regression test cases based on metadata and natural 
+language, to predicting future faults with classical classifiers. Across all studies, machine learning approaches consistently outperformed traditional techniques 
+such as static heuristics, random ordering, and expert-defined prioritizations. These results underscore the potential of data-driven models to significantly improve 
+the reliability, efficiency, and scalability of software testing practices.
+
+% \subsection{Summary of Related Literature}
 
 \newpage
 
