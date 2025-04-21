@@ -3,3 +3,30 @@
 - https://www.sciencedirect.com/science/article/abs/pii/S1568494624005799
 
 https://download.ssrn.com/21/10/24/ssrn_id3948930_code3122004.pdf?response-content-disposition=inline&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEH4aCXVzLWVhc3QtMSJGMEQCIDILb74QncyuE%2B42i9xf%2BaxvsMECsst7t7uhMbItW73LAiBcnjJzWocv5%2BXlRr%2Fmq4h2z%2FcLz%2B14pFhwnGyh81WW%2ByrGBQjX%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAQaDDMwODQ3NTMwMTI1NyIMNgLD9Vt%2BLZqZWj66KpoFO0KAyg2Wek2gSHmYOsnNH%2F8MszEixWa4Nq7cMglkzJCUR6uAYSFmeV2CQhMpZKP2%2Bahc%2BTwfTOQeMKuFj%2BLkRnt477JIBmFe80Rw56Bw9dFd6vBgbec%2F814fgUS6U%2Fb%2ByuCj6ij%2Bemp6lnfpMoW7geqicd7SrWyW3F7UTwjSRvw6HxUvYmR%2B5TGNz1w8DxHGg7tPBwcNVqf8McuBxFXOngkBVOHRBDGea1cR5lDkhhYj65ZC45UsVd1oVL4VBpGgPMLxrOvV3JvFzlpI4RwxYnylag8dKbXd%2BA6cTubHulW1z658QPYPO8dEKMGeKzvdy3%2FcmQ%2BjwNdmjt7PZIv64I4j9hmdW7S42M8WRxj%2FSO%2B4S%2BLQ8Zgok%2B0lzT4fh8b%2B%2B%2FRsW47S3uA3PltYjZ3qEzw1bBIADrZJJlS%2BYCspDu34Lr9HIwEpjd7%2FixbqOCUmla%2BpWn%2BJvMBbuCx1BGBQ%2BNmLfaHW93ACLeMAJ%2Brzw%2Bt4%2BebL%2B4xoMkDgU30GwRZ0q4%2BYoRBzAHe3aFhXhdn3xDtzjSzCB%2BDhXQMNg2mWYPrJUxuIcTgQABOU99BHzU2KrEThFF8jdY0HEGE8gL5o5Sg845fN0uzEN%2B0QyZyvSM8MkgkXULfMB20JHxdUsKOkClMMYSWHtr%2Fkx%2FXFJmwmp9OKGnWiJYXLE8m55AcRBpNXJXs%2FngtEyMGP0rKbRgIk0yjmqYyzYj6wNr%2B1BsX8oqT%2F%2FqDNXKttXNa4970LsI%2F1YCnlsDCKi7VtWWhqaQwl4Vi7Cgpq%2BAgeZPscapn1kmOHkXZLTB2TPq7JwlVycQSk72rjTSJRbzmExIHllIe83uMIOTmfJiAWYi%2Bzar%2FK0Hcstik6jguowBY4rc65uEnVsdlnvv0jYt5QMIicgL8GOrIBKdJchzbumtXX5xb3f3eDTcxCHSXTB1%2B%2FuIxTniH50E1eCFQ0mvcIuoIn85E1lIvbRIWjyB9LJEfP9rFutg22pDqYBzpb8ha2MbNzGvb0oM4TbY50wbeBtYTyD38v1oQTGNJH0a0FCAWnQNSFdkIIYWc7i75yR33OWrvw2DwvThfZ%2B%2FWtJ6qoPQixlDZnA7tMgmm4rf658mkC3VBP6tyTyFKB6aBACFKD1zjQfU%2BJBBlNTg%3D%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250323T141606Z&X-Amz-SignedHeaders=host&X-Amz-Expires=300&X-Amz-Credential=ASIAUPUUPRWE6TQSXMQN%2F20250323%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=d28f3aa07242d3fd0baa3a210e4d0b2f4020245c9352a4d49d7670f5f028e124&abstractId=3948930
+
+## Terminology
+
+- Manual System-level Regression Testing
+- Regression Testing
+- System Level
+- Random Test Ordering
+- Expert Defined Prioritization
+
+## Useful links
+
+### Types of Software Testing
+
+https://www.geeksforgeeks.org/software-testing-basics/
+
+### Comprehensive study of software testing
+
+https://www.researchgate.net/publication/342538504_Comprehensive_study_of_software_testing_Categories_levels_techniques_and_types
+
+## Abbreviations
+
+- Software Bug Prediction: SBP
+- Naive Bayes: NB
+- Decision Tree: DT
+- Artificial Neural Networks: ANNs
+
+

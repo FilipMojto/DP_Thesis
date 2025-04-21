@@ -1,4 +1,22 @@
-\begin{thebibliography}{1}
+\begin{thebibliography}{10}
+
+\bibitem{AJORLOO2024111805}
+Sedighe Ajorloo, Amirhossein Jamarani, Mehdi Kashfi, Mostafa {Haghi Kashani},
+  and Abbas Najafizadeh.
+\newblock A systematic review of machine learning methods in software testing.
+\newblock {\em Applied Soft Computing}, 162:111805, 2024.
+
+\bibitem{AZEEM2019115}
+Muhammad~Ilyas Azeem, Fabio Palomba, Lin Shi, and Qing Wang.
+\newblock Machine learning techniques for code smell detection: A systematic
+  literature review and meta-analysis.
+\newblock {\em Information and Software Technology}, 108:115--138, 2019.
+
+\bibitem{Baskeles:SOEE}
+Bilge Baskeles, Burak Turhan, and Ayse Bener.
+\newblock Software effort estimation using machine learning methods.
+\newblock In {\em 2007 22nd international symposium on computer and information
+  sciences}, pages 1--6, 2007.
 
 \bibitem{Garousi}
 Vahid Garousi, Michael Felderer, Marco Kuhrmann, Kadir Herkiloğlu, and Sigrid
@@ -13,10 +31,32 @@ GeeksForGeeks.
 \newblock How to write test cases – software testing.
 \newblock 03 2025.
 
+\bibitem{hammouri2018software}
+Awni Hammouri, Mustafa Hammad, Mohammad Alnabhan, and Fatima Alsarayrah.
+\newblock Software bug prediction using machine learning approach.
+\newblock {\em International journal of advanced computer science and
+  applications}, 9(2), 2018.
+
+\bibitem{harer2018automatedsoftwarevulnerabilitydetection}
+Jacob~A. Harer, Louis~Y. Kim, Rebecca~L. Russell, Onur Ozdemir, Leonard~R.
+  Kosta, Akshay Rangamani, Lei~H. Hamilton, Gabriel~I. Centeno, Jonathan~R.
+  Key, Paul~M. Ellingwood, Erik Antelman, Alan Mackay, Marc~W. McConley,
+  Jeffrey~M. Opper, Peter Chin, and Tomo Lazovich.
+\newblock Automated software vulnerability detection with machine learning,
+  2018.
+
 \bibitem{jovanovic2006software}
 Irena Jovanovi{\'c}.
 \newblock Software testing methods and techniques.
 \newblock {\em The IPSI BgD transactions on internet research}, 30, 2006.
+
+\bibitem{Kaplan:DC}
+Stewart Kaplan.
+\newblock Understanding how defects are classified in software testing [boost
+  your qa skills].
+\newblock Website,
+  \url{https://enjoymachinelearning.com/blog/how-defects-are-classified-in-software-testing/},
+  12 2024.
 
 \bibitem{khan2012comparative}
 Mohd~Ehmer Khan and Farmeena Khan.
@@ -24,6 +64,12 @@ Mohd~Ehmer Khan and Farmeena Khan.
   techniques.
 \newblock {\em International Journal of Advanced Computer Science and
   Applications}, 3(6), 2012.
+
+\bibitem{Lachmann:ML}
+Remo Lachmann, Sandro Schulze, Manuel Nieke, Christoph Seidl, and Ina Schaefer.
+\newblock System-level test case prioritization using machine learning.
+\newblock In {\em 2016 15th IEEE International Conference on Machine Learning
+  and Applications (ICMLA)}, pages 361--368, 2016.
 
 \bibitem{luo2001software}
 Lu~Luo.
@@ -46,9 +92,21 @@ Soukaina Najihi, Sakina Elhadi, Rachida~Ait Abdelouahid, and Abdelaziz Marzak.
   12th International Conference on Sustainable Energy Information Technology
   (FNC/MobiSPC/SEIT 2022), August 9-11, 2022, Niagara Falls, Ontario, Canada.
 
+\bibitem{Coursesa:ML}
+Coursesa Stuff.
+\newblock What is machine learning? definition, types, and examples.
+\newblock Website,
+  \url{https://www.coursera.org/articles/what-is-machine-learning?msockid=134a9c53edef6543091f88dbecad645c},
+  02 2025.
+
 \bibitem{Tasnim}
 Rahnuma Tasnim.
 \newblock Challenges in software testing: How to handle the testing challenges.
 \newblock 2023.
+
+\bibitem{Zhang2003}
+Du~Zhang and Jeffrey~J.P. Tsai.
+\newblock Machine learning and software engineering.
+\newblock {\em Software Quality Journal}, 11(2):87--119, June 2003.
 
 \end{thebibliography}
