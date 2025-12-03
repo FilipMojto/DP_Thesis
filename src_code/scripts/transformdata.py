@@ -238,7 +238,7 @@ def transform(repos_filter: List[str] = None, workers: int = 8, skip_existing: b
         how='inner' # Only keep rows that were successfully processed
     )
 
-    df['recent_churn'] = calc_recent_churn_from_df(df, window_days=30)
+    df_merged['recent_churn'] = calc_recent_churn_from_df(df_merged, window_days=30)
 
 
 
