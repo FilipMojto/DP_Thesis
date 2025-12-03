@@ -11,6 +11,13 @@ seaborn = "*"
 notebook = "*"
 jupyterlab = "*"
 pyyaml = "*"
+radon = "*"
+GitPython = "*"
+transformers = "*"
+torch = "*"
+nltk = "*"
+tqdm = "*"
+sentence-transformers = "*"
 
 [dev-packages]
 
