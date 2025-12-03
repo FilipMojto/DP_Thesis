@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "42f9a7aba2bd0c58eede09e2858df5b90af585741e83660c1e411b42df3b02a5"
+            "sha256": "d9e4a3a4343be4d90a2dbe3c971a204c7463b9bb5bdd883d90f3676da739bc29"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -592,11 +592,11 @@
         },
         "fsspec": {
             "hashes": [
-                "sha256:7c7712353ae7d875407f97715f0e1ffcc21e33d5b24556cb1e090ae9409ec61d",
-                "sha256:b6789427626f068f9a83ca4e8a3cc050850b6c0f71f99ddb4f542b8266a26a59"
+                "sha256:8bf1fe301b7d8acfa6e8571e3b1c3d158f909666642431cc78a1b7b4dbc5ec5b",
+                "sha256:c505de011584597b1060ff778bb664c1bc022e87921b0e4f10cc9c44f9635973"
             ],
-            "markers": "python_version >= '3.9'",
-            "version": "==2025.10.0"
+            "markers": "python_version >= '3.10'",
+            "version": "==2025.12.0"
         },
         "gitdb": {
             "hashes": [
@@ -665,11 +665,11 @@
         },
         "ipython": {
             "hashes": [
-                "sha256:5f6de88c905a566c6a9d6c400a8fed54a638e1f7543d17aae2551133216b1e4e",
-                "sha256:bce8ac85eb9521adc94e1845b4c03d88365fd6ac2f4908ec4ed1eb1b0a065f9f"
+                "sha256:8e4ce129a627eb9dd221c41b1d2cdaed4ef7c9da8c17c63f6f578fe231141f83",
+                "sha256:ebe6d1d58d7d988fbf23ff8ff6d8e1622cfdb194daf4b7b73b792c4ec3b85385"
             ],
             "markers": "python_version >= '3.11'",
-            "version": "==9.7.0"
+            "version": "==9.8.0"
         },
         "ipython-pygments-lexers": {
             "hashes": [
@@ -2298,6 +2298,15 @@
             ],
             "markers": "python_version >= '3.9'",
             "version": "==1.14.0"
+        },
+        "tabulate": {
+            "hashes": [
+                "sha256:0095b12bf5966de529c0feb1fa08671671b3368eec77d7ef7ab114be2c068b3c",
+                "sha256:024ca478df22e9340661486f85298cff5f6dcdba14f3813e8830015b9ed1948f"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.7'",
+            "version": "==0.9.0"
         },
         "terminado": {
             "hashes": [

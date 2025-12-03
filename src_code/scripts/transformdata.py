@@ -343,6 +343,7 @@
 #!/usr/bin/env python3
 import argparse
 import threading
+from typing import List
 import yaml
 from pathlib import Path
 import pandas as pd
@@ -382,20 +383,6 @@ except Exception:
 #         time.sleep(0.01) # Small delay to see progress bar move
 #         return {"feature_1": len(commit), "feature_2": repo.count('p')}
 
-# Assuming you have a dictionary mapping repo names to URLs
-REPO_URL_MAP = {
-    # "openpilot": "https://github.com/commaai/openpilot.git",
-    "pandas": "https://github.com/pandas-dev/pandas.git"
-    # ... add all relevant repositories
-}
-# --- END CONFIG PLACEHOLDERS ---
-
-stop_event = threading.Event()
-
-class StopProcessing(Exception):
-    """Custom exception to stop processing in worker threads."""
-    pass
-
 # ---------------------------------------------------------------------
 # Load per-repo YAML files lazily and cache them
 # ---------------------------------------------------------------------
@@ -415,16 +402,37 @@ def load_bug_inducing_for_repo(repo_name: str):
         data = yaml.safe_load(f) or {}
         inducing_set = set()
 
-        for fix_hash, inducing_list in data.items():
+        for _, inducing_list in data.items():
             inducing_set.update(inducing_list or [])
 
     return inducing_set
+
+# Assuming you have a dictionary mapping repo names to URLs
+REPO_URL_MAP = {
+    # "openpilot": "https://github.com/commaai/openpilot.git",
+    "pandas": "https://github.com/pandas-dev/pandas.git"
+    # ... add all relevant repositories
+}
+# --- END CONFIG PLACEHOLDERS ---
+
+BUG_INDUCING_COMMITS = {}
+
+for repo in REPO_URL_MAP.keys():
+    BUG_INDUCING_COMMITS[repo] = load_bug_inducing_for_repo(repo)
+
+stop_event = threading.Event()
+
+class StopProcessing(Exception):
+    """Custom exception to stop processing in worker threads."""
+    pass
+
+
 
 
 # ---------------------------------------------------------------------
 # Commit classifier (now also extracts features)
 # ---------------------------------------------------------------------
-def classify_and_extract(row, extractor: FeatureExtractor):
+def classify_and_extract(extractor: FeatureExtractor, row, bug_set: set):
     from .extract_features import extract_commit_features
     # 💡 CRITICAL: Check stop event before starting expensive work (e.g., git clone)
     if stop_event.is_set():
@@ -438,8 +446,8 @@ def classify_and_extract(row, extractor: FeatureExtractor):
     bug_inducing_file = BUG_INDUCING_DIR / repo
     
     # 1. Classification
-    bug_set = load_bug_inducing_for_repo(repo)
-    print(repo, "bug set size:", len(bug_set))
+    # bug_set = load_bug_inducing_for_repo(repo)
+    # print(repo, "bug set size:", len(bug_set))
 
     label = 1 if commit_hash in bug_set else 0
     # git_repo = extractor.get_repo(PYTHON_LIBS_DIR / repo) # Assuming this method exists on FeatureExtractor
@@ -461,7 +469,7 @@ def classify_and_extract(row, extractor: FeatureExtractor):
 # ---------------------------------------------------------------------
 # Main transformation logic
 # ---------------------------------------------------------------------
-def transform(repos_filter=None, workers=8):
+def transform(repos_filter: List[str] = None, workers: int = 8, skip_existing: bool = False):
     print(f"[LOAD] {JIT_FILE}")
     print(f"[INFO] Using {workers} worker threads.")
     print(f"[INFO] Repos filter: {repos_filter}")
@@ -471,8 +479,6 @@ def transform(repos_filter=None, workers=8):
     if repos_filter and len(repos_filter) > 0:
         print(f"[FILTER] Limiting to repos: {repos_filter}")
         df = df[df["repo"].isin(repos_filter)]
-        df = df[8000:]  # TEMPORARY: PROCESS A SUBSET FOR TESTING
-
         print(f"[INFO] Dataset size after filtering: {len(df)}")
     else:
         print("[INFO] No repository filter applied. Processing ALL repositories.")
@@ -480,6 +486,33 @@ def transform(repos_filter=None, workers=8):
     if len(df) == 0:
         print("[WARN] Dataset is empty after filtering. Exiting.")
         return
+    
+    if skip_existing:
+        existing_df = JIT_FILE.with_name(JIT_FILE.stem + "_labeled_features_partial.feather")
+        if existing_df.exists():
+            print(f"[INFO] skip_existing=True and {existing_df} exists → loading existing data...")
+            df_existing = pd.read_feather(existing_df)
+            key_cols = ["repo", "commit", "filepath"]
+
+            before = len(df)
+            df = df.merge(
+                df_existing[key_cols],
+                on=key_cols,
+                how="left",
+                indicator=True
+            )
+
+            df = df[df["_merge"] == "left_only"]
+            df = df.drop(columns=["_merge"])
+
+            after = len(df)
+
+            print(f"[INFO] Skipping already existing rows: {before - after} duplicates removed.")
+            print(f"[INFO] {after} rows remain to process.")
+
+            if len(df) == 0:
+                print("[INFO] No new rows to process after skipping existing. Exiting.")
+                return 
 
     print("[INFO] Dataset size:", len(df))
 
@@ -495,14 +528,14 @@ def transform(repos_filter=None, workers=8):
     rows_to_process = list(df[['repo', 'commit', 'filepath']].itertuples(index=False))
     results_list = []
     
-    classify_func = partial(classify_and_extract, extractor=extractor)
+    classify_func = partial(classify_and_extract, extractor)
     
     # --- Parallel Execution Block with Ctrl+C Handling ---
     print("[INFO] Press Ctrl+C to stop processing and save partial results.")
     
     with ThreadPoolExecutor(max_workers=workers) as executor:
         # Map original row tuples to futures
-        futures = {executor.submit(classify_func, row): row for row in rows_to_process}
+        futures = {executor.submit(classify_func, row, BUG_INDUCING_COMMITS[row.repo]): row for row in rows_to_process}
         # Initialize tqdm outside the for loop
         # pbar = tqdm(
         #     as_completed(futures), 
@@ -571,10 +604,59 @@ def transform(repos_filter=None, workers=8):
         how='inner' # Only keep rows that were successfully processed
     )
 
+    
+
+    # If the same file already exists, I want to ask user to confirm append/overwrite
+    # if they decide to append, scan existing file for last processed commits and skip those in df_merged if user agrees
+
+
     out_file = JIT_FILE.with_name(JIT_FILE.stem + "_labeled_features_partial.feather")
-    print(f"[SAVE] Saving {len(df_merged)} rows to {out_file}")
+
+    if skip_existing and out_file.exists():
+        print(f"[INFO] Append=True and {out_file} exists → loading existing data...")
+
+        existing_df = pd.read_feather(out_file)
+
+        # Detect rows already present → use the same keys to identify duplicates
+        key_cols = ["repo", "commit", "filepath"]
+
+        # Find new rows that aren't yet in the output
+        before = len(df_merged)
+        df_merged = df_merged.merge(
+            existing_df[key_cols],
+            on=key_cols,
+            how="left",
+            indicator=True
+        )
+
+        # Keep only rows NOT already in existing_df
+        df_merged = df_merged[df_merged["_merge"] == "left_only"]
+        df_merged = df_merged.drop(columns=["_merge"])
+
+        after = len(df_merged)
+
+        print(f"[INFO] Skipping already existing rows: {before - after} duplicates removed.")
+        print(f"[INFO] Appending {after} new rows to existing dataset.")
+
+        # Append and remove duplicates just in case
+        final_df = pd.concat([existing_df, df_merged], ignore_index=True)
+        final_df = final_df.drop_duplicates(subset=key_cols, keep="last")
+
+        final_df.to_feather(out_file)
+        print(f"[SAVE] Appended rows saved to {out_file}")
+        print("[DONE]")
+        return
+
+    # ---------------------------------------------------------------------
+    # OVERWRITE MODE
+    # ---------------------------------------------------------------------
+    print(f"[SAVE] Saving {len(df_merged)} rows to {out_file} (overwrite mode)")
     df_merged.to_feather(out_file)
     print("[DONE]")
+
+    # print(f"[SAVE] Saving {len(df_merged)} rows to {out_file}")
+    # df_merged.to_feather(out_file)
+    # print("[DONE]")
 
 
 # ---------------------------------------------------------------------
@@ -593,6 +675,11 @@ if __name__ == "__main__":
         default=8,
         help="Number of worker threads for parallel classification",
     )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Append to existing output file if it exists, skipping already processed commits.",
+    )
 
     args = parser.parse_args()
-    transform(repos_filter=args.repos, workers=args.workers)
+    transform(repos_filter=args.repos, workers=args.workers, skip_existing=args.skip_existing)
