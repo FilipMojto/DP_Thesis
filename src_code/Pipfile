@@ -18,6 +18,7 @@ torch = "*"
 nltk = "*"
 tqdm = "*"
 sentence-transformers = "*"
+tabulate = "*"
 
 [dev-packages]
 
