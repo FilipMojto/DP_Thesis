@@ -1,7 +1,9 @@
 import argparse
+import os
 import tempfile
 import threading
 from typing import List
+import numpy as np
 import yaml
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed, CancelledError
@@ -10,8 +12,13 @@ from tqdm import tqdm
 import time
 from git import Repo
 import logging
+import pyarrow.feather as feather
 
-from src_code.preprocessing.repos import BUG_INDUCING_COMMITS, is_registered
+from src_code.preprocessing.repos import (
+    BUG_INDUCING_COMMITS,
+    is_registered,
+    load_bug_inducing_comms,
+)
 from src_code.preprocessing.extraction import extract_commit_features
 from src_code.preprocessing.features.developer_social import (
     pre_calculate_author_metrics,
@@ -36,7 +43,7 @@ ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 
 # Create a formatter and set it for the handler
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 ch.setFormatter(formatter)
 
 # Add the handler to the logger
@@ -135,6 +142,7 @@ def get_repo_instance(repo_name: str) -> Repo:
     # Assuming PYTHON_LIBS_DIR points to where repos are cloned
     return Repo(PYTHON_LIBS_DIR / repo_name)
 
+
 # def atomic_feather_save(df, out_file: Path):
 #     """
 #     Safely write a feather file atomically by writing to a temporary
@@ -149,7 +157,7 @@ def get_repo_instance(repo_name: str) -> Repo:
 
 #     try:
 #         # Write feather content into the temporary file
-        
+
 #         ft.write_feather(df, tmp_path)
 
 #         # Force flush to disk
@@ -164,11 +172,50 @@ def get_repo_instance(repo_name: str) -> Repo:
 #             tmp_path.unlink()
 #         raise e
 
+
+def atomic_feather_save(df: pd.DataFrame, out_file: Path):
+    tmp_file = out_file.with_suffix(".tmp")
+    feather.write_feather(df, tmp_file)
+    os.replace(tmp_file, out_file)  # atomic on POSIX
+
+
+def can_create_file(path: Path) -> bool:
+    parent = path.parent
+
+    # Parent must exist
+    if not parent.exists():
+        return False
+
+    # Path cannot be an existing directory
+    if path.exists() and path.is_dir():
+        return False
+
+    # Check write permission to parent directory
+    return os.access(parent, os.W_OK)
+
+
 def _save_to_file(
-    input_df: pd.DataFrame, results_list: list, out_file: Path, append: bool
+    input_df: pd.DataFrame,
+    results_list: list,
+    existing_out_file: Path,
+    out_file: Path,
+    append: bool,
+    # copy_out_file: bool,
 ):
+    
     # Convert results back to a DataFrame
     results_df = pd.DataFrame(results_list)
+    
+    # if copy_out_file:
+    #     out_file = existing_out_file.with_name(
+    #         out_file.stem + "_copy" + out_file.suffix
+    #     )
+
+    # out_file = (
+    #     existing_out_file.with_name(existing_out_file.stem + "_copy" + existing_out_file.suffix)
+    #     if copy_out_file
+    #     else existing_out_file
+    # )
 
     # 💡 CRITICAL CHANGE: Use merge for a SAFE partial save.
     # This aligns the features/labels using the common keys ('repo', 'commit'),
@@ -180,62 +227,110 @@ def _save_to_file(
     )
 
     df_merged["recent_churn"] = calc_recent_churn_from_df(df_merged, window_days=30)
+    
+    # for col in ['code_embed', 'msg_embed']:
+    #     df_merged[col] = df_merged[col].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+    #     df_merged[col] = df_merged[col].astype(object)
 
-    # if append and out_file.exists():
-    #     logger.info(f"Append=True and {out_file} exists → loading existing data...")
+    #     # Before merge, ensure input_df columns won't collide
+    # for col in ['code_embed', 'msg_embed']:
+    #     if col not in results_df.columns and col in df_merged.columns:
+    #         df_merged = df_merged.drop(columns=[col], errors='ignore')
 
-    #     existing_df = pd.read_feather(out_file)
+    # # Ensure embeddings are object type
+    # for col in ['code_embed', 'msg_embed']:
+    #     if col in df_merged.columns:
+    #         df_merged[col] = df_merged[col].apply(lambda x: x if isinstance(x, list) else [])
+    #         df_merged[col] = df_merged[col].astype(object)
 
-    #     # Detect rows already present → use the same keys to identify duplicates
-    #     key_cols = ["repo", "commit", "filepath"]
+    # 1. What Python types exist in the column?
+    # print("Type counts (code_embed):")
+    # print(df_merged['code_embed'].map(lambda x: type(x)).value_counts(dropna=False))
 
-    #     # Find new rows that aren't yet in the output
-    #     before = len(input_df)
-    #     df_merged = input_df.merge(
-    #         existing_df[key_cols], on=key_cols, how="left", indicator=True
-    #     )
+    # print("\nType counts (msg_embed):")
+    # print(df_merged['msg_embed'].map(lambda x: type(x)).value_counts(dropna=False))
 
-    #     # Keep only rows NOT already in existing_df
-    #     df_merged = df_merged[df_merged["_merge"] == "left_only"]
-    #     df_merged = df_merged.drop(columns=["_merge"])
+    # 2. Sample representations (first 10)
+    # print("\nSamples (repr) for code_embed:")
+    for i, v in enumerate(df_merged['code_embed'].iloc[:10]):
+        print(i, type(v), repr(v)[:200])
 
-    #     after = len(df_merged)
+    # print("\nCheck 'isinstance(np.ndarray)' for first 20 rows:")
+    # print(df_merged['code_embed'].apply(lambda x: isinstance(x, np.ndarray)).head(20).to_list())
 
-    #     logger.info(
-    #         f"Skipping already existing rows: {before - after} duplicates removed."
-    #     )
-    #     logger.info(f"Appending {after} new rows to existing dataset.")
+    # 3. Column dtype and pandas internal array repr
+    # print("\nColumn dtypes and pandas array representation:")
+    # print(df_merged[['code_embed', 'msg_embed']].dtypes)
+    # print(df_merged['code_embed']._values)   # may show NumpyExtensionArray or Arrow type
 
-    #     # Append and remove duplicates just in case
-    #     final_df = pd.concat([existing_df, df_merged], ignore_index=True)
-    #     final_df = final_df.drop_duplicates(subset=key_cols, keep="last")
+    # Drop embeddings if they are not part of results_df
+    for col in ['code_embed', 'msg_embed']:
+        if col not in results_df.columns and col in df_merged.columns:
+            df_merged = df_merged.drop(columns=[col], errors='ignore')
 
-    #     final_df.to_feather(out_file)
-    #     logger.info(f"[SAVE] Appended rows saved to {out_file}")
-    #     logger.info("[DONE]")
-    #     return
-    if append and out_file.exists():
-        logger.info(f"Append=True and {out_file} exists → loading existing data...")
+    # Convert any remaining np.ndarray to list, keep existing lists
+    for col in ['code_embed', 'msg_embed']:
+        if col in df_merged.columns:
+            df_merged[col] = df_merged[col].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+            df_merged[col] = df_merged[col].apply(lambda x: x if isinstance(x, list) else [])
+            df_merged[col] = df_merged[col].astype(object)
 
-        existing_df = pd.read_feather(out_file)
+    # print("Type counts (code_embed):")
+    # print(df_merged['code_embed'].map(lambda x: type(x)).value_counts(dropna=False))
+
+    # print("\nType counts (msg_embed):")
+    # print(df_merged['msg_embed'].map(lambda x: type(x)).value_counts(dropna=False))
+
+    # 2. Sample representations (first 10)
+    # print("\nSamples (repr) for code_embed:")
+    for i, v in enumerate(df_merged['code_embed'].iloc[:10]):
+        print(i, type(v), repr(v)[:200])
+
+    # print("\nCheck 'isinstance(np.ndarray)' for first 20 rows:")
+    # print(df_merged['code_embed'].apply(lambda x: isinstance(x, np.ndarray)).head(20).to_list())
+
+    # 3. Column dtype and pandas internal array repr
+    # print("\nColumn dtypes and pandas array representation:")
+    # print(df_merged[['code_embed', 'msg_embed']].dtypes)
+    # print(df_merged['code_embed']._values)   # may show NumpyExtensionArray or Arrow type
+
+        
+    # print(type(df_merged.loc[0, 'code_embed']))
+    # len_check = len(df_merged.loc[0, 'code_embed'])
+
+    # print(type(df_merged.loc[0, 'msg_embed']))
+    # len_check = len(df_merged.loc[0, 'msg_embed'])
+
+    # coltypes_check = df_merged.dtypes
+
+    # something_cde = df_merged['code_embed'].apply(lambda x: isinstance(x, list)).value_counts()
+    # sth_msg = df_merged['msg_embed'].apply(lambda x: isinstance(x, list)).value_counts()
+
+    # empty_code_embed = (df_merged['code_embed'].apply(len) == 0).sum()
+    # empty_ms_embed = (df_merged['msg_embed'].apply(len) == 0).sum()
+
+    # Guard against empty results
+    if len(results_df) == 0:
+        logger.warning("No results to save; skipping file write.")
+        return
+
+    if append and existing_out_file.exists():
+        logger.info(f"Append=True and {existing_out_file} exists → loading existing data...")
+
+        existing_df = pd.read_feather(existing_out_file)
 
         key_cols = ["repo", "commit", "filepath"]
 
         # 🔥 Compare ONLY the newly processed rows
         before = len(df_merged)
         df_new = df_merged.merge(
-            existing_df[key_cols],
-            on=key_cols,
-            how="left",
-            indicator=True
+            existing_df[key_cols], on=key_cols, how="left", indicator=True
         )
 
         df_new = df_new[df_new["_merge"] == "left_only"].drop(columns=["_merge"])
         after = len(df_new)
 
-        logger.info(
-            f"Skipping existing rows: {before - after} duplicates removed."
-        )
+        logger.info(f"Skipping existing rows: {before - after} duplicates removed.")
         logger.info(f"Appending {after} new rows.")
 
         # Append new rows only
@@ -261,9 +356,10 @@ def transform(
     skip_existing: bool = False,
     save_after: int = None,
     in_file: Path = JIT_FILE,
-    out_file: Path = JIT_FILE.with_name(
+    existing_out_file: Path = JIT_FILE.with_name(
         JIT_FILE.stem + "_labeled_features_partial.feather"
     ),
+    copy_out_file: bool = False,
 ):
     logger.info(f"[LOAD] {in_file}")
     logger.info(f"Using {workers} worker threads.")
@@ -271,6 +367,14 @@ def transform(
 
     # Load and filter DataFrame
     input_df = pd.read_feather(in_file)
+    out_file = (
+        existing_out_file.with_name(existing_out_file.stem + "_copy" + existing_out_file.suffix)
+        if copy_out_file
+        else existing_out_file
+    )
+
+    # if copy_out_file:
+    #     out_file = out_file.with_name(out_file.stem + "_copy" + out_file.suffix)
 
     if repos_filter and len(repos_filter) > 0:
         logger.info(f"[FILTER] Limiting to repos: {repos_filter}")
@@ -319,7 +423,7 @@ def transform(
                 print("[INFO] No new rows to process after skipping existing. Exiting.")
                 return
 
-    logger.info("Dataset size:", len(input_df))
+    logger.info(f"Dataset size: {len(input_df)}")
 
     # try:
     #     extractor = FeatureExtractor(REPO_URL_MAP)
@@ -371,10 +475,13 @@ def transform(
                         _save_to_file(
                             input_df=input_df,
                             results_list=results_list,
-                            out_file=out_file,
-                            append=skip_existing
+                            existing_out_file=existing_out_file,
+                            append=skip_existing,
+                            # copy_out_file=copy_out_file,
+                            out_file=out_file
                         )
                         results_list.clear()
+                        existing_out_file = out_file
 
                 except StopProcessing as e:
                     logger.info(f"Worker stopped: {e}")
@@ -390,7 +497,9 @@ def transform(
 
         except KeyboardInterrupt:
             # Main thread receives Ctrl+C
-            logger.warning("\nCtrl+C received! Setting stop_event and cancelling futures...")
+            logger.warning(
+                "\nCtrl+C received! Setting stop_event and cancelling futures..."
+            )
             stop_event.set()
             pbar.close()
 
@@ -407,7 +516,9 @@ def transform(
         # print(
         #     "[WARN] No results generated (or interrupted immediately). Exiting without saving."
         # )
-        logger.warning("No results generated (or interrupted immediately). Exiting without saving.")
+        logger.warning(
+            "No results generated (or interrupted immediately). Exiting without saving."
+        )
         return
 
     # # Convert results back to a DataFrame
@@ -428,7 +539,12 @@ def transform(
     # if they decide to append, scan existing file for last processed commits and skip those in df_merged if user agrees
 
     _save_to_file(
-        input_df=input_df, results_list=results_list, out_file=out_file, append=skip_existing
+        input_df=input_df,
+        results_list=results_list,
+        existing_out_file=existing_out_file,
+        append=skip_existing,
+        # copy_out_file=copy_out_file,
+        out_file=out_file
     )
     # if skip_existing and out_file.exists():
     #     print(f"[INFO] Append=True and {out_file} exists → loading existing data...")
@@ -498,20 +614,33 @@ if __name__ == "__main__":
         help="Stores after N processed rows. Defaults to no limit.",
     )
 
+    parser.add_argument(
+        "--copy-output",
+        action="store_true",
+        help="Save the output into a copy file.",
+        required=False,
+        default=False,
+    )
+
     args = parser.parse_args()
 
     for repo in args.repos:
         if not is_registered(repo):
-            raise ValueError(f"Invalid --repo value: {repo}. This repository is not registered.")
+            raise ValueError(
+                f"Invalid --repo value: {repo}. This repository is not registered."
+            )
 
     if args.save_after < 1:
         raise ValueError(
             f"Invalid --save-after value: {args.save_after}. Must be a positive number (>0)."
         )
 
+    load_bug_inducing_comms()
+
     transform(
         repos_filter=args.repos,
         workers=args.workers,
         skip_existing=args.skip_existing,
         save_after=args.save_after,
+        copy_out_file=args.copy_output,
     )
