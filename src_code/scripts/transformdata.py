@@ -1,13 +1,11 @@
 import argparse
 import os
-import tempfile
 import threading
 from typing import List
 import numpy as np
-import yaml
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed, CancelledError
-from functools import lru_cache, partial
+from functools import partial
 from tqdm import tqdm
 import time
 from git import Repo
@@ -26,7 +24,6 @@ from src_code.preprocessing.features.developer_social import (
 from src_code.preprocessing.features.historical_temporal import (
     calc_recent_churn_from_df,
 )
-from src_code.utils.feature_extractor import FeatureExtractor
 
 
 from ..config import *
@@ -49,40 +46,6 @@ ch.setFormatter(formatter)
 # Add the handler to the logger
 logger.addHandler(ch)
 
-# # ---------------------------------------------------------------------
-# # Load per-repo YAML files lazily and cache them
-# # ---------------------------------------------------------------------
-# @lru_cache(maxsize=None)
-# def load_bug_inducing_for_repo(repo_name: str):
-#     """Load bug-inducing commits for a given repo based on filename."""
-
-#     yaml_files = list(BUG_INDUCING_DIR.glob(f"{repo_name}.*"))
-
-#     if not yaml_files:
-#         print(f"[WARN] No YAML found for repo: {repo_name}")
-#         return set()
-
-#     file_path = yaml_files[0]  # only one expected
-
-#     with open(file_path, "r") as f:
-#         data = yaml.safe_load(f) or {}
-#         inducing_set = set()
-
-#         for _, inducing_list in data.items():
-#             inducing_set.update(inducing_list or [])
-
-#     return inducing_set
-
-
-# # Assuming you have a dictionary mapping repo names to URLs
-# REPO_URL_MAP = {"pandas": "https://github.com/pandas-dev/pandas.git"}
-# # --- END CONFIG PLACEHOLDERS ---
-
-# BUG_INDUCING_COMMITS = {}
-
-# for repo in REPO_URL_MAP.keys():
-#     BUG_INDUCING_COMMITS[repo] = load_bug_inducing_for_repo(repo)
-
 stop_event = threading.Event()
 
 
@@ -101,21 +64,14 @@ def classify_and_extract(row, bug_set: set):
         # Raise our custom exception to cleanly exit the thread
         raise StopProcessing(f"Stop event set. Skipping {row.repo}/{row.commit}")
 
-    # print(f"[PROCESS] Repo: {row.repo}, Commit: {row.commit}")
     repo = row.repo
     commit_hash = row.commit
     filepath = row.filepath
-    # bug_inducing_file = BUG_INDUCING_DIR / repo
 
-    # 1. Classification
-    # bug_set = load_bug_inducing_for_repo(repo)
-    # print(repo, "bug set size:", len(bug_set))
 
     label = 1 if commit_hash in bug_set else 0
-    # git_repo = extractor.get_repo(PYTHON_LIBS_DIR / repo) # Assuming this method exists on FeatureExtractor
 
     # 2. Feature Extraction
-    # features = extractor.extract_features(repo, commit_hash)
     extraction_start = time.time()
     features = extract_commit_features(Repo(PYTHON_LIBS_DIR / repo), commit_hash)
     extraction_end = time.time()
@@ -130,9 +86,6 @@ def classify_and_extract(row, bug_set: set):
         "label": label,
         **features,
     }
-    # print(f"Processed commit {commit_hash} in repo {repo}: label={label}")
-
-    # with open(bug_inducing_file)
 
     return result
 
@@ -141,36 +94,6 @@ def get_repo_instance(repo_name: str) -> Repo:
     """Helper function to load the local Git Repo object."""
     # Assuming PYTHON_LIBS_DIR points to where repos are cloned
     return Repo(PYTHON_LIBS_DIR / repo_name)
-
-
-# def atomic_feather_save(df, out_file: Path):
-#     """
-#     Safely write a feather file atomically by writing to a temporary
-#     file and moving it into place.
-#     """
-#     out_file = Path(out_file)
-#     tmp_dir = out_file.parent
-
-#     # Create temporary file in the same directory (important)
-#     with tempfile.NamedTemporaryFile(delete=False, dir=tmp_dir, suffix=".feather") as tmp:
-#         tmp_path = Path(tmp.name)
-
-#     try:
-#         # Write feather content into the temporary file
-
-#         ft.write_feather(df, tmp_path)
-
-#         # Force flush to disk
-#         os.sync()
-
-#         # Atomically replace the target
-#         tmp_path.replace(out_file)
-
-#     except Exception as e:
-#         # Ensure temp does not stick around
-#         if tmp_path.exists():
-#             tmp_path.unlink()
-#         raise e
 
 
 def atomic_feather_save(df: pd.DataFrame, out_file: Path):
@@ -200,22 +123,10 @@ def _save_to_file(
     existing_out_file: Path,
     out_file: Path,
     append: bool,
-    # copy_out_file: bool,
 ):
     
     # Convert results back to a DataFrame
     results_df = pd.DataFrame(results_list)
-    
-    # if copy_out_file:
-    #     out_file = existing_out_file.with_name(
-    #         out_file.stem + "_copy" + out_file.suffix
-    #     )
-
-    # out_file = (
-    #     existing_out_file.with_name(existing_out_file.stem + "_copy" + existing_out_file.suffix)
-    #     if copy_out_file
-    #     else existing_out_file
-    # )
 
     # 💡 CRITICAL CHANGE: Use merge for a SAFE partial save.
     # This aligns the features/labels using the common keys ('repo', 'commit'),
@@ -228,40 +139,9 @@ def _save_to_file(
 
     df_merged["recent_churn"] = calc_recent_churn_from_df(df_merged, window_days=30)
     
-    # for col in ['code_embed', 'msg_embed']:
-    #     df_merged[col] = df_merged[col].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
-    #     df_merged[col] = df_merged[col].astype(object)
-
-    #     # Before merge, ensure input_df columns won't collide
-    # for col in ['code_embed', 'msg_embed']:
-    #     if col not in results_df.columns and col in df_merged.columns:
-    #         df_merged = df_merged.drop(columns=[col], errors='ignore')
-
-    # # Ensure embeddings are object type
-    # for col in ['code_embed', 'msg_embed']:
-    #     if col in df_merged.columns:
-    #         df_merged[col] = df_merged[col].apply(lambda x: x if isinstance(x, list) else [])
-    #         df_merged[col] = df_merged[col].astype(object)
-
-    # 1. What Python types exist in the column?
-    # print("Type counts (code_embed):")
-    # print(df_merged['code_embed'].map(lambda x: type(x)).value_counts(dropna=False))
-
-    # print("\nType counts (msg_embed):")
-    # print(df_merged['msg_embed'].map(lambda x: type(x)).value_counts(dropna=False))
-
-    # 2. Sample representations (first 10)
-    # print("\nSamples (repr) for code_embed:")
     for i, v in enumerate(df_merged['code_embed'].iloc[:10]):
         print(i, type(v), repr(v)[:200])
 
-    # print("\nCheck 'isinstance(np.ndarray)' for first 20 rows:")
-    # print(df_merged['code_embed'].apply(lambda x: isinstance(x, np.ndarray)).head(20).to_list())
-
-    # 3. Column dtype and pandas internal array repr
-    # print("\nColumn dtypes and pandas array representation:")
-    # print(df_merged[['code_embed', 'msg_embed']].dtypes)
-    # print(df_merged['code_embed']._values)   # may show NumpyExtensionArray or Arrow type
 
     # Drop embeddings if they are not part of results_df
     for col in ['code_embed', 'msg_embed']:
@@ -275,39 +155,8 @@ def _save_to_file(
             df_merged[col] = df_merged[col].apply(lambda x: x if isinstance(x, list) else [])
             df_merged[col] = df_merged[col].astype(object)
 
-    # print("Type counts (code_embed):")
-    # print(df_merged['code_embed'].map(lambda x: type(x)).value_counts(dropna=False))
-
-    # print("\nType counts (msg_embed):")
-    # print(df_merged['msg_embed'].map(lambda x: type(x)).value_counts(dropna=False))
-
-    # 2. Sample representations (first 10)
-    # print("\nSamples (repr) for code_embed:")
     for i, v in enumerate(df_merged['code_embed'].iloc[:10]):
         print(i, type(v), repr(v)[:200])
-
-    # print("\nCheck 'isinstance(np.ndarray)' for first 20 rows:")
-    # print(df_merged['code_embed'].apply(lambda x: isinstance(x, np.ndarray)).head(20).to_list())
-
-    # 3. Column dtype and pandas internal array repr
-    # print("\nColumn dtypes and pandas array representation:")
-    # print(df_merged[['code_embed', 'msg_embed']].dtypes)
-    # print(df_merged['code_embed']._values)   # may show NumpyExtensionArray or Arrow type
-
-        
-    # print(type(df_merged.loc[0, 'code_embed']))
-    # len_check = len(df_merged.loc[0, 'code_embed'])
-
-    # print(type(df_merged.loc[0, 'msg_embed']))
-    # len_check = len(df_merged.loc[0, 'msg_embed'])
-
-    # coltypes_check = df_merged.dtypes
-
-    # something_cde = df_merged['code_embed'].apply(lambda x: isinstance(x, list)).value_counts()
-    # sth_msg = df_merged['msg_embed'].apply(lambda x: isinstance(x, list)).value_counts()
-
-    # empty_code_embed = (df_merged['code_embed'].apply(len) == 0).sum()
-    # empty_ms_embed = (df_merged['msg_embed'].apply(len) == 0).sum()
 
     # Guard against empty results
     if len(results_df) == 0:
@@ -355,9 +204,12 @@ def transform(
     workers: int = 8,
     skip_existing: bool = False,
     save_after: int = None,
-    in_file: Path = JIT_FILE,
-    existing_out_file: Path = JIT_FILE.with_name(
-        JIT_FILE.stem + "_labeled_features_partial.feather"
+    in_file: Path = JIT_FEATHER_FILE,
+    # existing_out_file: Path = JIT_FILE.with_name(
+    #     JIT_FILE.stem + "_labeled_features_partial.feather"
+    # ),
+    existing_out_file: Path = EXTRACTED_DATA_DIR / (
+        JIT_FEATHER_FILE.stem + "_labeled_features_partial.feather"
     ),
     copy_out_file: bool = False,
 ):
@@ -372,9 +224,6 @@ def transform(
         if copy_out_file
         else existing_out_file
     )
-
-    # if copy_out_file:
-    #     out_file = out_file.with_name(out_file.stem + "_copy" + out_file.suffix)
 
     if repos_filter and len(repos_filter) > 0:
         logger.info(f"[FILTER] Limiting to repos: {repos_filter}")
@@ -424,13 +273,6 @@ def transform(
                 return
 
     logger.info(f"Dataset size: {len(input_df)}")
-
-    # try:
-    #     extractor = FeatureExtractor(REPO_URL_MAP)
-    # except Exception as e:
-    #     print(f"[ERROR] Failed to initialize FeatureExtractor: {e}")
-    #     return
-
     logger.info(f"[PROCESS] Starting feature extraction with {workers} workers...")
 
     # We need the 'repo' and 'commit' columns present in the input for merging later
@@ -521,69 +363,13 @@ def transform(
         )
         return
 
-    # # Convert results back to a DataFrame
-    # results_df = pd.DataFrame(results_list)
-
-    # # 💡 CRITICAL CHANGE: Use merge for a SAFE partial save.
-    # # This aligns the features/labels using the common keys ('repo', 'commit'),
-    # # ensuring data integrity even if rows were skipped or completed out of order.
-    # df_merged = df.merge(
-    #     results_df,
-    #     on=["repo", "commit", "filepath"],
-    #     how="inner",  # Only keep rows that were successfully processed
-    # )
-
-    # df_merged["recent_churn"] = calc_recent_churn_from_df(df_merged, window_days=30)
-
-    # If the same file already exists, I want to ask user to confirm append/overwrite
-    # if they decide to append, scan existing file for last processed commits and skip those in df_merged if user agrees
-
     _save_to_file(
         input_df=input_df,
         results_list=results_list,
         existing_out_file=existing_out_file,
         append=skip_existing,
-        # copy_out_file=copy_out_file,
         out_file=out_file
     )
-    # if skip_existing and out_file.exists():
-    #     print(f"[INFO] Append=True and {out_file} exists → loading existing data...")
-
-    #     existing_df = pd.read_feather(out_file)
-
-    #     # Detect rows already present → use the same keys to identify duplicates
-    #     key_cols = ["repo", "commit", "filepath"]
-
-    #     # Find new rows that aren't yet in the output
-    #     before = len(df_merged)
-    #     df_merged = df_merged.merge(
-    #         existing_df[key_cols],
-    #         on=key_cols,
-    #         how="left",
-    #         indicator=True
-    #     )
-
-    #     # Keep only rows NOT already in existing_df
-    #     df_merged = df_merged[df_merged["_merge"] == "left_only"]
-    #     df_merged = df_merged.drop(columns=["_merge"])
-
-    #     after = len(df_merged)
-
-    #     print(f"[INFO] Skipping already existing rows: {before - after} duplicates removed.")
-    #     print(f"[INFO] Appending {after} new rows to existing dataset.")
-
-    #     # Append and remove duplicates just in case
-    #     final_df = pd.concat([existing_df, df_merged], ignore_index=True)
-    #     final_df = final_df.drop_duplicates(subset=key_cols, keep="last")
-
-    #     final_df.to_feather(out_file)
-    #     print(f"[SAVE] Appended rows saved to {out_file}")
-    #     print("[DONE]")
-    #     return
-
-    # print(f"[SAVE] Saving {len(df_merged)} rows to {out_file}")
-    # df_merged.to_feather(out_file)
-    # print("[DONE]")
 
 
 # ---------------------------------------------------------------------
