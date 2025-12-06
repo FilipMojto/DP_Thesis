@@ -10,6 +10,8 @@ from ..config import BUG_INDUCING_DIR
 REPO_URL_MAP = {
     "pandas": "https://github.com/pandas-dev/pandas.git",
     "airflow": "https://github.com/apache/airflow.git",
+    "numpy": "https://github.com/numpy/numpy",
+    "ansible": "https://github.com/ansible/ansible.git"
 }
 # --- END CONFIG PLACEHOLDERS ---
 
@@ -23,6 +25,7 @@ def _load_bug_inducing_commits(repo_name: str):
 
     if not yaml_files:
         print(f"[WARN] No YAML found for repo: {repo_name}")
+        # raise ValueError(f"No YAML found for repo: {repo_name}")
         return set()
 
     file_path = yaml_files[0]  # only one expected
