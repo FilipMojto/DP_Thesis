@@ -15,7 +15,10 @@ PROJECT_ROOT = CONFIG_FILE_DIR.parent.parent
 # 3. Define all data paths relative to the Project Root
 DATA_DIR = PROJECT_ROOT / "data"
 DEFECTORS_DIR = DATA_DIR / "defectors"
-JIT_FEATHER_FILE = DEFECTORS_DIR / "jit_bug_prediction_splits/time/train.feather"
+EXTRACTED_DATA_DIR = DATA_DIR / "extracted"
 BUG_INDUCING_DIR = DATA_DIR / "bug_inducing_commits"
 PYTHON_LIBS_DIR = DATA_DIR / "python_libs"
-EXTRACTED_DATA_DIR = DATA_DIR / "extracted"
+
+JIT_FEATHER_FILE = DEFECTORS_DIR / "jit_bug_prediction_splits/time/train.feather"
+# JIT_FEATHER_FILE = EXTRACTED_DATA_DIR / "jit_bug_prediction_splits/time/train.feather"
+EXTRATED_TRAIN_DF_FILE = EXTRACTED_DATA_DIR / "train_labeled_features_partial.feather"

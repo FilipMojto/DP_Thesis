@@ -11,7 +11,9 @@ REPO_URL_MAP = {
     "pandas": "https://github.com/pandas-dev/pandas.git",
     "airflow": "https://github.com/apache/airflow.git",
     "numpy": "https://github.com/numpy/numpy",
-    "ansible": "https://github.com/ansible/ansible.git"
+    "ansible": "https://github.com/ansible/ansible.git",
+    "sentry": "https://github.com/getsentry/sentry.git",
+    "core": "https://github.com/home-assistant/core.git"
 }
 # --- END CONFIG PLACEHOLDERS ---
 

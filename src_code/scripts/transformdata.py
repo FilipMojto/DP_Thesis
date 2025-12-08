@@ -232,25 +232,17 @@ def transform(
     else:
         logger.info("No repository filter applied. Processing ALL repositories.")
 
-    # CRITICAL ADDITION: Pre-calculate the expensive metrics
-    logger.info("[PRECALC] Calculating author experience and recent activity...")
-    # NOTE: You MUST ensure your input DF has an 'author' column (email) and 'datetime' column.
-    input_df = pre_calculate_author_metrics(input_df, get_repo_func=get_repo_instance)
-    logger.info("[PRECALC] Finished calculating author metrics.")
-
-    if len(input_df) == 0:
-        logger.warning("Dataset is empty after filtering. Exiting.")
-        return
+    
 
     if skip_existing:
-        existing_df = in_file.with_name(
-            in_file.stem + "_labeled_features_partial.feather"
-        )
-        if existing_df.exists():
+        # existing_df = existing_out_file.with_name(
+        #     in_file.stem + "_labeled_features_partial.feather"
+        # )
+        if existing_out_file.exists():
             logger.info(
-                f"skip_existing=True and {existing_df} exists → loading existing data..."
+                f"skip_existing=True and {existing_out_file} exists → loading existing data..."
             )
-            df_existing = pd.read_feather(existing_df)
+            df_existing = pd.read_feather(existing_out_file)
             key_cols = ["repo", "commit", "filepath"]
 
             before = len(input_df)
@@ -274,6 +266,16 @@ def transform(
 
     logger.info(f"Dataset size: {len(input_df)}")
     logger.info(f"[PROCESS] Starting feature extraction with {workers} workers...")
+
+    # CRITICAL ADDITION: Pre-calculate the expensive metrics
+    logger.info("[PRECALC] Calculating author experience and recent activity...")
+    # NOTE: You MUST ensure your input DF has an 'author' column (email) and 'datetime' column.
+    input_df = pre_calculate_author_metrics(input_df, get_repo_func=get_repo_instance)
+    logger.info("[PRECALC] Finished calculating author metrics.")
+
+    if len(input_df) == 0:
+        logger.warning("Dataset is empty after filtering. Exiting.")
+        return
 
     # We need the 'repo' and 'commit' columns present in the input for merging later
     rows_to_process = list(
