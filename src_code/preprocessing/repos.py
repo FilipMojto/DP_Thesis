@@ -13,7 +13,8 @@ REPO_URL_MAP = {
     "numpy": "https://github.com/numpy/numpy",
     "ansible": "https://github.com/ansible/ansible.git",
     "sentry": "https://github.com/getsentry/sentry.git",
-    "core": "https://github.com/home-assistant/core.git"
+    "core": "https://github.com/home-assistant/core.git",
+    "ray": "https://github.com/ray-project/ray.git"
 }
 # --- END CONFIG PLACEHOLDERS ---
 
