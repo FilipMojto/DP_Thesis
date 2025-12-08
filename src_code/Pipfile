@@ -19,6 +19,7 @@ nltk = "*"
 tqdm = "*"
 sentence-transformers = "*"
 tabulate = "*"
+ipynbname = "*"
 
 [dev-packages]
 
