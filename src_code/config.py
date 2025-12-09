@@ -1,4 +1,4 @@
-__ALL__ = ["DATA_DIR", "DEFECTORS_DIR", "JIT_FILE", "BUG_INDUCING_DIR"]
+__ALL__ = ["DATA_DIR", "DEFECTORS_DIR", "JIT_FILE", "BUG_INDUCING_DIR", "PREPROCESSED_DATA_DIR"]
 
 from pathlib import Path
 
@@ -16,9 +16,12 @@ PROJECT_ROOT = CONFIG_FILE_DIR.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 DEFECTORS_DIR = DATA_DIR / "defectors"
 EXTRACTED_DATA_DIR = DATA_DIR / "extracted"
+PREPROCESSED_DATA_DIR = DATA_DIR / "preprocessed"
+
 BUG_INDUCING_DIR = DATA_DIR / "bug_inducing_commits"
 PYTHON_LIBS_DIR = DATA_DIR / "python_libs"
 
 JIT_FEATHER_FILE = DEFECTORS_DIR / "jit_bug_prediction_splits/time/train.feather"
 # JIT_FEATHER_FILE = EXTRACTED_DATA_DIR / "jit_bug_prediction_splits/time/train.feather"
 EXTRATED_TRAIN_DF_FILE = EXTRACTED_DATA_DIR / "train_labeled_features_partial.feather"
+

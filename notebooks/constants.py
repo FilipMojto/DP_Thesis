@@ -15,3 +15,7 @@ NUMERIC_FEATURES = [
     "time_since_last_change",
     "recent_churn"
 ]
+EMBEDDINGS = [
+    'code_embed',
+    "msg_embed"
+]
