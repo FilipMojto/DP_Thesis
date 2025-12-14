@@ -141,10 +141,6 @@ def _save_to_file(
     )
 
     df_merged["recent_churn"] = calc_recent_churn_from_df(df_merged, window_days=30)
-    
-    for i, v in enumerate(df_merged['code_embed'].iloc[:10]):
-        print(i, type(v), repr(v)[:200])
-
 
     # Drop embeddings if they are not part of results_df
     for col in ['code_embed', 'msg_embed']:
@@ -157,9 +153,6 @@ def _save_to_file(
             df_merged[col] = df_merged[col].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
             df_merged[col] = df_merged[col].apply(lambda x: x if isinstance(x, list) else [])
             df_merged[col] = df_merged[col].astype(object)
-
-    for i, v in enumerate(df_merged['code_embed'].iloc[:10]):
-        print(i, type(v), repr(v)[:200])
 
     # Guard against empty results
     if len(results_df) == 0:
@@ -194,9 +187,9 @@ def _save_to_file(
 
         return
 
-    print(f"[SAVE] Saving {len(df_merged)} rows to {out_file}")
+    logger.info(f"Saving {len(df_merged)} rows to {out_file}")
     df_merged.to_feather(out_file)
-    print("[DONE]")
+    logger.info("Done")
 
 
 # ---------------------------------------------------------------------
@@ -207,18 +200,14 @@ def transform(
     workers: int = 8,
     skip_existing: bool = False,
     save_after: int = None,
-    # in_file: Path = JIT_TRAIN_FEATHER_FILE,
-    # existing_out_file: Path = JIT_FILE.with_name(
-    #     JIT_FILE.stem + "_labeled_features_partial.feather"
-    # ),
-    # existing_out_file: Path = EXTRACTED_DATA_DIR / (
-    #     JIT_TRAIN_FEATHER_FILE.stem + "_labeled_features_partial.feather"
-    # ),
     subset: Literal['train', 'test', 'validation'] = 'train',
-    copy_out_file: bool = False,
 ):
     in_file = EXTRACTION_MAPPINGS[subset]['input']
-    existing_out_file = EXTRACTION_MAPPINGS[subset]['output']
+    newest_out_file = EXTRACTION_MAPPINGS[subset]['current_newest']
+    next_out_file = EXTRACTION_MAPPINGS[subset]['next_output']
+
+    logger.info(f"Newest out file: {newest_out_file}")
+    logger.info(f"Next out file: {next_out_file}")
 
     logger.info(f"[LOAD] {in_file}")
     logger.info(f"Using {workers} worker threads.")
@@ -226,11 +215,6 @@ def transform(
 
     # Load and filter DataFrame
     input_df = pd.read_feather(in_file)
-    out_file = (
-        existing_out_file.with_name(existing_out_file.stem + "_copy" + existing_out_file.suffix)
-        if copy_out_file
-        else existing_out_file
-    )
 
     if repos_filter and len(repos_filter) > 0:
         logger.info(f"[FILTER] Limiting to repos: {repos_filter}")
@@ -240,14 +224,13 @@ def transform(
         logger.info("No repository filter applied. Processing ALL repositories.")
 
     
-
     if skip_existing:
 
-        if existing_out_file.exists():
+        if newest_out_file.exists():
             logger.info(
-                f"skip_existing=True and {existing_out_file} exists → loading existing data..."
+                f"skip_existing=True and {newest_out_file} exists → loading existing data..."
             )
-            df_existing = pd.read_feather(existing_out_file)
+            df_existing = pd.read_feather(newest_out_file)
             key_cols = ["repo", "commit", "filepath"]
 
             before = len(input_df)
@@ -266,7 +249,7 @@ def transform(
             logger.info(f"{after} rows remain to process.")
 
             if len(input_df) == 0:
-                print("[INFO] No new rows to process after skipping existing. Exiting.")
+                logger.warning("No new rows to process after skipping existing. Exiting.")
                 return
 
     logger.info(f"Dataset size: {len(input_df)}")
@@ -324,13 +307,11 @@ def transform(
                         _save_to_file(
                             input_df=input_df,
                             results_list=results_list,
-                            existing_out_file=existing_out_file,
+                            existing_out_file=newest_out_file,
                             append=skip_existing,
-                            # copy_out_file=copy_out_file,
-                            out_file=out_file
+                            out_file=next_out_file
                         )
                         results_list.clear()
-                        existing_out_file = out_file
 
                 except StopProcessing as e:
                     logger.info(f"Worker stopped: {e}")
@@ -356,15 +337,11 @@ def transform(
             for future in futures:
                 future.cancel()
 
-            # The 'with' block will handle the final shutdown (wait=True)
-            # The loop above will process any remaining completed futures before exiting.
 
     # --- Post-Processing and Saving ---
 
     if not results_list:
-        # print(
-        #     "[WARN] No results generated (or interrupted immediately). Exiting without saving."
-        # )
+
         logger.warning(
             "No results generated (or interrupted immediately). Exiting without saving."
         )
@@ -373,9 +350,9 @@ def transform(
     _save_to_file(
         input_df=input_df,
         results_list=results_list,
-        existing_out_file=existing_out_file,
+        existing_out_file=newest_out_file,
         append=skip_existing,
-        out_file=out_file
+        out_file=next_out_file
     )
 
 
@@ -417,14 +394,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--copy-output",
-        action="store_true",
-        help="Save the output into a copy file.",
-        required=False,
-        default=False,
-    )
-
-    parser.add_argument(
         "--all",
         action="store_true",
         help="If true, all registered repos will be extracted.",
@@ -458,7 +427,6 @@ if __name__ == "__main__":
                 break
 
 
-        
     if not args.all:
         logger.warning("No repo specified. Defaulting to registered repos.")
     else:
@@ -483,5 +451,4 @@ if __name__ == "__main__":
             workers=args.workers,
             skip_existing=args.skip_existing,
             save_after=args.save_after,
-            copy_out_file=args.copy_output,
         )
