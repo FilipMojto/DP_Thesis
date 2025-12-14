@@ -312,6 +312,7 @@ def transform(
                             out_file=next_out_file
                         )
                         results_list.clear()
+                        newest_out_file = next_out_file
 
                 except StopProcessing as e:
                     logger.info(f"Worker stopped: {e}")
