@@ -1,7 +1,7 @@
 import argparse
 import os
 import threading
-from typing import List
+from typing import List, Literal
 import numpy as np
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed, CancelledError
@@ -14,6 +14,9 @@ import pyarrow.feather as feather
 
 from src_code.preprocessing.repos import (
     BUG_INDUCING_COMMITS,
+    download_missing_repo_clones,
+    get_missing_repo_clones,
+    get_registered_repos,
     is_registered,
     load_bug_inducing_comms,
 )
@@ -204,15 +207,19 @@ def transform(
     workers: int = 8,
     skip_existing: bool = False,
     save_after: int = None,
-    in_file: Path = JIT_FEATHER_FILE,
+    # in_file: Path = JIT_TRAIN_FEATHER_FILE,
     # existing_out_file: Path = JIT_FILE.with_name(
     #     JIT_FILE.stem + "_labeled_features_partial.feather"
     # ),
-    existing_out_file: Path = EXTRACTED_DATA_DIR / (
-        JIT_FEATHER_FILE.stem + "_labeled_features_partial.feather"
-    ),
+    # existing_out_file: Path = EXTRACTED_DATA_DIR / (
+    #     JIT_TRAIN_FEATHER_FILE.stem + "_labeled_features_partial.feather"
+    # ),
+    subset: Literal['train', 'test', 'validation'] = 'train',
     copy_out_file: bool = False,
 ):
+    in_file = EXTRACTION_MAPPINGS[subset]['input']
+    existing_out_file = EXTRACTION_MAPPINGS[subset]['output']
+
     logger.info(f"[LOAD] {in_file}")
     logger.info(f"Using {workers} worker threads.")
     logger.info(f"Repos filter: {repos_filter}")
@@ -235,9 +242,7 @@ def transform(
     
 
     if skip_existing:
-        # existing_df = existing_out_file.with_name(
-        #     in_file.stem + "_labeled_features_partial.feather"
-        # )
+
         if existing_out_file.exists():
             logger.info(
                 f"skip_existing=True and {existing_out_file} exists → loading existing data..."
@@ -384,6 +389,15 @@ if __name__ == "__main__":
         nargs="*",
         help="List of repositories to include (default: all). Example: --repos airflow pandas",
     )
+
+    parser.add_argument(
+        "--subset",
+        choices=["train", "test", "validation"],  # This is the key part
+        required=False,                            # Recommend making it required
+        default="train",                          # Optional: Set a default value
+        help="The data subset to process. Must be one of: train, test, or validation."
+    )
+
     parser.add_argument(
         "--workers",
         type=int,
@@ -398,7 +412,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--save-after",
         type=int,
-        default=None,
+        default=1000,
         help="Stores after N processed rows. Defaults to no limit.",
     )
 
@@ -410,25 +424,64 @@ if __name__ == "__main__":
         default=False,
     )
 
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="If true, all registered repos will be extracted.",
+        required=False,
+        default=False
+    )
+
+    parser.add_argument(
+        "--missing-repos",
+        action="store_true",
+        help="If true, all registered repos with missing clones will be listed.",
+        required=False,
+        default=False
+    )
+
     args = parser.parse_args()
 
-    for repo in args.repos:
-        if not is_registered(repo):
-            raise ValueError(
-                f"Invalid --repo value: {repo}. This repository is not registered."
-            )
+    if args.missing_repos:
+        missing_repos = get_missing_repo_clones()
+        logger.info(f"Missing Repo Clones: {missing_repos}")
 
-    if args.save_after < 1:
+        if missing_repos:
+            while True:
+                resp = input("Download them now? (y/n): ")
+
+                if resp == 'y':
+                    download_missing_repo_clones()
+                elif resp != 'n':
+                    continue
+                
+                break
+
+
+        
+    if not args.all:
+        logger.warning("No repo specified. Defaulting to registered repos.")
+    else:
+        for repo in args.repos:
+            if not is_registered(repo):
+                raise ValueError(
+                    f"Invalid --repo value: {repo}. This repository is not registered."
+                )
+        
+
+    if args.save_after and args.save_after < 1:
         raise ValueError(
             f"Invalid --save-after value: {args.save_after}. Must be a positive number (>0)."
         )
 
-    load_bug_inducing_comms()
+    if args.all or args.repos:
+        load_bug_inducing_comms()
 
-    transform(
-        repos_filter=args.repos,
-        workers=args.workers,
-        skip_existing=args.skip_existing,
-        save_after=args.save_after,
-        copy_out_file=args.copy_output,
-    )
+        transform(
+            subset=args.subset,
+            repos_filter=args.repos if not args.all else get_registered_repos(),
+            workers=args.workers,
+            skip_existing=args.skip_existing,
+            save_after=args.save_after,
+            copy_out_file=args.copy_output,
+        )

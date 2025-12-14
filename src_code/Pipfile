@@ -20,6 +20,7 @@ tqdm = "*"
 sentence-transformers = "*"
 tabulate = "*"
 ipynbname = "*"
+cookiecutter-data-science = "*"
 
 [dev-packages]
 
