@@ -20,6 +20,8 @@ CONFIG_FILE_DIR = Path(__file__).resolve()
 # If this file is in 'code/config.py' and 'data' is in the root, it's two parents up.
 PROJECT_ROOT = CONFIG_FILE_DIR.parent.parent
 
+MODEL_DIR = PROJECT_ROOT / "models"
+
 # 3. Define all data paths relative to the Project Root
 DATA_DIR = PROJECT_ROOT / "data"
 EXTERNAL_DATA_DIR = DATA_DIR / "external"
@@ -42,6 +44,7 @@ JIT_TEST_FEATHER_FILE = JIT_DIR / "test.feather"
 
 # JIT_FEATHER_FILE = EXTRACTED_DATA_DIR / "jit_bug_prediction_splits/time/train.feather"
 EXTRATED_TRAIN_DF_FILE = INTERIM_DATA_DIR / "train_labeled_features_partial.feather"
+EXTRACTED_TEST_DF_FILE = INTERIM_DATA_DIR / "test_labeled_features_partial.feather"
 
 def get_output(input_file: Path):
     return INTERIM_DATA_DIR / (input_file.stem + "_labeled_features_partial.feather")
