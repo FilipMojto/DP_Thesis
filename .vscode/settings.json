@@ -1,0 +1,40 @@
+{
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/venv/**": true,
+    "**/.venv/**": true,
+    "**/.git/**": true,
+    "**/build/**": true,
+    "**/dist/**": true,
+    "**/__pycache__/**": true,
+    "**/data/**": true,
+    "**/document/**": true,
+    "**/docs/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/venv": true,
+    "**/.venv": true,
+    "**/__pycache__": true,
+    "**/data": true,
+    "**/document": true,
+    "**/docs": true
+  },
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": false,
+    "strings": false
+  },
+  "editor.quickSuggestionsDelay": 10,
+  "python.analysis.exclude": [
+    "**/venv/**",
+    "**/.venv/**",
+    "**/data/**",
+    "**/docs/**",
+    "**/build/**",
+    "**/document/**"
+],
+"python.analysis.ignore": [
+    "**/site-packages" // Optional, often used to prevent checking installed packages
+]
+}
