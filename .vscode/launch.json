@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug transformdata (module)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.scripts.transformdata",
+            // "args": ["--repos", "ansible", "--skip-existing", "--save-after", "500", "--copy-output"],
+            "args": ["--subset", "test", "--skip-existing", "--save-after", "500", "--copy-output"],
+
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            // 💡 NEW: Add the workspace folder to the Python path
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
+        }
+    ]
+}
