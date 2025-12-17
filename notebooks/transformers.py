@@ -1,7 +1,9 @@
 import joblib
+import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
 from sklearn.compose import ColumnTransformer
+from sklearn.decomposition import PCA
 
 from src_code.config import SubsetType
 
@@ -72,6 +74,43 @@ class QuantileThresholdFlag(BaseEstimator, TransformerMixin):
         return ["extreme_flag"]
     
 
+
+class EmbeddingExpander(BaseEstimator, TransformerMixin):
+    def __init__(self, prefix="emb"):
+        self.prefix = prefix
+        self.feature_names_out_ = None
+
+    def fit(self, X, y=None):
+        # We just need to determine how many columns will be created
+        first_val = np.array(X.iloc[0, 0])
+        self.n_dims = first_val.shape[0]
+        self.feature_names_out_ = [f"{self.prefix}_{i}" for i in range(self.n_dims)]
+        return self
+
+    def transform(self, X):
+        # X will be a DataFrame with one column (e.g., 'code_embed')
+        # where each row is a list/array
+        col_data = X.iloc[:, 0].values
+        expanded = np.vstack(col_data)
+        
+        return pd.DataFrame(
+            expanded, 
+            columns=self.feature_names_out_, 
+            index=X.index
+        )
+
+    def get_feature_names_out(self, input_features=None):
+        return np.array(self.feature_names_out_)
+    
+
+class NamingPCA(PCA):
+    def __init__(self, n_components=100, prefix="pca", **kwargs):
+        super().__init__(n_components=n_components, **kwargs)
+        self.prefix = prefix
+
+    def get_feature_names_out(self, input_features=None):
+        return [f"{self.prefix}{i}" for i in range(self.n_components)]
+    
 # def apply_transformer(subset: SubsetType):
 #     msg = None
 
