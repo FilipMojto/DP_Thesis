@@ -202,9 +202,9 @@ def transform(
     save_after: int = None,
     subset: Literal['train', 'test', 'validation'] = 'train',
 ):
-    in_file = EXTRACTION_MAPPINGS[subset]['input']
-    newest_out_file = EXTRACTION_MAPPINGS[subset]['current_newest']
-    next_out_file = EXTRACTION_MAPPINGS[subset]['next_output']
+    in_file = ETL_MAPPINGS[subset]['input']
+    newest_out_file = ETL_MAPPINGS[subset]['current_newest']
+    next_out_file = ETL_MAPPINGS[subset]['next_output']
 
     logger.info(f"Newest out file: {newest_out_file}")
     logger.info(f"Next out file: {next_out_file}")

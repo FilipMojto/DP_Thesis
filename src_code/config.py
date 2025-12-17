@@ -7,9 +7,11 @@ __ALL__ = [
 ]
 
 from pathlib import Path
+from typing import Literal
 
 from src_code.versioning import find_newest_version, next_version_path
 
+SubsetType = Literal['train', 'test', 'validate']
 
 # 1. Get the directory of the current file (config.py or similar)
 # Use .resolve() to get the absolute path, and .parent to get the directory
@@ -46,14 +48,23 @@ JIT_TEST_FEATHER_FILE = JIT_DIR / "test.feather"
 EXTRATED_TRAIN_DF_FILE = INTERIM_DATA_DIR / "train_labeled_features_partial.feather"
 EXTRACTED_TEST_DF_FILE = INTERIM_DATA_DIR / "test_labeled_features_partial.feather"
 
+PREPROCESSED_TRAIN_DF_FILE = PROCESSED_DATA_DIR / "train_preprocessed.feather"
+PREPROCESSED_TEST_DF_FILE = PROCESSED_DATA_DIR / "test_preprocessed.feather" 
+
+ENGINEERED_TRAIN_DF_FILE = PROCESSED_DATA_DIR / "train_engineered.feather"
+ENGINEERED_TEST_DF_FILE = PROCESSED_DATA_DIR / "test_engineered.feather" 
+
+FITTED_PREPROCESSOR = MODEL_DIR / 'fitted_preprocessor.joblib'
+ENGINEERING_PREPROCESSOR = MODEL_DIR / 'engineering_preprocessor.joblib'
+
 def get_output(input_file: Path):
     return INTERIM_DATA_DIR / (input_file.stem + "_labeled_features_partial.feather")
 
-def get_copy(out_file: Path):
-    return INTERIM_DATA_DIR / (out_file.stem + "_copy.feather")
+# def get_copy(out_file: Path):
+#     return INTERIM_DATA_DIR / (out_file.stem + "_copy.feather")
 
 
-EXTRACTION_MAPPINGS = {
+ETL_MAPPINGS = {
     "train": {
         "input": JIT_TRAIN_FEATHER_FILE,
         # "output": EXTRACTED_DATA_DIR
@@ -69,7 +80,7 @@ EXTRACTION_MAPPINGS = {
 # for mapping in EXTRACTION_MAPPINGS.values():
 #     mapping['copy'] = get_copy(mapping['output'])
 
-for mapping in EXTRACTION_MAPPINGS.values():
+for mapping in ETL_MAPPINGS.values():
     base_output = mapping["base_output"]
 
     newest_path, newest_version = find_newest_version(base_output)
@@ -79,3 +90,26 @@ for mapping in EXTRACTION_MAPPINGS.values():
     mapping["current_newest"] = newest_path           # Path | None
     mapping["current_newest_version"] = newest_version
     mapping["next_output"] = next_path                # where to write next
+
+
+PREPROCESSING_MAPPINGS = {
+    "train": {
+        "input": ETL_MAPPINGS['train']['current_newest'],
+        "output": PREPROCESSED_TRAIN_DF_FILE
+    },
+    "test": {
+        "input": ETL_MAPPINGS['test']['current_newest'],
+        "output": PREPROCESSED_TEST_DF_FILE
+    }
+}
+
+ENGINEERING_MAPPINGS = {
+    "train": {
+        "input": PREPROCESSING_MAPPINGS['train']['output'],
+        "output": ENGINEERED_TRAIN_DF_FILE
+    },
+    "test": {
+        "input": PREPROCESSING_MAPPINGS["test"]['output'],
+        "output": ENGINEERED_TEST_DF_FILE
+    }
+}
