@@ -79,7 +79,7 @@ def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
         logger.addHandler(handler)
 
     # 3. Define and return closures
-    def log_check(text: str, print_to_console: bool = False):
+    def log_check(text: str, print_to_console: bool = True):
         msg = f"[{label if label else "UNSPECIFIED"} CHECK] {text}"
         logger.info(msg)
 
@@ -87,14 +87,14 @@ def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
             print(msg)
 
 
-    def log_result(text: str, print_to_console: bool = False):
+    def log_result(text: str, print_to_console: bool = True):
         msg = f"[{label if label else "UNSPECIFIED"} RESULT] {text}"
         logger.info(msg)
 
         if print_to_console:
             print(msg)
 
-    def log_start(print_to_console: bool = False):
+    def log_start(print_to_console: bool = True):
         msg = f"================== Starting notebook: {notebook_name} (Session {session_id}) =================="
         logger.info(msg)
 
