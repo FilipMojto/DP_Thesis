@@ -23,7 +23,10 @@ CONFIG_FILE_DIR = Path(__file__).resolve()
 PROJECT_ROOT = CONFIG_FILE_DIR.parent.parent
 
 MODEL_DIR = PROJECT_ROOT / "models"
+<<<<<<< HEAD
 LOG_DIR = PROJECT_ROOT / "logs"
+=======
+>>>>>>> fd17944a95fad7474e56d61eca4472c99072ef6e
 RANDOM_FOREST_MODEL = MODEL_DIR / "random_forest_pipeline.joblib"
 
 # 3. Define all data paths relative to the Project Root
