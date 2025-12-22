@@ -159,3 +159,4 @@ cython_debug/
 data/
 logs/
 models/*.joblib
+notebooks/*.feather
