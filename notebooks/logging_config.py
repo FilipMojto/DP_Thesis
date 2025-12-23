@@ -50,6 +50,7 @@ LOG_PATH = os.path.join(os.getcwd(), "logs/notebooks.log")
 
 #     return log_check, log_result
 
+<<<<<<< HEAD
 
 class NotebookLogger:
     DEF_NOTEBOOK_NAME = "UNKNOWN NOTEBOOK"
@@ -104,6 +105,8 @@ class NotebookLogger:
             print(msg)
 
 
+=======
+>>>>>>> 1aff5af73ae85eeeec84d9abbb2bfb7954363002
 # Combined setup function
 def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
     # 1. Get name and create logger instance
@@ -111,17 +114,31 @@ def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
         notebook_name = ipynbname.name()
     except:
         notebook_name = "UNKNOWN_NOTEBOOK"
+<<<<<<< HEAD
 
     session_id = random.randint(100, 999)
     logger_name = f"{notebook_name}-S{session_id}"
 
+=======
+    
+    session_id = random.randint(100, 999)
+    logger_name = f"{notebook_name}-S{session_id}"
+    
+>>>>>>> 1aff5af73ae85eeeec84d9abbb2bfb7954363002
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.INFO)
 
     # 2. Add handler logic (using the passed log_path or default)
     if not logger.handlers:
         handler = RotatingFileHandler(
+<<<<<<< HEAD
             log_path, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
+=======
+            log_path,
+            maxBytes=5_000_000,
+            backupCount=3,
+            encoding="utf-8"
+>>>>>>> 1aff5af73ae85eeeec84d9abbb2bfb7954363002
         )
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -137,6 +154,10 @@ def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
         if print_to_console:
             print(msg)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 1aff5af73ae85eeeec84d9abbb2bfb7954363002
     def log_result(text: str, print_to_console: bool = True):
         msg = f"[{label if label else "UNSPECIFIED"} RESULT] {text}"
         logger.info(msg)
@@ -151,4 +172,9 @@ def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
         if print_to_console:
             print(msg)
 
+<<<<<<< HEAD
     return logger, log_start, log_check, log_result
+=======
+
+    return logger, log_start, log_check, log_result
+>>>>>>> 1aff5af73ae85eeeec84d9abbb2bfb7954363002
