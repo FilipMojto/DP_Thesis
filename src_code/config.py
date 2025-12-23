@@ -23,10 +23,7 @@ CONFIG_FILE_DIR = Path(__file__).resolve()
 PROJECT_ROOT = CONFIG_FILE_DIR.parent.parent
 
 MODEL_DIR = PROJECT_ROOT / "models"
-<<<<<<< HEAD
 LOG_DIR = PROJECT_ROOT / "logs"
-=======
->>>>>>> fd17944a95fad7474e56d61eca4472c99072ef6e
 RANDOM_FOREST_MODEL = MODEL_DIR / "random_forest_pipeline.joblib"
 
 # 3. Define all data paths relative to the Project Root
@@ -59,8 +56,8 @@ PREPROCESSED_TEST_DF_FILE = PROCESSED_DATA_DIR / "test_preprocessed.feather"
 ENGINEERED_TRAIN_DF_FILE = PROCESSED_DATA_DIR / "train_engineered.feather"
 ENGINEERED_TEST_DF_FILE = PROCESSED_DATA_DIR / "test_engineered.feather" 
 
-FITTED_PREPROCESSOR = MODEL_DIR / 'fitted_preprocessor.joblib'
-ENGINEERING_PREPROCESSOR = MODEL_DIR / 'engineering_preprocessor.joblib'
+FITTED_TRANSFORMER = MODEL_DIR / 'fitted_preprocessor.joblib'
+ENGINEERING_TRANSFORMER = MODEL_DIR / 'engineering_preprocessor.joblib'
 
 def get_output(input_file: Path):
     return INTERIM_DATA_DIR / (input_file.stem + "_labeled_features_partial.feather")

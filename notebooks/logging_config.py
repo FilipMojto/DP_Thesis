@@ -111,31 +111,17 @@ def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
         notebook_name = ipynbname.name()
     except:
         notebook_name = "UNKNOWN_NOTEBOOK"
-<<<<<<< HEAD
 
     session_id = random.randint(100, 999)
     logger_name = f"{notebook_name}-S{session_id}"
 
-=======
-    
-    session_id = random.randint(100, 999)
-    logger_name = f"{notebook_name}-S{session_id}"
-    
->>>>>>> fd17944a95fad7474e56d61eca4472c99072ef6e
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.INFO)
 
     # 2. Add handler logic (using the passed log_path or default)
     if not logger.handlers:
         handler = RotatingFileHandler(
-<<<<<<< HEAD
             log_path, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
-=======
-            log_path,
-            maxBytes=5_000_000,
-            backupCount=3,
-            encoding="utf-8"
->>>>>>> fd17944a95fad7474e56d61eca4472c99072ef6e
         )
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -151,10 +137,6 @@ def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
         if print_to_console:
             print(msg)
 
-<<<<<<< HEAD
-=======
-
->>>>>>> fd17944a95fad7474e56d61eca4472c99072ef6e
     def log_result(text: str, print_to_console: bool = True):
         msg = f"[{label if label else "UNSPECIFIED"} RESULT] {text}"
         logger.info(msg)
@@ -169,9 +151,4 @@ def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
         if print_to_console:
             print(msg)
 
-<<<<<<< HEAD
     return logger, log_start, log_check, log_result
-=======
-
-    return logger, log_start, log_check, log_result
->>>>>>> fd17944a95fad7474e56d61eca4472c99072ef6e
