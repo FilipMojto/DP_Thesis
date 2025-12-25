@@ -24,3 +24,17 @@ BUCKET_MAPPINGS = {
         (5, np.inf): "senior",
     },
 }
+
+DROP_COLS = [
+    "commit",
+    "repo",
+    "filepath",
+    "author_email",
+    "datetime",
+    "canonical_datetime",
+    "content",
+    "methods",
+    "lines",
+    "files_changed",
+    "loc_added_bucket"
+]
