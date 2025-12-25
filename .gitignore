@@ -160,3 +160,4 @@ data/
 logs/
 models/*.joblib
 notebooks/*.feather
+docs/gpt_ideas

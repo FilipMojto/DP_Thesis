@@ -13,6 +13,7 @@ from src_code.versioning import find_newest_version, next_version_path
 
 SubsetType = Literal['train', 'test', 'validate']
 
+
 # 1. Get the directory of the current file (config.py or similar)
 # Use .resolve() to get the absolute path, and .parent to get the directory
 CONFIG_FILE_DIR = Path(__file__).resolve()
