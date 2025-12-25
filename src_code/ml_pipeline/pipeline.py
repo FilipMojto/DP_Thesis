@@ -3,6 +3,7 @@ from notebooks.constants import (
     ENGINEERED_FEATURES,
     INTERACTION_FEATURES,
     LINE_TOKEN_FEATURES,
+    TARGET,
 )
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.preprocessing.data_engineering import (
@@ -15,13 +16,16 @@ from src_code.ml_pipeline.preprocessing.transform import (
     pca_explained_variance,
     transform,
 )
+from src_code.ml_pipeline.training.train import split_train_test
+from src_code.ml_pipeline.training.utils import analyze_features, drop_cols
 from .preprocessing.preprocessing import drop_invalid_rows
-from .df_load import load_df, save_df
+from .df_utils import load_df, save_df
 from ..config import ENGINEERING_MAPPINGS, PREPROCESSING_MAPPINGS, SubsetType
 from argparse import ArgumentParser
 from . import feature_config as ftr_cfg
 
 RANDOM_STATE = 42
+TEST_SPLIT = 0.2
 PIPELINE_PHASES = ["preprocess", "train", "eval"]
 
 SCRIPT_LOGGER = DEF_NOTEBOOK_LOGGER
@@ -68,9 +72,9 @@ if __name__ == "__main__":
         # PREPROCESSING
         # =============================================================================
 
-        target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
+        # target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
 
-        # print("HERE")
+        target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
         target_df = load_df(target_df_path)
         # -----------------------------------------------------------------------------
         # Dropping invalid rows
@@ -147,8 +151,41 @@ if __name__ == "__main__":
         save_df(df=target_df, df_file_path=ENGINEERING_MAPPINGS[subset]["output"])
 
     if not filtered_phases or "train" in filtered_phases:
-        # NOTE: TODO
-        ...
+        # =============================================================================
+        # TRAINING
+        # =============================================================================
+
+        # -----------------------------------------------------------------------------
+        # Loading df
+        # -----------------------------------------------------------------------------
+        target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS[subset]["input"]
+        target_df = load_df(target_df_path)
+
+        SCRIPT_LOGGER.log_check("Starting training phase...")
+
+        # -----------------------------------------------------------------------------
+        # Dropping cols
+        # -----------------------------------------------------------------------------
+
+        df = drop_cols(df=target_df, cols=ftr_cfg.DROP_COLS)
+
+        # -----------------------------------------------------------------------------
+        # analyzigin features
+        # -----------------------------------------------------------------------------
+
+        analyze_features(df=target_df, target=TARGET)
+
+        # -----------------------------------------------------------------------------
+        # Traing&Test Split
+        # -----------------------------------------------------------------------------
+
+        X_train, X_test, y_train, y_test = split_train_test(
+            df=target_df, target=TARGET, random_state=RANDOM_STATE, test_size=TEST_SPLIT
+        )
+
+        SCRIPT_LOGGER.log_result("Preprocessing phase finished.")
+
+        # save_df(df=target_df, df_fil~e_path=)
 
     if not filtered_phases or "eval" in filtered_phases:
         # NOTE: TODO

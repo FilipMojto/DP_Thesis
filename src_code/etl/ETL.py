@@ -12,7 +12,7 @@ from git import Repo
 import logging
 import pyarrow.feather as feather
 
-from src_code.preprocessing.repos import (
+from .repos import (
     BUG_INDUCING_COMMITS,
     download_missing_repo_clones,
     get_missing_repo_clones,
@@ -20,11 +20,11 @@ from src_code.preprocessing.repos import (
     is_registered,
     load_bug_inducing_comms,
 )
-from src_code.preprocessing.extraction import extract_commit_features
-from src_code.preprocessing.features.developer_social import (
+from .extraction import extract_commit_features
+from .features.developer_social import (
     pre_calculate_author_metrics,
 )
-from src_code.preprocessing.features.historical_temporal import (
+from .features.historical_temporal import (
     calc_recent_churn_from_df,
 )
 
