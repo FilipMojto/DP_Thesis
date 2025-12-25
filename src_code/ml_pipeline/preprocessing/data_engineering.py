@@ -92,16 +92,22 @@ def aggr_line_token_features(
             df[f"{token}_ratio"] = df[token] / denom
             logger.log_result(f"{token}_ratio created successfully.")
 
-
     logger.log_result(("Aggregation successful."))
     return df
 
 
-def create_feature_interactions(df: pd.DataFrame, features: Iterable[str]):
+def create_feature_interactions(
+    df: pd.DataFrame,
+    features: Iterable[str],
+    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+):
+    logger.log_check("Creating feature interactions...")
     for i in range(len(features)):
-        for j in range(i+1, len(features)):
+        for j in range(i + 1, len(features)):
             f1 = features[i]
             f2 = features[j]
             df[f"{f1}_x_{f2}"] = df[f1] * df[f2]
-    
+            logger.log_result(f"Created feature {features[i]}")
+
+    logger.log_result("Feature interactions created successfully.")
     return df
