@@ -1,5 +1,3 @@
-
-
 import datetime
 from git import Commit
 import pandas as pd

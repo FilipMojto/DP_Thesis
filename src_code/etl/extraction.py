@@ -2,11 +2,11 @@
 import git
 from argparse import ArgumentParser
 
-from src_code.preprocessing.features.code_structural import extract_code_structural_features
-from src_code.preprocessing.features.historical_temporal import calc_time_since_last_change
-from src_code.preprocessing.features.linelevel import count_token_keywords
-from src_code.preprocessing.features.semantic_embedding import calculate_semantic_embeddings
-from src_code.preprocessing.features.textual_nlp import compute_msg_flags
+from .features.code_structural import extract_code_structural_features
+from .features.historical_temporal import calc_time_since_last_change
+from .features.linelevel import count_token_keywords
+from .features.semantic_embedding import calculate_semantic_embeddings
+from .features.textual_nlp import compute_msg_flags
 from .features.change_churn import calculate_change_churn_metrics
 
 ### ---------- CONFIGURATION ----------
