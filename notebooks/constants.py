@@ -1,3 +1,9 @@
+# from src_code.config import LOG_DIR
+
+
+from pathlib import Path
+
+
 LINE_TOKEN_FEATURES = ["todo", "fixme", "try", "except", "raise"]
 BINARY_FEATURES = ["has_fix_kw", "has_bug_kw"]
 TARGET = "label"
@@ -34,3 +40,5 @@ for i in range(len(INTERACTION_FEATURES)):
         f1 = INTERACTION_FEATURES[i]
         f2 = INTERACTION_FEATURES[j]
         ENGINEERED_FEATURES.append(f"{f1}_x_{f2}")
+
+LOG_FILE = Path().resolve().parent / "notebooks.log"
