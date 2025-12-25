@@ -96,7 +96,9 @@ class NotebookLogger:
         if print_to_console:
             print(msg)
 
-    def log_start(self, print_to_console: bool = True):
+    def log_start(
+        self, session_id: int = random.randint(100, 999), print_to_console: bool = True
+    ):
         msg = f"================== Starting notebook: {self.notebook_name} (Session {session_id}) =================="
         self.logger.info(msg)
 
@@ -121,10 +123,7 @@ def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
     # 2. Add handler logic (using the passed log_path or default)
     if not logger.handlers:
         handler = RotatingFileHandler(
-            log_path,
-            maxBytes=5_000_000,
-            backupCount=3,
-            encoding="utf-8"
+            log_path, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
         )
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
