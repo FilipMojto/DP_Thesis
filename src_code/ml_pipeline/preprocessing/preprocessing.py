@@ -16,7 +16,7 @@ from notebooks.transformers import EmbeddingExpander, NamingPCA, WinsorizerIQR
 from src_code.config import FITTED_TRANSFORMER, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.preprocessing.transform import build
-from src_code.ml_pipeline.utils import contains_negative
+# from src_code.ml_pipeline.utils import contains_negative
 
 
 # def drop_negative_cols(

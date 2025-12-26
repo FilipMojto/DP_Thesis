@@ -39,6 +39,7 @@ def create_buckets(
     df: pd.DataFrame,
     mappings: BucketMappings,
     logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    encode: bool = False,
 ) -> pd.DataFrame:
     logger.log_check("Creating buckets...")
     for feature, submappings in mappings.items():
@@ -62,6 +63,19 @@ def create_buckets(
             right=False,
         )
         logger.log_result(f"Created bucket for feature {feature}")
+
+    if encode:
+        logger.log_check("Encoding the buckets...")
+        bucket_cols = [c for c in df.columns if c.endswith("_bucket")]
+
+        df = pd.get_dummies(
+            df,
+            columns=bucket_cols,
+            prefix=bucket_cols,
+            drop_first=False,
+        )
+
+        logger.log_result("Buckets endcoded successfully.")
 
     logger.log_result("Buckets created successfully.")
     return df
