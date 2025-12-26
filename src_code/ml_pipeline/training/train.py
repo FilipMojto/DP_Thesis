@@ -1,7 +1,11 @@
+<<<<<<< HEAD
 import time
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.inspection import permutation_importance
+=======
+import pandas as pd
+>>>>>>> e94287b6ec2327bd8a597cfb3be9e88a30cf7447
 from sklearn.model_selection import train_test_split
 
 from notebooks.logging_config import NotebookLogger
@@ -24,6 +28,10 @@ def split_train_test(
     logger.log_result(f"Target column: '{target}'")
     logger.log_result(f"Test size: {test_size:.2%}")
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> e94287b6ec2327bd8a597cfb3be9e88a30cf7447
     X = df.drop(columns=[target])
     y = df[target]
 
@@ -35,6 +43,7 @@ def split_train_test(
         random_state=random_state,
     )
 
+<<<<<<< HEAD
     logger.log_result(f"Train rows: {len(X_train)} | Test rows: {len(X_test)}")
 
     logger.log_result("Splitting completed.")
@@ -123,3 +132,11 @@ def check_single_infer(
 #     ).sort_values(ascending=False)
 
 #     importances.head(20)
+=======
+    logger.log_result(
+        f"Train rows: {len(X_train)} | Test rows: {len(X_test)}"
+    )
+
+    logger.log_result("Splitting completed.")
+    return X_train, X_test, y_train, y_test
+>>>>>>> e94287b6ec2327bd8a597cfb3be9e88a30cf7447
