@@ -42,3 +42,20 @@ def save_model(model: BaseEstimator, path: Path, logger: NotebookLogger = DEF_NO
     # Save the entire fitted pipeline
     joblib.dump(model, path)
     logger.log_result(f"Saved to {path}.")
+
+
+def load_model(path: Path, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+    logger.log_check("Loading a trained model...")
+
+    model = joblib.load(path)
+    # rf = model.named_steps['rf']
+    # print("Pipeline Steps:", model.named_steps.keys())
+    # logger.log_result(f"Hyperparameters: {model.get_params()}")
+    # model_features = model.feature_names_in_
+    # logger.log_result(f"The model was trained on {len(model_features)} features:")
+
+    logger.log_result("Loading successful.")
+    logger.log_result(f"Hyperparameters: {model.get_params()}")
+    logger.log_result(f"The model was trained on {len(model.feature_names_in_)} features:")
+
+    return model
