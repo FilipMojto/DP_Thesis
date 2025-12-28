@@ -46,6 +46,7 @@ JIT_DIR = DEFECTORS_DIR / "jit_bug_prediction_splits/time"
 
 JIT_TRAIN_FEATHER_FILE = JIT_DIR / "train.feather"
 JIT_TEST_FEATHER_FILE = JIT_DIR / "test.feather"
+JIT_VAL_FEATHER_FILE = JIT_DIR / "val.feather"
 
 # JIT_FEATHER_FILE = EXTRACTED_DATA_DIR / "jit_bug_prediction_splits/time/train.feather"
 EXTRATED_TRAIN_DF_FILE = INTERIM_DATA_DIR / "train_labeled_features_partial.feather"
@@ -77,7 +78,12 @@ ETL_MAPPINGS = {
     "test": {
         "input": JIT_TEST_FEATHER_FILE,
         "base_output": get_output(JIT_TEST_FEATHER_FILE)
+    },
+    "validate": {
+        "input": JIT_VAL_FEATHER_FILE,
+        "base_output": get_output(JIT_VAL_FEATHER_FILE)
     }
+
 }
 
 # for mapping in EXTRACTION_MAPPINGS.values():

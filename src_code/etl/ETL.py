@@ -200,7 +200,7 @@ def transform(
     workers: int = 8,
     skip_existing: bool = False,
     save_after: int = None,
-    subset: Literal['train', 'test', 'validation'] = 'train',
+    subset: Literal['train', 'test', 'validate'] = 'train',
 ):
     in_file = ETL_MAPPINGS[subset]['input']
     newest_out_file = ETL_MAPPINGS[subset]['current_newest']
@@ -370,10 +370,10 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--subset",
-        choices=["train", "test", "validation"],  # This is the key part
+        choices=["train", "test", "validate"],  # This is the key part
         required=False,                            # Recommend making it required
         default="train",                          # Optional: Set a default value
-        help="The data subset to process. Must be one of: train, test, or validation."
+        help="The data subset to process. Must be one of: train, test, or validate."
     )
 
     parser.add_argument(
@@ -428,7 +428,7 @@ if __name__ == "__main__":
                 break
 
 
-    if not args.all:
+    if args.all or args.repos:
         logger.warning("No repo specified. Defaulting to registered repos.")
     else:
         for repo in args.repos:

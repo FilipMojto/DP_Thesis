@@ -7,8 +7,8 @@ from notebooks.constants import (
 )
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.feature_importance import PFIWrapper
-from src_code.ml_pipeline.models import RFWrapper
-from src_code.ml_pipeline.pipelines import RFPipelineWrapper
+from src_code.ml_pipeline.models import ModelWrapperFactory, RFWrapper, XGBWrapper
+from src_code.ml_pipeline.pipelines import ModelPipelineWrapper, RFPipelineWrapper
 from src_code.ml_pipeline.preprocessing.data_engineering import (
     aggr_line_token_features,
     create_buckets,
@@ -22,10 +22,10 @@ from src_code.ml_pipeline.preprocessing.transform import (
 from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
 from src_code.ml_pipeline.training.train import (
     check_single_infer,
-    fit_model,
+    fit_rf,
     split_train_test,
 )
-from src_code.ml_pipeline.training.tuning import RFTuningWrapper
+from src_code.ml_pipeline.training.tuning import ModelTuningFactory, RFTuningWrapper, XGBTuningWrapper
 from src_code.ml_pipeline.training.utils import analyze_features, drop_cols
 from src_code.ml_pipeline.validations import CVWrapper
 from .preprocessing.preprocessing import drop_invalid_rows
@@ -62,6 +62,14 @@ if __name__ == "__main__":
         help="Pipeline phases to run",
     )
     parser.add_argument(
+        "--model",
+        type=str,
+        required=False,
+        choices=["RF", "XGB"],
+        default="RF",
+        help="Model type to use in the pipeline.",
+    )
+    parser.add_argument(
         "--skip-cv",
         action="store_true",
         required=False,
@@ -86,6 +94,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     filtered_phases: List[str] = args.phases
     subset: SubsetType = args.subset
+    MODEL_TYPE = args.model  # "rf" or "xgb"
+
     # script_model_path = MODEL_DIR / f"RF_model_script_{subset}.joblib"
 
     script_model_path = MODEL_DIR / f"RF_model_script_train.joblib"
@@ -242,25 +252,54 @@ if __name__ == "__main__":
         # Model & TrainingPipeline Definition
         # -----------------------------------------------------------------------------
 
-        rf_wrapper = RFWrapper(random_state=RANDOM_STATE)
-        model = rf_wrapper.get_model()
+        # rf_wrapper = RFWrapper(random_state=RANDOM_STATE)
+        # model = rf_wrapper.get_model()
+        # if MODEL_TYPE == "rf":
+        #     model_wrapper = RFWrapper(random_state=RANDOM_STATE)
+        #     model = model_wrapper.get_model()
+        #     step_name = "rf"
 
-        rf_pipeline = RFPipelineWrapper(rf=model)
+        # elif MODEL_TYPE == "xgb":
+        #     model_wrapper = XGBWrapper(random_state=RANDOM_STATE)
+        #     model = model_wrapper.get_model()
+        #     step_name = "xgb"
+        model_wrapper, step_name = ModelWrapperFactory.create(model_type=MODEL_TYPE.lower(), random_state=RANDOM_STATE)
+        model = model_wrapper.get_model()
+
+        # rf_pipeline = ModelPipelineWrapper(rf=model)
+        pipeline_wrapper = ModelPipelineWrapper(
+            model=model,
+            step_name=step_name
+        )
+        pipeline = pipeline_wrapper.get_pipeline()
         # model = rf_wrapper.get_model()
 
         # -----------------------------------------------------------------------------
         # Hyperparameter Tuning
         # -----------------------------------------------------------------------------
         if not args.skip_tuning:
-            rf_tuning_wrapper = RFTuningWrapper(
-                rf=model, X_train=X_train, y_train=y_train
-            )
-            best_params, best_score = rf_tuning_wrapper.run_grid_search()
+            # rf_tuning_wrapper = RFTuningWrapper(
+            #     rf=model, X_train=X_train, y_train=y_train
+            # )
+            # best_params, best_score = rf_tuning_wrapper.run_grid_search()
 
-            # --- Update Model ---
-            model.set_params(
-                **best_params
-            )  # make sure pipeline/model uses the tuned parameters
+            # # --- Update Model ---
+            # model.set_params(
+            #     **best_params
+            # )  # make sure pipeline/model uses the tuned parameters
+            # if MODEL_TYPE == "rf":
+            #     tuning = RFTuningWrapper(model, X_train, y_train)
+            # else:
+            #     tuning = XGBTuningWrapper(model, X_train, y_train)
+            tuning = ModelTuningFactory.create(
+                model_type=MODEL_TYPE.lower(),
+                model=model,
+                X_train=X_train,
+                y_train=y_train
+            )
+
+            best_params, best_score = tuning.run_grid_search()
+            model.set_params(**best_params)
         else:
             SCRIPT_LOGGER.log_result("Skipping Hyperparameter Tuning...")
 
@@ -285,13 +324,18 @@ if __name__ == "__main__":
         # This step trains the single, final model pipeline that is saved
         # in the 'model' variable and used for prediction and PFI.
         # model.fit(X_train, y_train)
-        model = fit_model(model=model, X_train=X_train, y_train=y_train)
+        # model = fit_model(model=model, X_train=X_train, y_train=y_train)
+        # model.fit(X_train, y_train, X_val=X_test, y_val=y_test)
+        if MODEL_TYPE == "rf":
+            model_wrapper.fit(X_train, y_train)
+        else:
+            model_wrapper.fit(X_train, y_train, X_val=X_test, y_val=y_test)
 
         # -----------------------------------------------------------------------------
         # Single inference check
         # -----------------------------------------------------------------------------
 
-        check_single_infer(model=model, X_test=X_test)
+        check_single_infer(model=model_wrapper, X_test=X_test)
 
         # -----------------------------------------------------------------------------
         # PFI & Training Subset Refinement
@@ -299,7 +343,7 @@ if __name__ == "__main__":
 
         if not args.skip_pfi:
             pfi_wrapper = PFIWrapper(
-                model=model, X_test=X_test, y_test=y_test, random_state=RANDOM_STATE
+                model=model_wrapper, X_test=X_test, y_test=y_test, random_state=RANDOM_STATE
             )
             pfi_wrapper.run_PFI()
             pfi_wrapper.calc_importances()
@@ -313,7 +357,7 @@ if __name__ == "__main__":
             # Model retraining
             # -----------------------------------------------------------------------------
             # model.fit(X_train, y_train)
-            model = fit_model(model=model, X_train=X_train, y_train=y_train)
+            model_wrapper = fit_rf(model=model_wrapper, X_train=X_train, y_train=y_train)
         else:
             SCRIPT_LOGGER.log_result("Skipping PFI process...")
 
@@ -321,7 +365,7 @@ if __name__ == "__main__":
 
         # save_df(df=target_df, df_fil~e_path=)
         save_model(
-            model=model,
+            model=model_wrapper,
             path=script_model_path
         )
 
@@ -341,8 +385,8 @@ if __name__ == "__main__":
         # Model Loading
         # -----------------------------------------------------------------------------
 
-        model = load_model(path=script_model_path)
-        model_features = model.feature_names_in_
+        model_wrapper = load_model(path=script_model_path)
+        model_features = model_wrapper.feature_names_in_
 
         # -----------------------------------------------------------------------------
         # Column Filtering
@@ -363,7 +407,7 @@ if __name__ == "__main__":
         # predictions = model.predict(X_test)
         # probabilities = model.predict_proba(X_test)[:, 1]  # Probability of the positive class
 
-        predictions, probabilities = infer(X_test=X_test, model=model)
+        predictions, probabilities = infer(X_test=X_test, model=model_wrapper)
 
         # -----------------------------------------------------------------------------
         # Evaluation

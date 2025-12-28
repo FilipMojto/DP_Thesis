@@ -41,7 +41,7 @@ def split_train_test(
     return X_train, X_test, y_train, y_test
 
 
-def fit_model(
+def fit_rf(
     model: BaseEstimator,
     X_train,
     y_train,
@@ -56,6 +56,48 @@ def fit_model(
     end = time.time()
 
     logger.log_result(f"Model fit completed. Time: {end - start:2f}")
+    return model
+
+
+def fit_xgb_with_es(
+    model: BaseEstimator,
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    X_val: pd.DataFrame,
+    y_val: pd.Series,
+    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    use_early_stopping=True,
+):
+    logger.log_check("Starting XGBoost fit...")
+    start = time.time()
+
+    if use_early_stopping:
+        # X_tr, X_val, y_tr, y_val = train_test_split(
+        #     X_train,
+        #     y_train,
+        #     test_size=0.15,
+        #     random_state=42,
+        #     stratify=y_train,
+        # )
+
+        model.set_params(
+            n_estimators=3000,
+            learning_rate=0.05,
+        )
+
+        model.fit(
+            X_train,
+            y_train,
+            eval_set=[(X_val, y_val)],
+            early_stopping_rounds=20,
+            verbose=False,
+        )
+    else:
+        model.fit(X_train, y_train)
+
+    end = time.time()
+    logger.log_result(f"XGBoost fit completed. Time: {end - start:.2f}s")
+
     return model
 
 
@@ -96,8 +138,8 @@ def check_single_infer(
 #         # with tqdm.tqdm(total=total_tasks, desc="PFI Permutations") as progress_bar:
 #             # Wrap the function call in a helper that updates the progress bar
 #             # This is a bit advanced but forces joblib to use the tqdm callback
-            
-#     # NOTE: In modern scikit-learn/joblib, simply setting the backend 
+
+#     # NOTE: In modern scikit-learn/joblib, simply setting the backend
 #     # is often enough to show the progress. If not, this is the safest way:
 #     perm = permutation_importance(
 #         model,
@@ -111,14 +153,14 @@ def check_single_infer(
 #     importances = pd.Series(
 #         perm.importances_mean, # Retrieves the average importance score
 #                                 # (the average drop in model performance)
-#                                 # calculated across the n_repeats=2 runs 
+#                                 # calculated across the n_repeats=2 runs
 #                                 # for each feature.
 #         # index=model.named_steps["preprocess"].get_feature_names_out()\
 #         index=X_test_small.columns
 
-#         # This is a crucial step for pipelines. After the ColumnTransformer 
+#         # This is a crucial step for pipelines. After the ColumnTransformer
 #         # ("preprocess") has run (including PCA and any other steps), the feature
-#         #  names are transformed (e.g., code_emb_0 becomes embed__pca__0). This 
+#         #  names are transformed (e.g., code_emb_0 becomes embed__pca__0). This
 #         # method retrieves the correct, final feature names that the model actually used.
 #     ).sort_values(ascending=False)
 
