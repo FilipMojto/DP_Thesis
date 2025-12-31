@@ -5,11 +5,11 @@ import joblib
 import pandas as pd
 from sklearn.base import BaseEstimator
 
-from notebooks.logging_config import NotebookLogger
+from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 
 
-def load_df(df_file_path: Path, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+def load_df(df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     logger.log_check("Loading the dataset...", print_to_console=True)
 
     df = pd.read_feather(df_file_path)
@@ -18,7 +18,7 @@ def load_df(df_file_path: Path, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
     return df
 
 
-def save_df(df: pd.DataFrame, df_file_path: Path, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+def save_df(df: pd.DataFrame, df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     logger.log_check("Saving the preprocessed dataset...", print_to_console=True)
 
     # OUTPUT_PATH = PREPROCESSING_MAPPINGS[subset]['output']
@@ -34,7 +34,7 @@ def save_df(df: pd.DataFrame, df_file_path: Path, logger: NotebookLogger = DEF_N
     logger.log_result(f"Preprocessed dataset saved to {df_file_path}", print_to_console=True)
 
 
-def save_model(model: BaseEstimator, path: Path, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+def save_model(model: BaseEstimator, path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     # Ensure the directory exists
     logger.log_check("Saving the trained model...")
     os.makedirs("models", exist_ok=True)
@@ -44,7 +44,7 @@ def save_model(model: BaseEstimator, path: Path, logger: NotebookLogger = DEF_NO
     logger.log_result(f"Saved to {path}.")
 
 
-def load_model(path: Path, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+def load_model(path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     logger.log_check("Loading a trained model...")
 
     model = joblib.load(path)

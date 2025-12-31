@@ -2,7 +2,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.inspection import permutation_importance
 
-from notebooks.logging_config import NotebookLogger
+from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.utils import get_n_jobs
 
@@ -14,7 +14,7 @@ class PFIWrapper:
         X_test,
         y_test,
         random_state: int,
-        logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+        logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         reserve_cores: int = 2,
     ):
         self.logger = logger

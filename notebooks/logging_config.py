@@ -51,21 +51,22 @@ LOG_PATH = os.path.join(os.getcwd(), "logs/notebooks.log")
 #     return log_check, log_result
 
 
-class NotebookLogger:
+class MyLogger:
     DEF_NOTEBOOK_NAME = "UNKNOWN NOTEBOOK"
 
-    def __init__(self, label: str, notebook_name: str = None, file_log_path=LOG_PATH):
-        if not notebook_name:
-            try:
+    def __init__(self, label: str, section_name: str = None, file_log_path=LOG_PATH):
+        if not section_name:
+            try:    
                 self.notebook_name = ipynbname.name()
             except:
                 self.notebook_name = "UNKNOWN_NOTEBOOK"
 
         session_id = random.randint(100, 999)
-        logger_name = f"{notebook_name}-S{session_id}"
+        logger_name = f"{section_name}-S{session_id}"
 
         self.logger = logging.getLogger(logger_name)
         self.logger.setLevel(logging.INFO)
+        self.section_name = section_name
 
         # 2. Add handler logic (using the passed log_path or default)
         if not self.logger.handlers:
@@ -96,10 +97,10 @@ class NotebookLogger:
         if print_to_console:
             print(msg)
 
-    def log_start(
+    def start_session(
         self, session_id: int = random.randint(100, 999), print_to_console: bool = True
     ):
-        msg = f"================== Starting notebook: {self.notebook_name} (Session {session_id}) =================="
+        msg = f"================== Starting notebook: {self.section_name} (Session {session_id}) =================="
         self.logger.info(msg)
 
         if print_to_console:

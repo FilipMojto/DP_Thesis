@@ -3,10 +3,10 @@ import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.metrics import classification_report, matthews_corrcoef, precision_recall_curve, roc_auc_score, roc_curve
 from notebooks.constants import TARGET
-from notebooks.logging_config import NotebookLogger
+from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
-from src_code.ml_pipeline.feature_config import DROP_COLS
-from src_code.ml_pipeline.training.utils import drop_cols
+from src_code.ml_pipeline.preprocessing.feature_config import DROP_COLS
+# from src_code.ml_pipeline.training.utils import drop_cols
 
 # X_test = drop_cols(df=df, cols=DROP_COLS + [TARGET], logger=logger)
 
@@ -20,7 +20,7 @@ from src_code.ml_pipeline.training.utils import drop_cols
 # y_true = df["label"] if "label" in df.columns else None
 
 
-def infer(model: BaseEstimator, X_test, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+def infer(model: BaseEstimator, X_test, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     logger.log_check("Performing final model inference...")
     predictions = model.predict(X_test)
     probabilities = model.predict_proba(X_test)[:, 1]  # Probability of the positive class
@@ -28,7 +28,7 @@ def infer(model: BaseEstimator, X_test, logger: NotebookLogger = DEF_NOTEBOOK_LO
     return predictions, probabilities
 
 
-def evaluate(y_true, predictions, probabilities, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER, threshold: float = None):
+def evaluate(y_true, predictions, probabilities, logger: MyLogger = DEF_NOTEBOOK_LOGGER, threshold: float = None):
     logger.log_check("Evaluating model inference...")
 
     if threshold:
@@ -41,7 +41,7 @@ def evaluate(y_true, predictions, probabilities, logger: NotebookLogger = DEF_NO
     logger.log_result("Evaluation complete.")
 
 
-def prec_recall_curve(y_true, probs, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+def prec_recall_curve(y_true, probs, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     logger.log_check("Plotting precision recall curve...")
     
     precision, recall, thresholds = precision_recall_curve(y_true, probs)
@@ -58,7 +58,7 @@ def prec_recall_curve(y_true, probs, logger: NotebookLogger = DEF_NOTEBOOK_LOGGE
     return precision, recall, thresholds
 
 
-def find_best_threshold(precision, recall, thresholds, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+def find_best_threshold(precision, recall, thresholds, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     # Calculate F1 for every threshold produced by the PR curve
     f1_scores = 2 * (precision * recall) / (precision + recall + 1e-10)
     best_idx = np.argmax(f1_scores)
@@ -70,7 +70,7 @@ def find_best_threshold(precision, recall, thresholds, logger: NotebookLogger = 
     return best_threshold
 
 
-def find_optimal_threshold_MCC(y_true, probs, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+def find_optimal_threshold_MCC(y_true, probs, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     thresholds = np.linspace(0, 1, 100)
     mcc_scores = [matthews_corrcoef(y_true, probs >= t) for t in thresholds]
 
@@ -84,7 +84,7 @@ def find_optimal_threshold_MCC(y_true, probs, logger: NotebookLogger = DEF_NOTEB
     return best_threshold, best_mcc
 
 
-def display_ROC_curve(y_true, probabilities, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+def display_ROC_curve(y_true, probabilities, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     logger.log_check("Displaying ROC curve...")
     fpr, tpr, _ = roc_curve(y_true, probabilities)
 

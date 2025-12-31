@@ -1,29 +1,29 @@
 from typing import Iterable
 import pandas as pd
 
-from notebooks.logging_config import NotebookLogger
+from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 
 
-def drop_cols(
-    df: pd.DataFrame, cols: Iterable[str], logger: NotebookLogger = DEF_NOTEBOOK_LOGGER
-):
-    logger.log_check("Dropping the specified columns...")
+# def drop_cols(
+#     df: pd.DataFrame, cols: Iterable[str], logger: MyLogger = DEF_NOTEBOOK_LOGGER
+# ):
+#     logger.log_check("Dropping the specified columns...")
 
-    start_cols = set(df.columns)
+#     start_cols = set(df.columns)
 
-    df = df.drop(columns=cols, errors="ignore")
+#     df = df.drop(columns=cols, errors="ignore")
 
-    end_cols = set(df.columns)
+#     end_cols = set(df.columns)
 
-    logger.log_result("Dropping completed.")
-    logger.log_result(f"Columns dropped: {len(start_cols - end_cols)}")
-    logger.log_result(f"Columns remaining: {len(end_cols)}")
-    return df
+#     logger.log_result("Dropping completed.")
+#     logger.log_result(f"Columns dropped: {len(start_cols - end_cols)}")
+#     logger.log_result(f"Columns remaining: {len(end_cols)}")
+#     return df
 
 
 def analyze_features(
-    df: pd.DataFrame, target: str, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER
+    df: pd.DataFrame, target: str, logger: MyLogger = DEF_NOTEBOOK_LOGGER
 ):
     logger.log_check("Starting df feature analysis...")
     # numeric_features = df.select_dtypes(include=["float64", "int64", "int8"]).columns.tolist()

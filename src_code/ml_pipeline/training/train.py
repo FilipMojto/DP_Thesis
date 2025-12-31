@@ -4,8 +4,9 @@ from sklearn.base import BaseEstimator
 from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
 
-from notebooks.logging_config import NotebookLogger
+from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
+from src_code.ml_pipeline.models import ModelWrapperBase
 
 
 def split_train_test(
@@ -13,7 +14,7 @@ def split_train_test(
     target: str,
     random_state: int,
     test_size: float,
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
 ):
     logger.log_check("Splitting df into train & test subsets...")
     n_rows = len(df)
@@ -45,7 +46,7 @@ def fit_rf(
     model: BaseEstimator,
     X_train,
     y_train,
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
 ):
     # This step trains the single, final model pipeline that is saved
     # in the 'model' variable and used for prediction and PFI.
@@ -65,7 +66,7 @@ def fit_xgb_with_es(
     y_train: pd.Series,
     X_val: pd.DataFrame,
     y_val: pd.Series,
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
     use_early_stopping=True,
 ):
     logger.log_check("Starting XGBoost fit...")
@@ -101,10 +102,22 @@ def fit_xgb_with_es(
     return model
 
 
+def fit_model(model_type: str, model_wrapper: ModelWrapperBase, X_train, y_train, X_validate=None, y_validate=None):
+    if model_type == "RF":
+        model_wrapper.fit(X_train, y_train)
+    elif model_type == "XGB":
+        # model.fit(X_train, y_train, X_val=X_test, y_val=y_test)
+        model_wrapper.fit(X_train, y_train, X_val=X_validate, y_val=y_validate)
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")
+
+    return model_wrapper
+
+
 def check_single_infer(
     model: BaseEstimator,
     X_test,
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
 ):
     logger.log_check("Checking single model inference...")
     start_time = time.time()

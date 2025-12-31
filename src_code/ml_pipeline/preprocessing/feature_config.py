@@ -34,7 +34,7 @@ DROP_COLS = [
     "canonical_datetime",
     "content",
     "methods",
-    "lines",
-    "files_changed",
-    "loc_added_bucket"
+    "lines"
+    # "files_changed",
+    # "loc_added_bucket"
 ]

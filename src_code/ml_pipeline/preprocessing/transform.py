@@ -10,7 +10,7 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn.pipeline import FunctionTransformer, Pipeline
 
 from notebooks.constants import LINE_TOKEN_FEATURES, NUMERIC_FEATURES
-from notebooks.logging_config import NotebookLogger
+from notebooks.logging_config import MyLogger
 from notebooks.transformers import EmbeddingExpander, NamingPCA, WinsorizerIQR
 from src_code.config import FITTED_TRANSFORMER, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
@@ -19,8 +19,12 @@ from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 set_config(transform_output="pandas")
 log_transformer = FunctionTransformer(np.log1p, validate=False)
 
+PCA_CODE_EMB_COMPONENTS = 10
+PCA_MSG_EMB_COMPONENTS = 45
+WINSORIZE_FACTOR = 1.5
+VARIANCE_THRESHOLD = 0.0
 
-def build(random_state: int):
+def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER) -> ColumnTransformer:
     pipelines: List[Pipeline] = []
 
     code_emb_pipe = Pipeline(
@@ -29,11 +33,12 @@ def build(random_state: int):
             (
                 "pca",
                 NamingPCA(
-                    n_components=10, prefix="code_emb_", random_state=random_state
+                    n_components=PCA_CODE_EMB_COMPONENTS, prefix="code_emb_", random_state=random_state
                 ),
             ),
         ]
     )
+    logger.log_result(f"PCA for code embeddings set to {PCA_CODE_EMB_COMPONENTS} components.", print_to_console=True)
 
     msg_emb_pipe = Pipeline(
         [
@@ -42,20 +47,24 @@ def build(random_state: int):
             (
                 "pca",
                 NamingPCA(
-                    n_components=45, prefix="msg_emb_", random_state=random_state
+                    n_components=PCA_MSG_EMB_COMPONENTS, prefix="msg_emb_", random_state=random_state
                 ),
             ),
         ]
     )
+    logger.log_result(f"PCA for message embeddings set to {PCA_MSG_EMB_COMPONENTS} components.", print_to_console=True)
+
 
     # 1. Define a pipeline for numeric features: Winsorize THEN Log
     numeric_pipe = Pipeline(
         [
-            ("winsorize", WinsorizerIQR(factor=1.5)),
+            ("winsorize", WinsorizerIQR(factor=WINSORIZE_FACTOR)),
             ("log", log_transformer),
-            ("var_thresh", VarianceThreshold(threshold=0.0)),
+            ("var_thresh", VarianceThreshold(threshold=VARIANCE_THRESHOLD)),
         ]
     )
+    logger.log_result(f"Winsorization factor set to {WINSORIZE_FACTOR}.", print_to_console=True)
+    logger.log_result(f"Variance threshold set to {VARIANCE_THRESHOLD}.", print_to_console=True)
 
     pipelines.extend([msg_emb_pipe, code_emb_pipe, numeric_pipe])
 
@@ -156,7 +165,7 @@ def transform(
     df: pd.DataFrame,
     subset: SubsetType,
     random_state: int,
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
     fitted_transformer: Path = FITTED_TRANSFORMER,
     print_to_console: bool = True,
 ):
@@ -254,7 +263,7 @@ def transform(
         # transformer = transformer_wrapper.transformer
 
         # 3. FIT and TRANSFORM
-        transformer = build(random_state=random_state)
+        transformer = build_transformer(random_state=random_state)
 
         transformer.fit(df)
         df = transformer.transform(df)

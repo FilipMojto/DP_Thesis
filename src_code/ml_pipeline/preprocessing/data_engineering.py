@@ -2,14 +2,14 @@ import pandas as pd
 
 from typing import Callable, Dict, Iterable, Tuple
 
-from notebooks.logging_config import NotebookLogger
+from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 
 
 def create_derived_features(
     df: pd.DataFrame,
     mappings: Dict[str, Callable[[pd.DataFrame], pd.Series]],
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
 ) -> pd.DataFrame:
     logger.log_check("Deriving features...")
 
@@ -38,7 +38,7 @@ BucketMappings = Dict[str, Dict[Range, str]]
 def create_buckets(
     df: pd.DataFrame,
     mappings: BucketMappings,
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
     encode: bool = False,
 ) -> pd.DataFrame:
     logger.log_check("Creating buckets...")
@@ -84,7 +84,7 @@ def create_buckets(
 def aggr_line_token_features(
     df: pd.DataFrame,
     features: Iterable[str],
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
 ) -> pd.DataFrame:
     logger.log_result("Aggregating line token features...")
     # features = list(features)  # ensure reusable iterable
@@ -113,7 +113,7 @@ def aggr_line_token_features(
 def create_feature_interactions(
     df: pd.DataFrame,
     features: Iterable[str],
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
 ):
     logger.log_check("Creating feature interactions...")
     for i in range(len(features)):

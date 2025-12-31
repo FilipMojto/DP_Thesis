@@ -12,6 +12,7 @@ from typing import Literal
 from src_code.versioning import find_newest_version, next_version_path
 
 SubsetType = Literal['train', 'test', 'validate']
+SupportedModels = Literal['RF', 'XGB']
 
 
 # 1. Get the directory of the current file (config.py or similar)
@@ -109,6 +110,10 @@ PREPROCESSING_MAPPINGS = {
     "test": {
         "input": ETL_MAPPINGS['test']['current_newest'],
         "output": PREPROCESSED_TEST_DF_FILE
+    },
+    "validate": {
+        "input": ETL_MAPPINGS['validate']['current_newest'],
+        "output": PROCESSED_DATA_DIR / "validate_preprocessed.feather"
     }
 }
 
@@ -120,5 +125,9 @@ ENGINEERING_MAPPINGS = {
     "test": {
         "input": PREPROCESSING_MAPPINGS["test"]['output'],
         "output": ENGINEERED_TEST_DF_FILE
+    },
+    "validate": {
+        "input": PREPROCESSING_MAPPINGS["validate"]['output'],
+        "output": PROCESSED_DATA_DIR / "validate_engineered.feather"
     }
 }

@@ -8,7 +8,7 @@ from notebooks.constants import (
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.feature_importance import PFIWrapper
 from src_code.ml_pipeline.models import ModelWrapperFactory, RFWrapper, XGBWrapper
-from src_code.ml_pipeline.pipelines import ModelPipelineWrapper, RFPipelineWrapper
+from src_code.ml_pipeline.pipelines import ModelPipelineWrapper
 from src_code.ml_pipeline.preprocessing.data_engineering import (
     aggr_line_token_features,
     create_buckets,
@@ -22,17 +22,18 @@ from src_code.ml_pipeline.preprocessing.transform import (
 from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
 from src_code.ml_pipeline.training.train import (
     check_single_infer,
+    fit_model,
     fit_rf,
     split_train_test,
 )
 from src_code.ml_pipeline.training.tuning import ModelTuningFactory, RFTuningWrapper, XGBTuningWrapper
-from src_code.ml_pipeline.training.utils import analyze_features, drop_cols
+from src_code.ml_pipeline.training.utils import analyze_features
 from src_code.ml_pipeline.validations import CVWrapper
 from .preprocessing.preprocessing import drop_invalid_rows
-from .df_utils import load_df, load_model, save_df, save_model
-from ..config import ENGINEERING_MAPPINGS, MODEL_DIR, PREPROCESSING_MAPPINGS, SubsetType
+from .data_utils import load_df, load_model, save_df, save_model
+from ..config import ENGINEERING_MAPPINGS, MODEL_DIR, PREPROCESSING_MAPPINGS, SubsetType, SupportedModels, SupportedModels
 from argparse import ArgumentParser
-from . import feature_config as ftr_cfg
+from .preprocessing import feature_config as ftr_cfg
 
 RANDOM_STATE = 42
 TEST_SPLIT = 0.2
@@ -47,25 +48,25 @@ CUSTOM_THRESHOLD = 0.75
 if __name__ == "__main__":
     SCRIPT_LOGGER.log_check("[script] starting ML script...")
     parser = ArgumentParser(description="Parametric ML pipeline script.")
-    parser.add_argument(
-        "--subset",
-        choices=get_args(SubsetType),
-        default="train",
-        required=False,
-        help="Specify which subset (train, test or validate) to run through the pipeline.",
-    )
-    parser.add_argument(
-        "--phases",
-        nargs="+",
-        choices=PIPELINE_PHASES,
-        default=[],
-        help="Pipeline phases to run",
-    )
+    # parser.add_argument(
+    #     "--subset",
+    #     choices=get_args(SubsetType),
+    #     default="train",
+    #     required=False,
+    #     help="Specify which subset (train, test or validate) to run through the pipeline.",
+    # )
+    # parser.add_argument(
+    #     "--phases",
+    #     nargs="+",
+    #     choices=PIPELINE_PHASES,
+    #     default=[],
+    #     help="Pipeline phases to run",
+    # )
     parser.add_argument(
         "--model",
         type=str,
         required=False,
-        choices=["RF", "XGB"],
+        choices=get_args(SupportedModels),
         default="RF",
         help="Model type to use in the pipeline.",
     )
@@ -92,388 +93,423 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    filtered_phases: List[str] = args.phases
-    subset: SubsetType = args.subset
+    # filtered_phases: List[str] = args.phases
+    # subset: SubsetType = args.subset
     MODEL_TYPE = args.model  # "rf" or "xgb"
 
     # script_model_path = MODEL_DIR / f"RF_model_script_{subset}.joblib"
 
     script_model_path = MODEL_DIR / f"RF_model_script_train.joblib"
 
-    if not isinstance(filtered_phases, list) or (
-        filtered_phases
-        and not all(phase in PIPELINE_PHASES for phase in filtered_phases)
-    ):
-        err_msg = f"[SCRIPT] Invalid argument (phases) value: {filtered_phases}"
-        SCRIPT_LOGGER.logger.error(
-            f"Invalid argument (phases) value: {filtered_phases}"
-        )
-        raise ValueError(err_msg)
+    # if not isinstance(filtered_phases, list) or (
+    #     filtered_phases
+    #     and not all(phase in PIPELINE_PHASES for phase in filtered_phases)
+    # ):
+    #     err_msg = f"[SCRIPT] Invalid argument (phases) value: {filtered_phases}"
+    #     SCRIPT_LOGGER.logger.error(
+    #         f"Invalid argument (phases) value: {filtered_phases}"
+    #     )
+    #     raise ValueError(err_msg)
 
     # subset: SubsetType = "train"
 
-    if not filtered_phases or "preprocess" in filtered_phases:
-        SCRIPT_LOGGER.log_check("Starting preprocessing phase...")
+    # if not filtered_phases or "preprocess" in filtered_phases:
+    #     SCRIPT_LOGGER.log_check("Starting preprocessing phase...")
 
-        # =============================================================================
-        # PREPROCESSING
-        # =============================================================================
+    #     # =============================================================================
+    #     # PREPROCESSING
+    #     # =============================================================================
 
-        # target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
+    #     # target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
 
-        target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
-        target_df = load_df(target_df_path)
-        # -----------------------------------------------------------------------------
-        # Dropping invalid rows
-        # -----------------------------------------------------------------------------
+    #     target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
+    #     target_df = load_df(target_df_path)
+    #     # -----------------------------------------------------------------------------
+    #     # Dropping invalid rows
+    #     # -----------------------------------------------------------------------------
 
-        target_df = drop_invalid_rows(
-            df=target_df,
-            # numeric_features=NUMERIC_FEATURES,
-            # row_filters={"time_since_last_change": target_df["time_since_last_change"] < 0},
-            row_filters={"time_since_last_change": lambda s: s >= 0},
-        )
+    #     target_df = drop_invalid_rows(
+    #         df=target_df,
+    #         # numeric_features=NUMERIC_FEATURES,
+    #         # row_filters={"time_since_last_change": target_df["time_since_last_change"] < 0},
+    #         row_filters={"time_since_last_change": lambda s: s >= 0},
+    #     )
 
-        # # -----------------------------------------------------------------------------
-        # # Transformations
-        # # -----------------------------------------------------------------------------
+    #     # # -----------------------------------------------------------------------------
+    #     # # Transformations
+    #     # # -----------------------------------------------------------------------------
 
-        # target_df, fitted_transformer = transform(
-        #     df=target_df,
-        #     subset=subset,
-        #     random_state=RANDOM_STATE,
+    #     # target_df, fitted_transformer = transform(
+    #     #     df=target_df,
+    #     #     subset=subset,
+    #     #     random_state=RANDOM_STATE,
+    #     # )
+
+    #     # # --- Variance Explanation by Embeddings - Demo ---
+
+    #     # SCRIPT_LOGGER.log_result(
+    #     #     f"Code embeddings explain "
+    #     #     f"{pca_explained_variance(fitted_transformer, 'code_embed'):.2%} of variance"
+    #     # )
+    #     # -----------------------------------------------------------------------------
+    #     # Transformations
+    #     # -----------------------------------------------------------------------------
+
+    #     target_df, fitted_transformer = transform(
+    #         df=target_df,
+    #         subset=subset,
+    #         random_state=RANDOM_STATE,
+    #     )
+
+    #     # --- Variance Explanation by Embeddings - Demo ---
+
+    #     SCRIPT_LOGGER.log_result(
+    #         f"Code embeddings explain "
+    #         f"{pca_explained_variance(fitted_transformer, 'code_embed'):.2%} of variance"
+    #     )
+
+    #     SCRIPT_LOGGER.log_result(
+    #         f"Message embeddings explain "
+    #         f"{pca_explained_variance(fitted_transformer, 'msg_embed'):.2%} of variance"
+    #     )
+
+    #     # -----------------------------------------------------------------------------
+    #     # Data Engineering
+    #     # -----------------------------------------------------------------------------
+    #     before_engineer_cols = set(target_df.columns)
+
+    #     SCRIPT_LOGGER.log_check("Starting data engineering subphase...")
+    #     # -----------------------------------------------------------------------------
+    #     # Feature Derivation
+    #     # -----------------------------------------------------------------------------
+
+    #     # mappings = {
+    #     #     "loc_churn_ratio": lambda df: df["loc_added"] / (df["loc_deleted"] + 1),
+    #     #     "activity_per_exp": lambda df: df["author_recent_activity_pre"]
+    #     #     / (df["author_exp_pre"] + 1),
+    #     # }
+
+    #     # [STAGE 1] Derived Features
+    #     target_df = create_derived_features(
+    #         df=target_df, mappings=ftr_cfg.DERIVED_FEATURES
+    #     )
+    #     # [STAGE 2] Creating Buckets
+    #     target_df = create_buckets(
+    #         df=target_df, mappings=ftr_cfg.BUCKET_MAPPINGS, encode=True
+    #     )
+    #     # [STAGE 3] Aggregating line token features
+    #     target_df = aggr_line_token_features(df=target_df, features=LINE_TOKEN_FEATURES)
+    #     # [STAGE 4] Feature interactions
+    #     target_df = create_feature_interactions(
+    #         df=target_df, features=INTERACTION_FEATURES
+    #     )
+
+    #     SCRIPT_LOGGER.log_result("Data engineering subphase finished.")
+    #     # SCRIPT_LOGGER.log_result(f"Engineered features: {ENGINEERED_FEATURES}", print_to_console=True)
+    #     after_engineer_cols = set(target_df.columns)
+    #     SCRIPT_LOGGER.log_result(
+    #         f"Engineered features: {after_engineer_cols - before_engineer_cols}",
+    #         print_to_console=True,
+    #     )
+
+    #     SCRIPT_LOGGER.log_result("Preprocessing phase finished.")
+
+    #     save_df(df=target_df, df_file_path=ENGINEERING_MAPPINGS[subset]["output"])
+
+    # if not filtered_phases or "train" in filtered_phases:
+    # =============================================================================
+    # TRAINING
+    # =============================================================================
+
+    # -----------------------------------------------------------------------------
+    # Loading df
+    # -----------------------------------------------------------------------------
+    target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['train']["output"]
+    target_df = load_df(target_df_path)
+
+    validate_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['validate']["output"]
+    validate_df = load_df(validate_df_path)
+
+    SCRIPT_LOGGER.log_check("Starting training phase...")
+
+    # -----------------------------------------------------------------------------
+    # Dropping cols
+    # -----------------------------------------------------------------------------
+
+    # target_df = drop_cols(df=target_df, cols=ftr_cfg.DROP_COLS)
+
+    # -----------------------------------------------------------------------------
+    # analyzigin features
+    # -----------------------------------------------------------------------------
+
+    analyze_features(df=target_df, target=TARGET)
+
+    # -----------------------------------------------------------------------------
+    # Traing&Test Split
+    # -----------------------------------------------------------------------------
+
+    X_train, X_test, y_train, y_test = split_train_test(
+        df=target_df, target=TARGET, random_state=RANDOM_STATE, test_size=TEST_SPLIT
+    )
+    X_validate = validate_df.drop(columns=[TARGET])
+    y_validate = validate_df[TARGET]
+    
+
+    # -----------------------------------------------------------------------------
+    # Model & TrainingPipeline Definition
+    # -----------------------------------------------------------------------------
+
+    # rf_wrapper = RFWrapper(random_state=RANDOM_STATE)
+    # model = rf_wrapper.get_model()
+    # if MODEL_TYPE == "rf":
+    #     model_wrapper = RFWrapper(random_state=RANDOM_STATE)
+    #     model = model_wrapper.get_model()
+    #     step_name = "rf"
+
+    # elif MODEL_TYPE == "xgb":
+    #     model_wrapper = XGBWrapper(random_state=RANDOM_STATE)
+    #     model = model_wrapper.get_model()
+    #     step_name = "xgb"
+    model_wrapper, step_name = ModelWrapperFactory.create(model_type=MODEL_TYPE.lower(), random_state=RANDOM_STATE)
+    model = model_wrapper.get_model()
+
+    # rf_pipeline = ModelPipelineWrapper(rf=model)
+    pipeline_wrapper = ModelPipelineWrapper(
+        model=model,
+        step_name=step_name
+    )
+    pipeline = pipeline_wrapper.get_pipeline()
+    # model = rf_wrapper.get_model()
+
+    # -----------------------------------------------------------------------------
+    # Hyperparameter Tuning
+    # -----------------------------------------------------------------------------
+    if not args.skip_tuning:
+        # rf_tuning_wrapper = RFTuningWrapper(
+        #     rf=model, X_train=X_train, y_train=y_train
         # )
+        # best_params, best_score = rf_tuning_wrapper.run_grid_search()
 
-        # # --- Variance Explanation by Embeddings - Demo ---
-
-        # SCRIPT_LOGGER.log_result(
-        #     f"Code embeddings explain "
-        #     f"{pca_explained_variance(fitted_transformer, 'code_embed'):.2%} of variance"
-        # )
-        # -----------------------------------------------------------------------------
-        # Transformations
-        # -----------------------------------------------------------------------------
-
-        target_df, fitted_transformer = transform(
-            df=target_df,
-            subset=subset,
-            random_state=RANDOM_STATE,
-        )
-
-        # --- Variance Explanation by Embeddings - Demo ---
-
-        SCRIPT_LOGGER.log_result(
-            f"Code embeddings explain "
-            f"{pca_explained_variance(fitted_transformer, 'code_embed'):.2%} of variance"
-        )
-
-        SCRIPT_LOGGER.log_result(
-            f"Message embeddings explain "
-            f"{pca_explained_variance(fitted_transformer, 'msg_embed'):.2%} of variance"
-        )
-
-        # -----------------------------------------------------------------------------
-        # Data Engineering
-        # -----------------------------------------------------------------------------
-        before_engineer_cols = set(target_df.columns)
-
-        SCRIPT_LOGGER.log_check("Starting data engineering subphase...")
-        # -----------------------------------------------------------------------------
-        # Feature Derivation
-        # -----------------------------------------------------------------------------
-
-        # mappings = {
-        #     "loc_churn_ratio": lambda df: df["loc_added"] / (df["loc_deleted"] + 1),
-        #     "activity_per_exp": lambda df: df["author_recent_activity_pre"]
-        #     / (df["author_exp_pre"] + 1),
-        # }
-
-        # [STAGE 1] Derived Features
-        target_df = create_derived_features(
-            df=target_df, mappings=ftr_cfg.DERIVED_FEATURES
-        )
-        # [STAGE 2] Creating Buckets
-        target_df = create_buckets(
-            df=target_df, mappings=ftr_cfg.BUCKET_MAPPINGS, encode=True
-        )
-        # [STAGE 3] Aggregating line token features
-        target_df = aggr_line_token_features(df=target_df, features=LINE_TOKEN_FEATURES)
-        # [STAGE 4] Feature interactions
-        target_df = create_feature_interactions(
-            df=target_df, features=INTERACTION_FEATURES
-        )
-
-        SCRIPT_LOGGER.log_result("Data engineering subphase finished.")
-        # SCRIPT_LOGGER.log_result(f"Engineered features: {ENGINEERED_FEATURES}", print_to_console=True)
-        after_engineer_cols = set(target_df.columns)
-        SCRIPT_LOGGER.log_result(
-            f"Engineered features: {after_engineer_cols - before_engineer_cols}",
-            print_to_console=True,
-        )
-
-        SCRIPT_LOGGER.log_result("Preprocessing phase finished.")
-
-        save_df(df=target_df, df_file_path=ENGINEERING_MAPPINGS[subset]["output"])
-
-    if not filtered_phases or "train" in filtered_phases:
-        # =============================================================================
-        # TRAINING
-        # =============================================================================
-
-        # -----------------------------------------------------------------------------
-        # Loading df
-        # -----------------------------------------------------------------------------
-        target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['train']["output"]
-        target_df = load_df(target_df_path)
-
-        SCRIPT_LOGGER.log_check("Starting training phase...")
-
-        # -----------------------------------------------------------------------------
-        # Dropping cols
-        # -----------------------------------------------------------------------------
-
-        target_df = drop_cols(df=target_df, cols=ftr_cfg.DROP_COLS)
-
-        # -----------------------------------------------------------------------------
-        # analyzigin features
-        # -----------------------------------------------------------------------------
-
-        analyze_features(df=target_df, target=TARGET)
-
-        # -----------------------------------------------------------------------------
-        # Traing&Test Split
-        # -----------------------------------------------------------------------------
-
-        X_train, X_test, y_train, y_test = split_train_test(
-            df=target_df, target=TARGET, random_state=RANDOM_STATE, test_size=TEST_SPLIT
-        )
-
-        # -----------------------------------------------------------------------------
-        # Model & TrainingPipeline Definition
-        # -----------------------------------------------------------------------------
-
-        # rf_wrapper = RFWrapper(random_state=RANDOM_STATE)
-        # model = rf_wrapper.get_model()
+        # # --- Update Model ---
+        # model.set_params(
+        #     **best_params
+        # )  # make sure pipeline/model uses the tuned parameters
         # if MODEL_TYPE == "rf":
-        #     model_wrapper = RFWrapper(random_state=RANDOM_STATE)
-        #     model = model_wrapper.get_model()
-        #     step_name = "rf"
-
-        # elif MODEL_TYPE == "xgb":
-        #     model_wrapper = XGBWrapper(random_state=RANDOM_STATE)
-        #     model = model_wrapper.get_model()
-        #     step_name = "xgb"
-        model_wrapper, step_name = ModelWrapperFactory.create(model_type=MODEL_TYPE.lower(), random_state=RANDOM_STATE)
-        model = model_wrapper.get_model()
-
-        # rf_pipeline = ModelPipelineWrapper(rf=model)
-        pipeline_wrapper = ModelPipelineWrapper(
+        #     tuning = RFTuningWrapper(model, X_train, y_train)
+        # else:
+        #     tuning = XGBTuningWrapper(model, X_train, y_train)
+        tuning = ModelTuningFactory.create(
+            model_type=MODEL_TYPE.lower(),
             model=model,
-            step_name=step_name
+            X_train=X_train,
+            y_train=y_train
         )
-        pipeline = pipeline_wrapper.get_pipeline()
-        # model = rf_wrapper.get_model()
+
+        best_params, best_score = tuning.run_grid_search()
+        model.set_params(**best_params)
+    else:
+        SCRIPT_LOGGER.log_result("Skipping Hyperparameter Tuning...")
+
+    # -----------------------------------------------------------------------------
+    # Cross-validation
+    # -----------------------------------------------------------------------------
+
+    if not args.skip_cv:
+        cv_wrapper = CVWrapper(random_state=RANDOM_STATE)
+        # cv_results = cv_wrapper.cross_validate(
+        #     model=model, X_train=X_train, y_train=y_train
+        # )
+        # We pass the global validation set and the step_name (xgb or rf)
+        cv_results = cv_wrapper.cross_validate(
+            model=pipeline,              # This is your Pipeline object
+            X_train=X_train, 
+            y_train=y_train,
+            X_val=X_validate,           # Your separate validation set
+            y_val=y_validate,
+            step_name=step_name          # 'xgb' or 'rf' from your Factory
+        )
+
+        cv_wrapper.mean_results()
+    else:
+        SCRIPT_LOGGER.log_result("Skipping cross-validation...")
+
+    # -----------------------------------------------------------------------------
+    # Model Fit
+    # -----------------------------------------------------------------------------
+
+    # This step trains the single, final model pipeline that is saved
+    # in the 'model' variable and used for prediction and PFI.
+    # model.fit(X_train, y_train)
+    # model = fit_model(model=model, X_train=X_train, y_train=y_train)
+    # model.fit(X_train, y_train, X_val=X_test, y_val=y_test)
+    # if MODEL_TYPE == "RF":
+    #     model_wrapper.fit(X_train, y_train)
+    # elif MODEL_TYPE == "XGB":
+    #     # model.fit(X_train, y_train, X_val=X_test, y_val=y_test)
+    #     model_wrapper.fit(X_train, y_train, X_val=X_validate, y_val=y_validate)
+    # else:
+    #     raise ValueError(f"Unsupported model type: {MODEL_TYPE}")
+    model_wrapper = fit_model(
+        model_type=MODEL_TYPE.upper(),
+        model_wrapper=model_wrapper,
+        X_train=X_train,
+        y_train=y_train,
+        X_validate=X_validate,
+        y_validate=y_validate
+    )
+        
+    # -----------------------------------------------------------------------------
+    # Single inference check
+    # -----------------------------------------------------------------------------
+
+    check_single_infer(model=model, X_test=X_test)
+
+    # -----------------------------------------------------------------------------
+    # PFI & Training Subset Refinement
+    # -----------------------------------------------------------------------------
+
+    if not args.skip_pfi:
+        pfi_wrapper = PFIWrapper(
+            model=model, X_test=X_test, y_test=y_test, random_state=RANDOM_STATE
+        )
+        pfi_wrapper.run_PFI()
+        pfi_wrapper.calc_importances()
+        importances = pfi_wrapper.get_importances(top_k=TOP_K_IMPORTANCES)
+
+        X_train, X_test = pfi_wrapper.refine_features(
+            X_train=X_train, X_test=X_test, threshold=REFINEMENT_THRESHOLD
+        )
 
         # -----------------------------------------------------------------------------
-        # Hyperparameter Tuning
+        # Model retraining
         # -----------------------------------------------------------------------------
-        if not args.skip_tuning:
-            # rf_tuning_wrapper = RFTuningWrapper(
-            #     rf=model, X_train=X_train, y_train=y_train
-            # )
-            # best_params, best_score = rf_tuning_wrapper.run_grid_search()
-
-            # # --- Update Model ---
-            # model.set_params(
-            #     **best_params
-            # )  # make sure pipeline/model uses the tuned parameters
-            # if MODEL_TYPE == "rf":
-            #     tuning = RFTuningWrapper(model, X_train, y_train)
-            # else:
-            #     tuning = XGBTuningWrapper(model, X_train, y_train)
-            tuning = ModelTuningFactory.create(
-                model_type=MODEL_TYPE.lower(),
-                model=model,
-                X_train=X_train,
-                y_train=y_train
-            )
-
-            best_params, best_score = tuning.run_grid_search()
-            model.set_params(**best_params)
-        else:
-            SCRIPT_LOGGER.log_result("Skipping Hyperparameter Tuning...")
-
-        # -----------------------------------------------------------------------------
-        # Cross-validation
-        # -----------------------------------------------------------------------------
-
-        if not args.skip_cv:
-            cv_wrapper = CVWrapper(random_state=RANDOM_STATE)
-            cv_results = cv_wrapper.cross_validate(
-                model=model, X_train=X_train, y_train=y_train
-            )
-
-            cv_wrapper.mean_results()
-        else:
-            SCRIPT_LOGGER.log_result("Skipping cross-validation...")
-
-        # -----------------------------------------------------------------------------
-        # Model Fit
-        # -----------------------------------------------------------------------------
-
-        # This step trains the single, final model pipeline that is saved
-        # in the 'model' variable and used for prediction and PFI.
         # model.fit(X_train, y_train)
-        # model = fit_model(model=model, X_train=X_train, y_train=y_train)
-        # model.fit(X_train, y_train, X_val=X_test, y_val=y_test)
-        if MODEL_TYPE == "rf":
-            model_wrapper.fit(X_train, y_train)
-        else:
-            model_wrapper.fit(X_train, y_train, X_val=X_test, y_val=y_test)
-
-        # -----------------------------------------------------------------------------
-        # Single inference check
-        # -----------------------------------------------------------------------------
-
-        check_single_infer(model=model_wrapper, X_test=X_test)
-
-        # -----------------------------------------------------------------------------
-        # PFI & Training Subset Refinement
-        # -----------------------------------------------------------------------------
-
-        if not args.skip_pfi:
-            pfi_wrapper = PFIWrapper(
-                model=model_wrapper, X_test=X_test, y_test=y_test, random_state=RANDOM_STATE
-            )
-            pfi_wrapper.run_PFI()
-            pfi_wrapper.calc_importances()
-            importances = pfi_wrapper.get_importances(top_k=TOP_K_IMPORTANCES)
-
-            X_train, X_test = pfi_wrapper.refine_features(
-                X_train=X_train, X_test=X_test, threshold=REFINEMENT_THRESHOLD
-            )
-
-            # -----------------------------------------------------------------------------
-            # Model retraining
-            # -----------------------------------------------------------------------------
-            # model.fit(X_train, y_train)
-            model_wrapper = fit_rf(model=model_wrapper, X_train=X_train, y_train=y_train)
-        else:
-            SCRIPT_LOGGER.log_result("Skipping PFI process...")
-
-        SCRIPT_LOGGER.log_result("Training phase finished.")
-
-        # save_df(df=target_df, df_fil~e_path=)
-        save_model(
-            model=model_wrapper,
-            path=script_model_path
+        # model_wrapper = fit_rf(model=model_wrapper, X_train=X_train, y_train=y_train)
+        model_wrapper = fit_model(
+            model_type=MODEL_TYPE.upper(),
+            model_wrapper=model_wrapper,
+            X_train=X_train,
+            y_train=y_train,
+            X_validate=X_validate,
+            y_validate=y_validate
         )
 
-    if not filtered_phases or "eval" in filtered_phases:
-        # =============================================================================
-        # FINAL EVALUATION
-        # =============================================================================
-        
-        # -----------------------------------------------------------------------------
-        # Dataset Loading
-        # -----------------------------------------------------------------------------
-        target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['test']["output"]
-        df = load_df(df_file_path=target_df_path)
-        
+    else:
+        SCRIPT_LOGGER.log_result("Skipping PFI process...")
 
-        # -----------------------------------------------------------------------------
-        # Model Loading
-        # -----------------------------------------------------------------------------
+    SCRIPT_LOGGER.log_result("Training phase finished.")
 
-        model_wrapper = load_model(path=script_model_path)
-        model_features = model_wrapper.feature_names_in_
+    # save_df(df=target_df, df_fil~e_path=)
+    save_model(
+        model=model_wrapper,
+        path=script_model_path
+    )
 
-        # -----------------------------------------------------------------------------
-        # Column Filtering
-        # -----------------------------------------------------------------------------
+    # if not filtered_phases or "eval" in filtered_phases:
+    # =============================================================================
+    # FINAL EVALUATION
+    # =============================================================================
+    
+    # -----------------------------------------------------------------------------
+    # Dataset Loading
+    # -----------------------------------------------------------------------------
+    target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['test']["output"]
+    df = load_df(df_file_path=target_df_path)
+    
 
-        X_test = drop_cols(df=df, cols=ftr_cfg.DROP_COLS + [TARGET])
+    # -----------------------------------------------------------------------------
+    # Model Loading
+    # -----------------------------------------------------------------------------
 
-        # for feature in X_test:
-        #     if feature not in model_features:
-        #         X_test = X_test.drop(feature)
-        X_test = X_test[model_features]
+    model_wrapper = load_model(path=script_model_path)
+    model_features = model_wrapper.feature_names_in_
 
-        # -----------------------------------------------------------------------------
-        # Inference
-        # -----------------------------------------------------------------------------
-        
-        y_true = df["label"] if "label" in df.columns else None
-        # predictions = model.predict(X_test)
-        # probabilities = model.predict_proba(X_test)[:, 1]  # Probability of the positive class
+    # -----------------------------------------------------------------------------
+    # Column Filtering
+    # -----------------------------------------------------------------------------
 
-        predictions, probabilities = infer(X_test=X_test, model=model_wrapper)
+    # X_test = drop_cols(df=df, cols=ftr_cfg.DROP_COLS + [TARGET])
 
-        # -----------------------------------------------------------------------------
-        # Evaluation
-        # -----------------------------------------------------------------------------
-        
-        evaluate(y_true=y_true, predictions=predictions, probabilities=probabilities)
+    # for feature in X_test:
+    #     if feature not in model_features:
+    #         X_test = X_test.drop(feature)
+    X_test = X_test[model_features]
 
-        # -----------------------------------------------------------------------------
-        # Precision-Recall Curve
-        # -----------------------------------------------------------------------------
-        
-        precision, recall, thresholds = prec_recall_curve(y_true=y_true, probs=probabilities)
+    # -----------------------------------------------------------------------------
+    # Inference
+    # -----------------------------------------------------------------------------
+    
+    y_true = df["label"] if "label" in df.columns else None
+    # predictions = model.predict(X_test)
+    # probabilities = model.predict_proba(X_test)[:, 1]  # Probability of the positive class
 
-        # -----------------------------------------------------------------------------
-        # Setting Custom Threshold
-        # -----------------------------------------------------------------------------
-        
-        custom_threshold = CUSTOM_THRESHOLD  # Found from the chart above
-        # custom_predictions = (probs >= custom_threshold).astype(int)
+    predictions, probabilities = infer(X_test=X_test, model=model_wrapper)
 
-        # from sklearn.metrics import classification_report
-        # print(classification_report(y_true, custom_predictions))
-        evaluate(
-            y_true=y_true,
-            predictions=predictions,
-            probabilities=probabilities,
-            threshold=custom_threshold,
-        )
+    # -----------------------------------------------------------------------------
+    # Evaluation
+    # -----------------------------------------------------------------------------
+    
+    evaluate(y_true=y_true, predictions=predictions, probabilities=probabilities)
 
-        # -----------------------------------------------------------------------------
-        # Best Threshold for F1
-        # -----------------------------------------------------------------------------
-        
-        best_threshold = find_best_threshold(
-            precision=precision, recall=recall, thresholds=thresholds
-        )
+    # -----------------------------------------------------------------------------
+    # Precision-Recall Curve
+    # -----------------------------------------------------------------------------
+    
+    precision, recall, thresholds = prec_recall_curve(y_true=y_true, probs=probabilities)
 
-        # Apply this threshold
-        # final_preds = (probs >= best_threshold).astype(int)
-        # print(classification_report(y_true, final_preds))
-        evaluate(
-            y_true=y_true,
-            predictions=predictions,
-            probabilities=probabilities,
-            threshold=best_threshold,
-        )
+    # -----------------------------------------------------------------------------
+    # Setting Custom Threshold
+    # -----------------------------------------------------------------------------
+    
+    custom_threshold = CUSTOM_THRESHOLD  # Found from the chart above
+    # custom_predictions = (probs >= custom_threshold).astype(int)
 
-        # -----------------------------------------------------------------------------
-        # Optimal Threshold for MCC
-        # -----------------------------------------------------------------------------
-        
-        best_mcc_threshold, best_mcc = find_optimal_threshold_MCC(y_true=y_true, probs=probabilities)
+    # from sklearn.metrics import classification_report
+    # print(classification_report(y_true, custom_predictions))
+    evaluate(
+        y_true=y_true,
+        predictions=predictions,
+        probabilities=probabilities,
+        threshold=custom_threshold,
+    )
 
-        # 4. Generate the final report
-        # final_predictions = (probs >= best_threshold).astype(int)
-        # print(classification_report(y_true, final_predictions))
-        evaluate(
-            y_true=y_true,
-            predictions=predictions,
-            probabilities=probabilities,
-            threshold=best_mcc_threshold,
-        )
+    # -----------------------------------------------------------------------------
+    # Best Threshold for F1
+    # -----------------------------------------------------------------------------
+    
+    best_threshold = find_best_threshold(
+        precision=precision, recall=recall, thresholds=thresholds
+    )
 
-        # -----------------------------------------------------------------------------
-        # ROC Curve
-        # -----------------------------------------------------------------------------
-        
-        display_ROC_curve(y_true=y_true, probabilities=probabilities)
+    # Apply this threshold
+    # final_preds = (probs >= best_threshold).astype(int)
+    # print(classification_report(y_true, final_preds))
+    evaluate(
+        y_true=y_true,
+        predictions=predictions,
+        probabilities=probabilities,
+        threshold=best_threshold,
+    )
+
+    # -----------------------------------------------------------------------------
+    # Optimal Threshold for MCC
+    # -----------------------------------------------------------------------------
+    
+    best_mcc_threshold, best_mcc = find_optimal_threshold_MCC(y_true=y_true, probs=probabilities)
+
+    # 4. Generate the final report
+    # final_predictions = (probs >= best_threshold).astype(int)
+    # print(classification_report(y_true, final_predictions))
+    evaluate(
+        y_true=y_true,
+        predictions=predictions,
+        probabilities=probabilities,
+        threshold=best_mcc_threshold,
+    )
+
+    # -----------------------------------------------------------------------------
+    # ROC Curve
+    # -----------------------------------------------------------------------------
+    
+    display_ROC_curve(y_true=y_true, probabilities=probabilities)
 

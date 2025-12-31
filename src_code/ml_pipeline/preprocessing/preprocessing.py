@@ -11,11 +11,11 @@ from sklearn.compose import ColumnTransformer
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.pipeline import FunctionTransformer, Pipeline
 
-from notebooks.logging_config import NotebookLogger
+from notebooks.logging_config import MyLogger
 from notebooks.transformers import EmbeddingExpander, NamingPCA, WinsorizerIQR
 from src_code.config import FITTED_TRANSFORMER, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
-from src_code.ml_pipeline.preprocessing.transform import build
+from src_code.ml_pipeline.preprocessing.transform import build_transformer
 # from src_code.ml_pipeline.utils import contains_negative
 
 
@@ -72,7 +72,7 @@ def drop_invalid_rows(
     df: DataFrame,
     # numeric_features: Iterable[str],
     row_filters: Dict[str, Callable[[Series], Series]],
-    logger: NotebookLogger = DEF_NOTEBOOK_LOGGER,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
     print_to_console: bool = True,
     sanity_check: bool = False,
 ) -> DataFrame:
@@ -113,6 +113,22 @@ def drop_invalid_rows(
 
     return df
 
+
+def drop_cols(
+    df: pd.DataFrame, cols: Iterable[str], logger: MyLogger = DEF_NOTEBOOK_LOGGER
+):
+    logger.log_check("Dropping the specified columns...")
+
+    start_cols = set(df.columns)
+
+    df = df.drop(columns=cols, errors="ignore")
+
+    end_cols = set(df.columns)
+
+    logger.log_result("Dropping completed.")
+    logger.log_result(f"Columns dropped: {len(start_cols - end_cols)}")
+    logger.log_result(f"Columns remaining: {len(end_cols)}")
+    return df
 
 # def transform(
 #     df: pd.DataFrame,

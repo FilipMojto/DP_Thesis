@@ -2,7 +2,7 @@ from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 
-from notebooks.logging_config import NotebookLogger
+from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 
 
@@ -24,7 +24,7 @@ from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 #         return self.pipeline
 
 class ModelPipelineWrapper:
-    def __init__(self, model: BaseEstimator, step_name: str, logger: NotebookLogger = DEF_NOTEBOOK_LOGGER):
+    def __init__(self, model: BaseEstimator, step_name: str, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
         logger.log_check("Defining Model Pipeline...")
         self.pipeline = Pipeline(steps=[(step_name, model)])
         logger.log_result("Pipeline definition done.")
