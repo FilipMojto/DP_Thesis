@@ -19,8 +19,10 @@ from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 set_config(transform_output="pandas")
 log_transformer = FunctionTransformer(np.log1p, validate=False)
 
-PCA_CODE_EMB_COMPONENTS = 10
-PCA_MSG_EMB_COMPONENTS = 45
+# PCA_CODE_EMB_COMPONENTS = 10
+# PCA_MSG_EMB_COMPONENTS = 45
+PCA_CODE_EMB_COMPONENTS = 60
+PCA_MSG_EMB_COMPONENTS = 80
 WINSORIZE_FACTOR = 1.5
 VARIANCE_THRESHOLD = 0.0
 

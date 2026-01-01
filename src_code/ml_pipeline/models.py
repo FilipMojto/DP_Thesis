@@ -61,9 +61,9 @@ class RFWrapper(ModelWrapperBase):
 
     def fit(self, X_train, y_train):
         self.logger.log_check("Starting RF fit...")
-        start = time()
+        start = time.time()
         self.rf.fit(X_train, y_train)
-        end = time()
+        end = time.time()
         self.logger.log_result(f"RF fit completed. Time: {end - start:2f}")
 
 

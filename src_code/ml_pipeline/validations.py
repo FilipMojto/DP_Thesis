@@ -1,6 +1,8 @@
 import time
 import pandas as pd
+from sklearn.base import BaseEstimator
 from sklearn.model_selection import KFold, cross_validate
+from xgboost import XGBClassifier
 
 from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
@@ -96,7 +98,7 @@ class CVWrapper:
         self.n_jobs = min(CVWrapper.N_SPLITS, get_n_jobs(reserve_cores))
         self.logger.log_result("Validation definition done.")
 
-    def cross_validate(self, model, X_train, y_train, X_val=None, y_val=None, step_name="model"):
+    def cross_validate(self, model: BaseEstimator, X_train, y_train, X_val=None, y_val=None, step_name="model"):
         """
         model: The Pipeline or Estimator
         X_val/y_val: The global validation set for early stopping
@@ -107,7 +109,7 @@ class CVWrapper:
 
         # 1. Prepare fit_params for Early Stopping
         fit_params = {}
-        if X_val is not None and y_val is not None:
+        if X_val is not None and y_val is not None and isinstance(model.named_steps[step_name], XGBClassifier):
             # We must prefix parameters with {step_name}__ so the Pipeline knows 
             # which step to pass the eval_set to.
             fit_params = {

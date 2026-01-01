@@ -16,6 +16,19 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}" 
             }
+        },
+        {
+            "name": "Debug train model (module)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.ml_pipeline.pipeline",
+            "args": ["--skip-tuning", "--model", "XGB"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
         }
     ]
 }

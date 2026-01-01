@@ -35,7 +35,7 @@ def evaluate(y_true, predictions, probabilities, logger: MyLogger = DEF_NOTEBOOK
         predictions = (probabilities >= threshold).astype(int)
 
 
-    logger.log_result(classification_report(y_true, predictions))
+    logger.log_result(f"Classification Report:\n{classification_report(y_true, predictions)}")
     logger.log_result(f"ROC-AUC Score: {roc_auc_score(y_true, probabilities):.4f}")
 
     logger.log_result("Evaluation complete.")
