@@ -5,6 +5,7 @@ from notebooks.constants import (
     LINE_TOKEN_FEATURES,
     TARGET,
 )
+from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.feature_importance import PFIWrapper
 from src_code.ml_pipeline.models import ModelWrapperFactory, RFWrapper, XGBWrapper
@@ -31,7 +32,7 @@ from src_code.ml_pipeline.training.utils import analyze_features
 from src_code.ml_pipeline.validations import CVWrapper
 from .preprocessing.preprocessing import drop_invalid_rows
 from .data_utils import load_df, load_model, save_model
-from ..config import ENGINEERING_MAPPINGS, MODEL_DIR, SupportedModels, SupportedModels
+from ..config import ENGINEERING_MAPPINGS, LOG_DIR, MODEL_DIR, SupportedModels, SupportedModels
 from argparse import ArgumentParser
 from .preprocessing import feature_config as ftr_cfg
 
@@ -39,14 +40,16 @@ RANDOM_STATE = 42
 TEST_SPLIT = 0.2
 PIPELINE_PHASES = ["preprocess", "train", "eval"]
 
-SCRIPT_LOGGER = DEF_NOTEBOOK_LOGGER
+# SCRIPT_LOGGER = DEF_NOTEBOOK_LOGGER
 TOP_K_IMPORTANCES = 15
 REFINEMENT_THRESHOLD = 0.0001
 CUSTOM_THRESHOLD = 0.75
 
 
 if __name__ == "__main__":
-    SCRIPT_LOGGER.log_check("[script] starting ML script...")
+    script_logger = MyLogger(label="TRAIN", section_name="TRAINING SCRIPT", file_log_path=LOG_DIR / "training_script.log")
+    script_logger.start_session()
+    # script_logger.log_check("Starting training script...")
     parser = ArgumentParser(description="Parametric ML pipeline script.")
     parser.add_argument(
         "--model",
@@ -99,7 +102,7 @@ if __name__ == "__main__":
     validate_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['validate']["output"]
     validate_df = load_df(validate_df_path)
 
-    SCRIPT_LOGGER.log_check("Starting training phase...")
+    script_logger.log_check("Starting training phase...")
 
     # -----------------------------------------------------------------------------
     # Dropping cols
@@ -144,7 +147,6 @@ if __name__ == "__main__":
     # Hyperparameter Tuning
     # -----------------------------------------------------------------------------
     if not args.skip_tuning:
-       
         tuning = ModelTuningFactory.create(
             model_type=MODEL_TYPE.lower(),
             model=model,
@@ -155,7 +157,7 @@ if __name__ == "__main__":
         best_params, best_score = tuning.run_grid_search()
         model.set_params(**best_params)
     else:
-        SCRIPT_LOGGER.log_result("Skipping Hyperparameter Tuning...")
+        script_logger.log_result("Skipping Hyperparameter Tuning...")
 
     # -----------------------------------------------------------------------------
     # Cross-validation
@@ -176,7 +178,7 @@ if __name__ == "__main__":
 
         cv_wrapper.mean_results()
     else:
-        SCRIPT_LOGGER.log_result("Skipping cross-validation...")
+        script_logger.log_result("Skipping cross-validation...")
 
     # -----------------------------------------------------------------------------
     # Model Fit
@@ -208,7 +210,7 @@ if __name__ == "__main__":
         #     model=model, X_test=X_test, y_test=y_test, random_state=RANDOM_STATE
         # )
         pfi_wrapper = PFIWrapper(
-            model=model, random_state=RANDOM_STATE, logger=SCRIPT_LOGGER
+            model=model, random_state=RANDOM_STATE, logger=script_logger
         )
         importances = pfi_wrapper.run_PFI(X_test=X_test, y_test=y_test, top_k=TOP_K_IMPORTANCES)
         # pfi_wrapper.calc_importances()
@@ -232,9 +234,9 @@ if __name__ == "__main__":
         )
 
     else:
-        SCRIPT_LOGGER.log_result("Skipping PFI process...")
+        script_logger.log_result("Skipping PFI process...")
 
-    SCRIPT_LOGGER.log_result("Training phase finished.")
+    script_logger.log_result("Training phase finished.")
 
     # save_df(df=target_df, df_fil~e_path=)
     save_model(
@@ -242,71 +244,4 @@ if __name__ == "__main__":
         path=script_model_path
     )
 
-    # # if not filtered_phases or "eval" in filtered_phases:
-    # # =============================================================================
-    # # FINAL EVALUATION
-    # # =============================================================================
-    
-    # # -----------------------------------------------------------------------------
-    # # Dataset Loading
-    # # -----------------------------------------------------------------------------
-    # target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['test']["output"]
-    # test_df = load_df(df_file_path=target_df_path)
-    
-
-    # # -----------------------------------------------------------------------------
-    # # Model Loading
-    # # -----------------------------------------------------------------------------
-
-    # model_wrapper = load_model(path=script_model_path)
-    # model_features = model_wrapper.feature_names_in_
-
-    # # -----------------------------------------------------------------------------
-    # # Column Filtering
-    # # -----------------------------------------------------------------------------
-
-    # X_test = test_df[model_features]
-
-    # # -----------------------------------------------------------------------------
-    # # Inference
-    # # -----------------------------------------------------------------------------
-    
-    # y_true = test_df["label"] if "label" in test_df.columns else None
-
-    # predictions, probabilities = infer(X_test=X_test, model=model_wrapper)
-
-    # # -----------------------------------------------------------------------------
-    # # Evaluation
-    # # -----------------------------------------------------------------------------
-    
-    # evaluate(y_true=y_true, predictions=predictions, probabilities=probabilities)
-
-    # # -----------------------------------------------------------------------------
-    # # Precision-Recall Curve
-    # # -----------------------------------------------------------------------------
-    
-    # precision, recall, thresholds = prec_recall_curve(y_true=y_true, probs=probabilities)
-
-
-    # # -----------------------------------------------------------------------------
-    # # Optimal Threshold for MCC
-    # # -----------------------------------------------------------------------------
-    
-    # best_mcc_threshold, best_mcc = find_optimal_threshold_MCC(y_true=y_true, probs=probabilities)
-
-    # # 4. Generate the final report
-    # # final_predictions = (probs >= best_threshold).astype(int)
-    # # print(classification_report(y_true, final_predictions))
-    # evaluate(
-    #     y_true=y_true,
-    #     predictions=predictions,
-    #     probabilities=probabilities,
-    #     threshold=best_mcc_threshold,
-    # )
-
-    # # -----------------------------------------------------------------------------
-    # # ROC Curve
-    # # -----------------------------------------------------------------------------
-    
-    # display_ROC_curve(y_true=y_true, probabilities=probabilities)
 

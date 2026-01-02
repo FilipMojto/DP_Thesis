@@ -111,4 +111,6 @@ class PFIWrapper:
         self.logger.log_result(
             f"Reduced feature count from {len(self.importances)} to {len(top_features)}"
         )
+
+        self.logger.log_result(f"Features retained: {top_features}")
         return X_train_filtered, X_test_filtered, X_val_filtered if X_val is not None else None

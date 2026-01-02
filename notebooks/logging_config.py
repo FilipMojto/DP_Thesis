@@ -106,6 +106,16 @@ class MyLogger:
         if print_to_console:
             print(msg)
 
+    def start_section(
+        self, section_name: str, print_to_console: bool = True
+    ):
+        msg = f"------------------ Starting section: {section_name} ------------------"
+        self.logger.info(msg)
+
+        if print_to_console:
+            print(msg)
+
+
 
 # Combined setup function
 def setup_notebook_logging(log_path: str = LOG_PATH, label: str = None):
