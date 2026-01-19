@@ -12,6 +12,8 @@ from git import Repo
 import logging
 import pyarrow.feather as feather
 
+from src_code.etl.utils import get_repo_instance
+
 from .repos import (
     BUG_INDUCING_COMMITS,
     download_missing_repo_clones,
@@ -92,11 +94,6 @@ def classify_and_extract(row, bug_set: set):
 
     return result
 
-
-def get_repo_instance(repo_name: str) -> Repo:
-    """Helper function to load the local Git Repo object."""
-    # Assuming PYTHON_LIBS_DIR points to where repos are cloned
-    return Repo(PYTHON_LIBS_DIR / repo_name)
 
 
 def atomic_feather_save(df: pd.DataFrame, out_file: Path):

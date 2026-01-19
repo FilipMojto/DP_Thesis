@@ -30,6 +30,7 @@ def get_commit(repo: git.Repo, commit_hash: str) -> git.Commit | None:
 ### ---------- MAIN FEATURE EXTRACTION ----------
 def extract_commit_features(repo, commit_hash):
     c = get_commit(repo, commit_hash)
+    
     if not c:
         return None
     
