@@ -28,6 +28,8 @@ MODEL_DIR = PROJECT_ROOT / "models"
 LOG_DIR = PROJECT_ROOT / "logs"
 RANDOM_FOREST_MODEL = MODEL_DIR / "random_forest_pipeline.joblib"
 
+CACHE_DIR = PROJECT_ROOT / 'cache'
+
 # 3. Define all data paths relative to the Project Root
 DATA_DIR = PROJECT_ROOT / "data"
 EXTERNAL_DATA_DIR = DATA_DIR / "external"
@@ -69,7 +71,8 @@ def get_output(input_file: Path):
 #     return INTERIM_DATA_DIR / (out_file.stem + "_copy.feather")
 
 
-ETL_MAPPINGS = {
+ETL_PATH_MAPPINGS = {
+
     "train": {
         "input": JIT_TRAIN_FEATHER_FILE,
         # "output": EXTRACTED_DATA_DIR
@@ -90,7 +93,7 @@ ETL_MAPPINGS = {
 # for mapping in EXTRACTION_MAPPINGS.values():
 #     mapping['copy'] = get_copy(mapping['output'])
 
-for mapping in ETL_MAPPINGS.values():
+for mapping in ETL_PATH_MAPPINGS.values():
     base_output = mapping["base_output"]
 
     newest_path, newest_version = find_newest_version(base_output)
@@ -104,15 +107,15 @@ for mapping in ETL_MAPPINGS.values():
 
 PREPROCESSING_MAPPINGS = {
     "train": {
-        "input": ETL_MAPPINGS['train']['current_newest'],
+        "input": ETL_PATH_MAPPINGS['train']['current_newest'],
         "output": PREPROCESSED_TRAIN_DF_FILE
     },
     "test": {
-        "input": ETL_MAPPINGS['test']['current_newest'],
+        "input": ETL_PATH_MAPPINGS['test']['current_newest'],
         "output": PREPROCESSED_TEST_DF_FILE
     },
     "validate": {
-        "input": ETL_MAPPINGS['validate']['current_newest'],
+        "input": ETL_PATH_MAPPINGS['validate']['current_newest'],
         "output": PROCESSED_DATA_DIR / "validate_preprocessed.feather"
     }
 }

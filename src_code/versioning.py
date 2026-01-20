@@ -14,7 +14,9 @@ def extract_version(path: Path) -> Optional[int]:
     return int(m.group(1)) if m else None
 
 
-def find_newest_version(base_output: Path) -> Tuple[Optional[Path], int]:
+def find_newest_version(
+    base_output: Path, extension: str = ".feather"
+) -> Tuple[Optional[Path], int]:
     """
     Finds the newest versioned file for a given base output path.
 
@@ -24,7 +26,7 @@ def find_newest_version(base_output: Path) -> Tuple[Optional[Path], int]:
     parent = base_output.parent
     base_stem = base_output.stem
 
-    candidates = parent.glob(f"{base_stem}_v*.feather")
+    candidates = parent.glob(f"{base_stem}_v*{extension}")
 
     newest_path = None
     newest_version = 0
@@ -36,7 +38,7 @@ def find_newest_version(base_output: Path) -> Tuple[Optional[Path], int]:
             newest_path = p
 
     if newest_path is None:
-        newest_path = Path(f"{base_stem}_v1.feather")
+        newest_path = Path(f"{base_stem}_v1.{extension}")
         newest_version = 1
 
     # print(f"Newest version for {base_output} is v{newest_version} at {newest_path}")
@@ -65,10 +67,14 @@ class VersionedFileManager:
     - Does not create or write files; only manages paths.
     """
 
-    def __init__(self, src_dir: Path, file_name: str):
-        self.src_dir = src_dir
-        self.file_name = file_name
-        self.base_output = src_dir / file_name
+    # def __init__(self, src_dir: Path, file_name: str, extension: str):
+    def __init__(self, file_path: Path):
+        # self.src_dir = src_dir
+        # self.file_name = file_name
+        self.file_path = file_path
+        self.extension = file_path.suffix
+        # self.base_output = src_dir / file_name
+        # self.base_output = file_path.parent / file_path.stem
 
         # self.current_newest, self.current_newest_version = find_newest_version(self.base_output)
         self.update()
@@ -77,8 +83,13 @@ class VersionedFileManager:
         """
         Refreshes the current newest version and path.
         """
-        self.current_newest, self.current_newest_version = find_newest_version(self.base_output)
-        self.next_base_output = next_version_path(self.base_output)
-    
+        self.current_newest, self.current_newest_version = find_newest_version(
+            self.file_path, extension=self.extension
+        )
+        # self.next_base_output = next_version_path(self.base_output)
+        self.next_base_output = self.file_path.with_name(
+            f"{self.file_path.stem}_v{self.current_newest_version + 1}{self.file_path.suffix}"
+        )
+
     # def update_to_next_version(self):
     #     self.update()

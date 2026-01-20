@@ -73,7 +73,6 @@ def classify_and_extract(row, bug_set: set):
     commit_hash = row.commit
     filepath = row.filepath
 
-
     label = 1 if commit_hash in bug_set else 0
 
     # 2. Feature Extraction
@@ -93,7 +92,6 @@ def classify_and_extract(row, bug_set: set):
     }
 
     return result
-
 
 
 def atomic_feather_save(df: pd.DataFrame, out_file: Path):
@@ -124,7 +122,16 @@ def _save_to_file(
     out_file: Path,
     append: bool,
 ):
-    
+    """
+
+    Args:
+        input_df (pd.DataFrame): DataFrame containing the original input data.
+        results_list (list): List of dictionaries containing the results from processing.
+        existing_out_file (Path): Path to the existing output file.
+        out_file (Path): Path to the output file.
+        append (bool): Whether to append to the existing file or not.
+    """
+
     # Convert results back to a DataFrame
     results_df = pd.DataFrame(results_list)
 
@@ -140,15 +147,19 @@ def _save_to_file(
     df_merged["recent_churn"] = calc_recent_churn_from_df(df_merged, window_days=30)
 
     # Drop embeddings if they are not part of results_df
-    for col in ['code_embed', 'msg_embed']:
+    for col in ["code_embed", "msg_embed"]:
         if col not in results_df.columns and col in df_merged.columns:
-            df_merged = df_merged.drop(columns=[col], errors='ignore')
+            df_merged = df_merged.drop(columns=[col], errors="ignore")
 
     # Convert any remaining np.ndarray to list, keep existing lists
-    for col in ['code_embed', 'msg_embed']:
+    for col in ["code_embed", "msg_embed"]:
         if col in df_merged.columns:
-            df_merged[col] = df_merged[col].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
-            df_merged[col] = df_merged[col].apply(lambda x: x if isinstance(x, list) else [])
+            df_merged[col] = df_merged[col].apply(
+                lambda x: x.tolist() if isinstance(x, np.ndarray) else x
+            )
+            df_merged[col] = df_merged[col].apply(
+                lambda x: x if isinstance(x, list) else []
+            )
             df_merged[col] = df_merged[col].astype(object)
 
     # Guard against empty results
@@ -157,7 +168,9 @@ def _save_to_file(
         return
 
     if append and existing_out_file.exists():
-        logger.info(f"Append=True and {existing_out_file} exists → loading existing data...")
+        logger.info(
+            f"Append=True and {existing_out_file} exists → loading existing data..."
+        )
 
         existing_df = pd.read_feather(existing_out_file)
 
@@ -197,21 +210,44 @@ def transform(
     workers: int = 8,
     skip_existing: bool = False,
     save_after: int = None,
-    subset: Literal['train', 'test', 'validate'] = 'train',
+    subset: Literal["train", "test", "validate"] = "train",
 ):
-    in_file = ETL_MAPPINGS[subset]['input']
-    newest_out_file = ETL_MAPPINGS[subset]['current_newest']
-    next_out_file = ETL_MAPPINGS[subset]['next_output']
+    """
+    Args:
+        repos_filter (List[str], optional): D
+        workers (int, optional): _description_. Defaults to 8.
+        skip_existing (bool, optional): _description_. Defaults to False.
+        save_after (int, optional): _description_. Defaults to None.
+        subset (Literal[&#39;train&#39;, &#39;test&#39;, &#39;validate&#39;], optional): _description_. Defaults to 'train'.
 
-    logger.info(f"Newest out file: {newest_out_file}")
-    logger.info(f"Next out file: {next_out_file}")
+    Raises:
+        e: _description_
+    """
 
-    logger.info(f"[LOAD] {in_file}")
+    # --- DataFrame File Path Constants ---
+
+    # raw input DataFrame path
+    input_df_path: Path = ETL_PATH_MAPPINGS[subset]["input"]
+    # newest output DataFrame path processed by this script
+    existing_output_df_path: Path = ETL_PATH_MAPPINGS[subset]["current_newest"]
+    # next output DataFrame path to write new results
+    next_output_df_path: Path = ETL_PATH_MAPPINGS[subset]["next_output"]
+
+    # --- Logging Path Constants ---
+
+    logger.info(f"Newest out file: {existing_output_df_path}")
+    logger.info(f"Next out file: {next_output_df_path}")
+
+    logger.info(f"[LOAD] {input_df_path}")
     logger.info(f"Using {workers} worker threads.")
     logger.info(f"Repos filter: {repos_filter}")
 
-    # Load and filter DataFrame
-    input_df = pd.read_feather(in_file)
+    # --- Loading Raw Data in Feather format ---
+
+    input_df = pd.read_feather(input_df_path)
+    existing_output_df = pd.read_feather(existing_output_df_path)
+
+    # --- Filtering to Specific Repos only ---
 
     if repos_filter and len(repos_filter) > 0:
         logger.info(f"[FILTER] Limiting to repos: {repos_filter}")
@@ -220,34 +256,41 @@ def transform(
     else:
         logger.info("No repository filter applied. Processing ALL repositories.")
 
-    
-    if skip_existing:
+    # --- Skipping already processed rows ---
 
-        if newest_out_file.exists():
-            logger.info(
-                f"skip_existing=True and {newest_out_file} exists → loading existing data..."
-            )
-            df_existing = pd.read_feather(newest_out_file)
-            key_cols = ["repo", "commit", "filepath"]
+    if skip_existing and existing_output_df_path.exists():
+        # If user wants to skip existing and output file exists
 
-            before = len(input_df)
-            input_df = input_df.merge(
-                df_existing[key_cols], on=key_cols, how="left", indicator=True
-            )
+        # if newest_output_df_path.exists():
+        logger.info(
+            f"skip_existing=True and {existing_output_df_path} exists → loading existing data..."
+        )
+        # df_existing = pd.read_feather(newest_output_df_path)
+        key_cols = ["repo", "commit", "filepath"]
 
-            input_df = input_df[input_df["_merge"] == "left_only"]
-            input_df = input_df.drop(columns=["_merge"])
+        before = len(input_df)
+        # This code ensures we only process rows not already in the existing output
+        # The rows that have not been processed yet are preserved for processing
+        input_df = input_df.merge(
+            existing_output_df[key_cols], on=key_cols, how="left", indicator=True
+        )
 
-            after = len(input_df)
+        # Filter to only rows not in existing output
+        input_df = input_df[input_df["_merge"] == "left_only"]
+        # Remove the temporary merge indicator column
+        input_df = input_df.drop(columns=["_merge"])
 
-            logger.info(
-                f"Skipping already existing rows: {before - after} duplicates removed."
-            )
-            logger.info(f"{after} rows remain to process.")
+        after = len(input_df)
 
-            if len(input_df) == 0:
-                logger.warning("No new rows to process after skipping existing. Exiting.")
-                return
+        logger.info(
+            f"Skipping already existing rows: {before - after} duplicates removed."
+        )
+        logger.info(f"{after} rows remain to process.")
+
+        # If no rows remain, exit early
+        if len(input_df) == 0:
+            logger.warning("No new rows to process after skipping existing. Exiting.")
+            return
 
     logger.info(f"Dataset size: {len(input_df)}")
     logger.info(f"[PROCESS] Starting feature extraction with {workers} workers...")
@@ -304,12 +347,12 @@ def transform(
                         _save_to_file(
                             input_df=input_df,
                             results_list=results_list,
-                            existing_out_file=newest_out_file,
+                            existing_out_file=existing_output_df_path,
                             append=skip_existing,
-                            out_file=next_out_file
+                            out_file=next_output_df_path,
                         )
                         results_list.clear()
-                        newest_out_file = next_out_file
+                        existing_output_df_path = next_output_df_path
 
                 except StopProcessing as e:
                     logger.info(f"Worker stopped: {e}")
@@ -335,7 +378,6 @@ def transform(
             for future in futures:
                 future.cancel()
 
-
     # --- Post-Processing and Saving ---
 
     if not results_list:
@@ -348,9 +390,9 @@ def transform(
     _save_to_file(
         input_df=input_df,
         results_list=results_list,
-        existing_out_file=newest_out_file,
+        existing_out_file=existing_output_df_path,
         append=skip_existing,
-        out_file=next_out_file
+        out_file=next_output_df_path,
     )
 
 
@@ -368,9 +410,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--subset",
         choices=["train", "test", "validate"],  # This is the key part
-        required=False,                            # Recommend making it required
-        default="train",                          # Optional: Set a default value
-        help="The data subset to process. Must be one of: train, test, or validate."
+        required=False,  # Recommend making it required
+        default="train",  # Optional: Set a default value
+        help="The data subset to process. Must be one of: train, test, or validate.",
     )
 
     parser.add_argument(
@@ -396,7 +438,7 @@ if __name__ == "__main__":
         action="store_true",
         help="If true, all registered repos will be extracted.",
         required=False,
-        default=False
+        default=False,
     )
 
     parser.add_argument(
@@ -404,7 +446,7 @@ if __name__ == "__main__":
         action="store_true",
         help="If true, all registered repos with missing clones will be listed.",
         required=False,
-        default=False
+        default=False,
     )
 
     args = parser.parse_args()
@@ -417,13 +459,12 @@ if __name__ == "__main__":
             while True:
                 resp = input("Download them now? (y/n): ")
 
-                if resp == 'y':
+                if resp == "y":
                     download_missing_repo_clones()
-                elif resp != 'n':
+                elif resp != "n":
                     continue
-                
-                break
 
+                break
 
     if args.all or args.repos:
         logger.warning("No repo specified. Defaulting to registered repos.")
@@ -433,7 +474,6 @@ if __name__ == "__main__":
                 raise ValueError(
                     f"Invalid --repo value: {repo}. This repository is not registered."
                 )
-        
 
     if args.save_after and args.save_after < 1:
         raise ValueError(

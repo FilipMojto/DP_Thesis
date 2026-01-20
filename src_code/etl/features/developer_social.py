@@ -8,7 +8,17 @@ def pre_calculate_author_metrics(df: pd.DataFrame, get_repo_func) -> pd.DataFram
     """
     Calculates author experience and recent activity incrementally, fetching missing 
     author email and datetime from the local Git repository first.
-    
+
+    pre_calculate_author_metrics computes author-level historical features for each commit:
+
+    1. Author experience (author_exp_pre)
+    → How many commits this author had made in the same repository before this commit
+
+    2. Recent activity (author_recent_activity_pre)
+    → How many commits this author made in the last 30 days before this commit
+
+    These are time-dependent features and must be computed incrementally in chronological order.
+        
     Args:
         df: The input DataFrame containing 'repo', 'commit'.
         get_repo_func: A function (repo_name: str) -> git.Repo instance.
@@ -25,6 +35,10 @@ def pre_calculate_author_metrics(df: pd.DataFrame, get_repo_func) -> pd.DataFram
     # Cache Git Repo objects
     repo_cache = {} 
 
+    # Why this step exists:
+    # Your input dataframe does not contain author identity or commit time
+    # These are not derivable from ML data alone
+    # They must be fetched from Git (expensive I/O)
     for row in df[['repo', 'commit']].itertuples(index=False):
         repo_name = row.repo
         commit_hash = row.commit

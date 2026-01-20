@@ -29,6 +29,20 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}" 
             }
+        },
+
+        {
+            "name": "Debug integrate script",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.etl.integrate_cols",
+            // "args": ["--skip-tuning", "--model", "XGB"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
         }
     ]
 }
