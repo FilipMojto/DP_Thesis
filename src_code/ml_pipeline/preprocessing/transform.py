@@ -11,16 +11,14 @@ from sklearn.pipeline import FunctionTransformer, Pipeline
 
 from notebooks.constants import LINE_TOKEN_FEATURES, NUMERIC_FEATURES
 from notebooks.logging_config import MyLogger
-from notebooks.transformers import EmbeddingExpander, NamingPCA, WinsorizerIQR
+from notebooks.transformers import EmbeddingExpander, FeatureInteractionTransformer, NamingPCA, WinsorizerIQR
 from src_code.config import FITTED_TRANSFORMER, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
-
+from src_code.ml_pipeline.preprocessing.vectorizers import sklearn_tfidf_vectorizer
 
 set_config(transform_output="pandas")
 log_transformer = FunctionTransformer(np.log1p, validate=False)
 
-# PCA_CODE_EMB_COMPONENTS = 10
-# PCA_MSG_EMB_COMPONENTS = 45
 PCA_CODE_EMB_COMPONENTS = 60
 PCA_MSG_EMB_COMPONENTS = 80
 WINSORIZE_FACTOR = 1.5
@@ -62,6 +60,7 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
         [
             ("winsorize", WinsorizerIQR(factor=WINSORIZE_FACTOR)),
             ("log", log_transformer),
+            # ("interactions", FeatureInteractionTransformer(NUMERIC_FEATURES)),
             ("var_thresh", VarianceThreshold(threshold=VARIANCE_THRESHOLD)),
         ]
     )
@@ -70,17 +69,10 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
 
     pipelines.extend([msg_emb_pipe, code_emb_pipe, numeric_pipe])
 
-    # embedding_transformer = Pipeline(steps=[
-    #     ("pca", PCA(n_components=100, random_state=RANDOM_STATE))
-    # ])
 
-    # 2. Setup the ColumnTransformer
-    # self.verb
     transformer = ColumnTransformer(
         transformers=[
-            # ('num_transformed', numeric_pipeline, NUMERIC_FEATURES),
-            # ('token_transformed', log_transformer, LINE_TOKEN_FEATURES),
-            # ("embed", embedding_transformer, FLATTENED_EMBEDDINGS),
+            # ("text", sklearn_tfidf_vectorizer, "message"),
             ("num", numeric_pipe, NUMERIC_FEATURES),
             ("tokens", log_transformer, LINE_TOKEN_FEATURES),
             ("code_embed", code_emb_pipe, ["code_embed"]),  # Pass as list
@@ -92,76 +84,6 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
 
     return transformer
 
-
-# class TransformerInspector:
-
-#     def __init__(self, fitted_transformer: ColumnTransformer = None):
-#         # self.pipelines: List[Pipeline] = []
-#         # self.random_state = random_state
-#         # np.random.seed(random_state)
-
-#         # if fitted_transformer is None:
-#         #     code_emb_pipe = Pipeline(
-#         #         [
-#         #             ("expand", EmbeddingExpander(prefix="code")),
-#         #             (
-#         #                 "pca",
-#         #                 NamingPCA(
-#         #                     n_components=10,
-#         #                     prefix="code_emb_",
-#         #                     random_state=self.random_state,
-#         #                 ),
-#         #             ),
-#         #         ]
-#         #     )
-
-#         #     msg_emb_pipe = Pipeline(
-#         #         [
-#         #             ("expand", EmbeddingExpander(prefix="msg")),
-#         #             # ('pca', PCA(n_components=100, random_state=RANDOM_STATE))
-#         #             (
-#         #                 "pca",
-#         #                 NamingPCA(
-#         #                     n_components=45,
-#         #                     prefix="msg_emb_",
-#         #                     random_state=self.random_state,
-#         #                 ),
-#         #             ),
-#         #         ]
-#         #     )
-
-#         #     # 1. Define a pipeline for numeric features: Winsorize THEN Log
-#         #     numeric_pipe = Pipeline(
-#         #         [
-#         #             ("winsorize", WinsorizerIQR(factor=1.5)),
-#         #             ("log", log_transformer),
-#         #             ("var_thresh", VarianceThreshold(threshold=0.0)),
-#         #         ]
-#         #     )
-
-#         #     self.pipelines.extend([msg_emb_pipe, code_emb_pipe, numeric_pipe])
-
-#         #     # embedding_transformer = Pipeline(steps=[
-#         #     #     ("pca", PCA(n_components=100, random_state=RANDOM_STATE))
-#         #     # ])
-
-#         #     # 2. Setup the ColumnTransformer
-#         #     # self.verb
-#         #     self.transformer = ColumnTransformer(
-#         #         transformers=[
-#         #             # ('num_transformed', numeric_pipeline, NUMERIC_FEATURES),
-#         #             # ('token_transformed', log_transformer, LINE_TOKEN_FEATURES),
-#         #             # ("embed", embedding_transformer, FLATTENED_EMBEDDINGS),
-#         #             ("num", numeric_pipe, NUMERIC_FEATURES),
-#         #             ("tokens", log_transformer, LINE_TOKEN_FEATURES),
-#         #             ("code_embed", code_emb_pipe, ["code_embed"]),  # Pass as list
-#         #             ("msg_embed", msg_emb_pipe, ["msg_embed"]),  # Pass as list
-#         #         ],
-#         #         remainder="passthrough",
-#         #         verbose_feature_names_out=False,  # This now works because names are unique
-#         #     )
-#         # else:
-#         self.transformer = fitted_transformer
 
 def transform(
     df: pd.DataFrame,
@@ -176,93 +98,11 @@ def transform(
     # log_transformer = FunctionTransformer(np.log1p, validate=False)
 
     if subset == "train":
-        # log_check("Detected train subset. Creating new preprocessor...", print_to_console=True)
-        # preprocessor = ColumnTransformer(transformers=[], remainder='passthrough', verbose_feature_names_out=False)
-
-        # preprocessor.transformers.append(('winsorize', WinsorizerIQR(factor=1.5), NUMERIC_FEATURES))
-        # preprocessor.transformers.append(('log_tokens', log_transformer, LINE_TOKEN_FEATURES))
-        # preprocessor.transformers.append(('log_numeric', log_transformer, NUMERIC_FEATURES))
-
-        # # 3. FIT the preprocessor ONLY on the training data
-        # preprocessor.fit(df)
-        # df = preprocessor.transform(df)
-
-        # # 4. SAVE the fitted preprocessor
-        # # The saved object contains all the calculated Q1, Q3 bounds.
-        # joblib.dump(preprocessor, FITTED_PREPROCESSOR)
+       
         logger.log_result(
             "Detected train subset. Creating new preprocessor...",
             print_to_console=print_to_console,
         )
-
-        # code_emb_df = expand_embedding(df, "code_embed", "code_emb")
-        # msg_emb_df  = expand_embedding(df, "msg_embed", "msg_emb")
-        # df = pd.concat([df.drop(columns=["code_embed", "msg_embed"]), code_emb_df, msg_emb_df], axis=1)
-
-        # Update the EMBEDDINGS constant to reflect the NEW flattened column names
-        # FLATTENED_EMBEDDINGS = code_emb_df.columns.tolist() + msg_emb_df.columns.tolist()
-
-        # Define a pipeline for EACH embedding type
-        # code_emb_pipe = Pipeline([
-        #     ('expand', EmbeddingExpander(prefix="code_emb")),
-        #     ('pca', PCA(n_components=100, random_state=RANDOM_STATE))
-        # ])
-        # Use it in your pipeline like this:
-        # code_emb_pipe = Pipeline(
-        #     [
-        #         ("expand", EmbeddingExpander(prefix="code")),
-        #         (
-        #             "pca",
-        #             NamingPCA(
-        #                 n_components=10, prefix="code_emb_", random_state=RANDOM_STATE
-        #             ),
-        #         ),
-        #     ]
-        # )
-
-        # msg_emb_pipe = Pipeline(
-        #     [
-        #         ("expand", EmbeddingExpander(prefix="msg")),
-        #         # ('pca', PCA(n_components=100, random_state=RANDOM_STATE))
-        #         (
-        #             "pca",
-        #             NamingPCA(
-        #                 n_components=45, prefix="msg_emb_", random_state=RANDOM_STATE
-        #             ),
-        #         ),
-        #     ]
-        # )
-
-        # # 1. Define a pipeline for numeric features: Winsorize THEN Log
-        # numeric_pipeline = Pipeline(
-        #     [
-        #         ("winsorize", WinsorizerIQR(factor=1.5)),
-        #         ("log", log_transformer),
-        #         ("var_thresh", VarianceThreshold(threshold=0.0)),
-        #     ]
-        # )
-
-        # # embedding_transformer = Pipeline(steps=[
-        # #     ("pca", PCA(n_components=100, random_state=RANDOM_STATE))
-        # # ])
-
-        # # 2. Setup the ColumnTransformer
-        # preprocessor = ColumnTransformer(
-        #     transformers=[
-        #         # ('num_transformed', numeric_pipeline, NUMERIC_FEATURES),
-        #         # ('token_transformed', log_transformer, LINE_TOKEN_FEATURES),
-        #         # ("embed", embedding_transformer, FLATTENED_EMBEDDINGS),
-        #         ("num", numeric_pipeline, NUMERIC_FEATURES),
-        #         ("tokens", log_transformer, LINE_TOKEN_FEATURES),
-        #         ("code_embed", code_emb_pipe, ["code_embed"]),  # Pass as list
-        #         ("msg_embed", msg_emb_pipe, ["msg_embed"]),  # Pass as list
-        #     ],
-        #     remainder="passthrough",
-        #     verbose_feature_names_out=False,  # This now works because names are unique
-        # )
-
-        # transformer_wrapper = TransformerInspector(random_state=random_state)
-        # transformer = transformer_wrapper.transformer
 
         # 3. FIT and TRANSFORM
         transformer = build_transformer(random_state=random_state)
@@ -280,9 +120,7 @@ def transform(
             print_to_console=print_to_console,
         )
         transformer: ColumnTransformer = joblib.load(fitted_transformer)
-        # transformer_wrapper = TransformerInspector(
-        #     random_state=random_state, fitted_transformer=transformer_wrapper
-        # )
+
         df = transformer.transform(df)
     else:
         msg = "Unknown subset value!"

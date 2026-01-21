@@ -151,30 +151,30 @@ def compute_msg_flags(msg):
 #     return df
 
 
-import re
+# import re
 
 
-def advanced_clean_msg(text):
-    # 1. Lowercase
-    text = text.lower()
+# def advanced_clean_msg(text):
+#     # 1. Lowercase
+#     text = text.lower()
 
-    # 2. Remove SVN metadata (extremely common in Pandas/NumPy history)
-    text = re.sub(r"git-svn-id:.*", "", text)
+#     # 2. Remove SVN metadata (extremely common in Pandas/NumPy history)
+#     text = re.sub(r"git-svn-id:.*", "", text)
 
-    # 3. Remove URLs
-    text = re.sub(r"https?://\S+", "", text)
+#     # 3. Remove URLs
+#     text = re.sub(r"https?://\S+", "", text)
 
-    # 4. Remove Hex Hashes (4+ chars) and PR numbers (e.g., #1234)
-    text = re.sub(r"\b[0-9a-f]{4,}\b", "", text)
-    text = re.sub(r"#\d+", "", text)
+#     # 4. Remove Hex Hashes (4+ chars) and PR numbers (e.g., #1234)
+#     text = re.sub(r"\b[0-9a-f]{4,}\b", "", text)
+#     text = re.sub(r"#\d+", "", text)
 
-    # 5. Remove file extensions (keep the name, lose the .py/.cy)
-    text = re.sub(r"\.py|\.c|\.cpp|\.h", " ", text)
+#     # 5. Remove file extensions (keep the name, lose the .py/.cy)
+#     text = re.sub(r"\.py|\.c|\.cpp|\.h", " ", text)
 
-    # 6. Remove non-alphabetic noise
-    text = re.sub(r"[^a-zA-Z\s]", " ", text)
+#     # 6. Remove non-alphabetic noise
+#     text = re.sub(r"[^a-zA-Z\s]", " ", text)
 
-    return text.strip()
+#     return text.strip()
 
 
 def calculate_tfidf_features(
@@ -191,9 +191,9 @@ def calculate_tfidf_features(
     # 💡 FIX: Check if message column is missing and fetch it if needed
     if text_col not in df.columns:
         logger.logger.error(f"'{text_col}' column missing")
-        # raise ValueError(f"'{text_col}' column missing from DataFrame.")
+        raise ValueError(f"'{text_col}' column missing from DataFrame.")
         # df = fetch_messages_from_git(df, logger=logger, col_name=text_col)
-        df = parallel_fetch_messages(df, logger)
+        # df = parallel_fetch_messages(df, logger)
 
     logger.log_check(
         f"[TF-IDF] Extracting top {max_features} terms from '{text_col}'..."

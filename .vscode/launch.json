@@ -21,8 +21,8 @@
             "name": "Debug train model (module)",
             "type": "debugpy",
             "request": "launch",
-            "module": "src_code.ml_pipeline.pipeline",
-            "args": ["--skip-tuning", "--model", "XGB"],
+            "module": "src_code.ml_pipeline.train",
+            "args": ["--model", "XGB"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,
@@ -37,6 +37,22 @@
             "request": "launch",
             "module": "src_code.etl.integrate_cols",
             // "args": ["--skip-tuning", "--model", "XGB"],
+            "args": ["--subset", "test"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
+        },
+
+        {
+            "name": "Debug preprocess script",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.ml_pipeline.preprocess",
+            // "args": ["--skip-tuning", "--model", "XGB"],
+            "args": ["--subset", "train"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,

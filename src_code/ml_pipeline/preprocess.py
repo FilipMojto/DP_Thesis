@@ -5,12 +5,13 @@ from typing_extensions import get_args
 from main_config import RANDOM_STATE
 from notebooks.constants import INTERACTION_FEATURES, LINE_TOKEN_FEATURES
 from notebooks.logging_config import MyLogger
-from src_code.config import ENGINEERING_MAPPINGS, LOG_DIR, PREPROCESSING_MAPPINGS, SubsetType
+from src_code.config import ENGINEERING_MAPPINGS, EXTENDED_DATA_DIR, INTERIM_DATA_DIR, LOG_DIR, PREPROCESSING_MAPPINGS, PROCESSED_DATA_DIR, SubsetType
 import src_code.ml_pipeline.data_utils as dutls
 import src_code.ml_pipeline.preprocessing.preprocessing as prep
 import src_code.ml_pipeline.preprocessing.data_engineering as de
 import src_code.ml_pipeline.preprocessing.transform as tr
 import src_code.ml_pipeline.preprocessing.feature_config as ftr_cfg
+from src_code.versioning import VersionedFileManager
 
 
 if __name__ == "__main__":
@@ -41,8 +42,11 @@ if __name__ == "__main__":
     # =============================================================================
 
     # target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
+    input_df_file = VersionedFileManager(file_path=EXTENDED_DATA_DIR / f"{subset}_extended")
+    output_df_file = VersionedFileManager(file_path=PROCESSED_DATA_DIR / f"{subset}_engineered")
 
-    target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
+    # target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
+    target_df_path = input_df_file.current_newest
     target_df = dutls.load_df(target_df_path)
 
     script_logger.log_result(f"Initial dataframe shape: {target_df.shape}", print_to_console=True)
@@ -146,4 +150,5 @@ if __name__ == "__main__":
     script_logger.log_result(f"Preprocessing time: {end - start:.2f} seconds.")
     script_logger.log_result(f"Final dataframe shape: {target_df.shape}", print_to_console=True)
 
-    dutls.save_df(df=target_df, df_file_path=ENGINEERING_MAPPINGS[subset]["output"])
+    # dutls.save_df(df=target_df, df_file_path=ENGINEERING_MAPPINGS[subset]["output"])
+    dutls.save_df(df=target_df, df_file_path=output_df_file.next_base_output)

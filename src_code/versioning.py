@@ -38,7 +38,7 @@ def find_newest_version(
             newest_path = p
 
     if newest_path is None:
-        newest_path = Path(f"{base_stem}_v1.{extension}")
+        newest_path = Path(f"{base_stem}_v1{extension}")
         newest_version = 1
 
     # print(f"Newest version for {base_output} is v{newest_version} at {newest_path}")

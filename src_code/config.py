@@ -11,7 +11,7 @@ from typing import Literal
 
 from src_code.versioning import find_newest_version, next_version_path
 
-SubsetType = Literal['train', 'test', 'validate']
+SubsetType = Literal['train', 'test', 'val']
 SupportedModels = Literal['RF', 'XGB']
 
 
@@ -36,6 +36,8 @@ EXTERNAL_DATA_DIR = DATA_DIR / "external"
 INTERIM_DATA_DIR = DATA_DIR / "interim"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 RAW_DATA_DIR = DATA_DIR / "raw"
+
+EXTENDED_DATA_DIR = INTERIM_DATA_DIR / "extended"
 
 
 DEFECTORS_DIR = RAW_DATA_DIR / "defectors"

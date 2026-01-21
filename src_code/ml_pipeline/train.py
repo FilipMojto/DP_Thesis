@@ -20,7 +20,7 @@ from src_code.ml_pipeline.preprocessing.transform import (
     pca_explained_variance,
     transform,
 )
-from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
+# from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
 from src_code.ml_pipeline.training.train import (
     check_single_infer,
     fit_model,
@@ -30,6 +30,7 @@ from src_code.ml_pipeline.training.train import (
 from src_code.ml_pipeline.training.tuning import ModelTuningFactory, RFTuningWrapper, XGBTuningWrapper
 from src_code.ml_pipeline.training.utils import analyze_features
 from src_code.ml_pipeline.validations import CVWrapper
+from src_code.versioning import VersionedFileManager
 from .preprocessing.preprocessing import drop_invalid_rows
 from .data_utils import load_df, load_model, save_model
 from ..config import ENGINEERING_MAPPINGS, LOG_DIR, MODEL_DIR, SupportedModels, SupportedModels
@@ -87,7 +88,8 @@ if __name__ == "__main__":
     MODEL_TYPE = args.model  # "rf" or "xgb"
 
     # script_model_path = MODEL_DIR / f"RF_model_script_train.joblib"
-    script_model_path = MODEL_DIR / f"{MODEL_TYPE.upper()}_model_script_train.joblib"   
+    # script_model_path = MODEL_DIR / f"{MODEL_TYPE.upper()}_model_script_train.joblib"   
+    model_file = VersionedFileManager(MODEL_DIR / f"{MODEL_TYPE.upper()}_model_train.joblib")
 
     # =============================================================================
     # TRAINING
@@ -241,7 +243,8 @@ if __name__ == "__main__":
     # save_df(df=target_df, df_fil~e_path=)
     save_model(
         model=model,
-        path=script_model_path
+        # path=script_model_path
+        path=model_file.next_base_output
     )
 
 

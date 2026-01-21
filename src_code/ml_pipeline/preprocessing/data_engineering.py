@@ -42,6 +42,9 @@ def create_buckets(
     encode: bool = False,
 ) -> pd.DataFrame:
     logger.log_check("Creating buckets...")
+    logger.log_result(f"Type: {type(df)}")
+    # df.columns = df.columns.astype(str)
+
     for feature, submappings in mappings.items():
         if feature not in df.columns:
             continue
