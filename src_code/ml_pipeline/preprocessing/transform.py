@@ -17,7 +17,7 @@ from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.preprocessing.vectorizers import sklearn_tfidf_vectorizer
 
 set_config(transform_output="pandas")
-log_transformer = FunctionTransformer(np.log1p, validate=False)
+log_transformer = FunctionTransformer(np.log1p, validate=False, feature_names_out="one-to-one",)
 
 PCA_CODE_EMB_COMPONENTS = 60
 PCA_MSG_EMB_COMPONENTS = 80
@@ -72,7 +72,7 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
 
     transformer = ColumnTransformer(
         transformers=[
-            # ("text", sklearn_tfidf_vectorizer, "message"),
+            ("text", sklearn_tfidf_vectorizer, "message"),
             ("num", numeric_pipe, NUMERIC_FEATURES),
             ("tokens", log_transformer, LINE_TOKEN_FEATURES),
             ("code_embed", code_emb_pipe, ["code_embed"]),  # Pass as list
@@ -81,6 +81,8 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
         remainder="passthrough",
         verbose_feature_names_out=False,  # This now works because names are unique
     )
+
+
 
     return transformer
 
@@ -110,11 +112,14 @@ def transform(
         transformer.fit(df)
         df = transformer.transform(df)
 
+        feature_names = transformer.get_feature_names_out()
+
+
         # 4. SAVE
         joblib.dump(transformer, fitted_transformer)
 
         # print("Fitted preprocessor saved to fitted_preprocessor.joblib")
-    elif subset in ("test", "validate"):
+    elif subset in ("test", "val"):
         logger.log_result(
             "Detected test subset. Loading fitted preprocessor...",
             print_to_console=print_to_console,

@@ -32,3 +32,9 @@ sklearn_tfidf_vectorizer = TfidfVectorizer(
     ngram_range=(1, 2),  # Capture phrases like "fix bug"
     preprocessor=advanced_clean_msg,
 )
+
+class DenseTfidf(TfidfVectorizer):
+    def transform(self, X):
+        return super().transform(X).toarray()
+    
+

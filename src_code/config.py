@@ -62,6 +62,7 @@ PREPROCESSED_TEST_DF_FILE = PROCESSED_DATA_DIR / "test_preprocessed.feather"
 
 ENGINEERED_TRAIN_DF_FILE = PROCESSED_DATA_DIR / "train_engineered.feather"
 ENGINEERED_TEST_DF_FILE = PROCESSED_DATA_DIR / "test_engineered.feather" 
+ENGINEERED_VAL_DF_FILE = PROCESSED_DATA_DIR / "val_engineered.feather"
 
 FITTED_TRANSFORMER = MODEL_DIR / 'fitted_preprocessor.joblib'
 ENGINEERING_TRANSFORMER = MODEL_DIR / 'engineering_preprocessor.joblib'
@@ -116,7 +117,7 @@ PREPROCESSING_MAPPINGS = {
         "input": ETL_PATH_MAPPINGS['test']['current_newest'],
         "output": PREPROCESSED_TEST_DF_FILE
     },
-    "validate": {
+    "val": {
         "input": ETL_PATH_MAPPINGS['validate']['current_newest'],
         "output": PROCESSED_DATA_DIR / "validate_preprocessed.feather"
     }
@@ -131,8 +132,9 @@ ENGINEERING_MAPPINGS = {
         "input": PREPROCESSING_MAPPINGS["test"]['output'],
         "output": ENGINEERED_TEST_DF_FILE
     },
-    "validate": {
-        "input": PREPROCESSING_MAPPINGS["validate"]['output'],
-        "output": PROCESSED_DATA_DIR / "validate_engineered.feather"
+    "val": {
+        "input": PREPROCESSING_MAPPINGS["val"]['output'],
+        # "output": PROCESSED_DATA_DIR / "validate_engineered.feather"
+        "output": ENGINEERED_VAL_DF_FILE
     }
 }

@@ -1,12 +1,16 @@
 import itertools
 import joblib
 import pandas as pd
+from sklearn import set_config
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
 
-from src_code.config import SubsetType
+from notebooks.logging_config import MyLogger
+from src_code.config import EXTENDED_DATA_DIR, LOG_DIR, SubsetType
+from src_code.ml_pipeline.data_utils import load_df
+from src_code.versioning import VersionedFileManager
 
 
 class WinsorizerIQR(BaseEstimator, TransformerMixin):
@@ -155,7 +159,6 @@ class FeatureInteractionTransformer(BaseEstimator, TransformerMixin):
         ]
         return self
 
- 
     def transform(self, X):
         if not isinstance(X, pd.DataFrame):
             X = pd.DataFrame(
@@ -182,3 +185,55 @@ class NamingPCA(PCA):
 
     def get_feature_names_out(self, input_features=None):
         return [f"{self.prefix}{i}" for i in range(self.n_components)]
+
+from src_code.ml_pipeline.preprocessing.vectorizers import DenseTfidf, sklearn_tfidf_vectorizer
+
+if __name__ == "__main__":
+
+    # vectorizer = DenseTfidf()
+    
+    logger = MyLogger(
+        label="TRANSFORMERS", section_name="transfomers script", file_log_path=LOG_DIR / "transformers_script.log"
+    )
+    subset = "train"
+    input_df_file = VersionedFileManager(
+        file_path=EXTENDED_DATA_DIR / f"{subset}_extended"
+    )
+    input_df = load_df(df_file_path=input_df_file.current_newest, logger=logger)
+
+    X_tfidf = sklearn_tfidf_vectorizer.fit_transform(input_df["message"])
+    # X_tfidf = vectorizer.fit_transform(input_df["message"])
+
+    feature_names = sklearn_tfidf_vectorizer.get_feature_names_out()
+    # feature_names = vectorizer.get_feature_names_out()
+
+
+    set_config(transform_output="default")
+
+    tfidf_only = ColumnTransformer(
+        transformers=[
+            ("text", sklearn_tfidf_vectorizer, "message"),
+        ],
+        remainder="drop",
+        verbose_feature_names_out=False,
+    )
+
+    X = tfidf_only.fit_transform(input_df)
+
+    X_df = pd.DataFrame(
+        X.toarray(),
+        columns=sklearn_tfidf_vectorizer.get_feature_names_out(),
+        index=input_df.index,
+    )
+
+    print(type(X_df))
+    print(X_df.head())
+    print(X_df.columns[:20])
+    print("Number of columns:", len(X_df.columns))
+    print("Info:", X_df.info())
+
+    print(X_df['ansible'].describe())
+
+    # print(feature_names[:100])
+    # print("Number of features:", len(feature_names))
+    # print(f"Size: {input_df.info()}")

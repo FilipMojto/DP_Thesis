@@ -42,8 +42,8 @@ if __name__ == "__main__":
     # =============================================================================
 
     # target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
-    input_df_file = VersionedFileManager(file_path=EXTENDED_DATA_DIR / f"{subset}_extended")
-    output_df_file = VersionedFileManager(file_path=PROCESSED_DATA_DIR / f"{subset}_engineered")
+    input_df_file = VersionedFileManager(file_path=EXTENDED_DATA_DIR / f"{subset}_extended.feather")
+    output_df_file = VersionedFileManager(file_path=PROCESSED_DATA_DIR / f"{subset}_engineered.feather")
 
     # target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
     target_df_path = input_df_file.current_newest

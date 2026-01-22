@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from collections import Counter
 import time
 from pyparsing import ABC
 from sklearn.ensemble import RandomForestClassifier
@@ -102,11 +103,15 @@ class XGBWrapper(ModelWrapperBase):
     ES_N_ESTIMATORS = 3000
     ES_LEARNING_RATE = 0.05
 
-    def __init__(self, random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
+    def __init__(self, random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER, scale_pos_weight = None):
         super().__init__(random_state, logger)
 
         # self.logger = logger
         self.logger.log_check("Defining XGBoost...")
+
+        # counter = Counter(y_train)
+        # scale_pos_weight = counter[0] / counter[1]  # weight = #negatives / #positives
+
 
         self.xgb = XGBClassifier(
             n_estimators=self.DEF_N_ESTIMATORS,
@@ -120,6 +125,7 @@ class XGBWrapper(ModelWrapperBase):
             n_jobs=DEF_N_JOBS,
             tree_method="hist",
             early_stopping_rounds=20,
+            scale_pos_weight=scale_pos_weight
         )
 
         self.logger.log_result("XGBoost definition done.")
@@ -161,8 +167,8 @@ class XGBWrapper(ModelWrapperBase):
 
 class ModelWrapperFactory:
     @staticmethod
-    def create(model_type: str, random_state: int):
+    def create(model_type: str, random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER, scale_pos_weight = None):
         if model_type == "rf":
-            return RFWrapper(random_state), "rf"
+            return RFWrapper(random_state, logger=logger), "rf"
         if model_type == "xgb":
-            return XGBWrapper(random_state), "xgb"
+            return XGBWrapper(random_state, logger=logger, scale_pos_weight=scale_pos_weight), "xgb"

@@ -4,9 +4,10 @@ from typing import get_args
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from notebooks.logging_config import MyLogger
-from src_code.config import ENGINEERING_MAPPINGS, LOG_DIR, MODEL_DIR, SupportedModels
+from src_code.config import ENGINEERING_MAPPINGS, LOG_DIR, MODEL_DIR, PROCESSED_DATA_DIR, SupportedModels
 import src_code.ml_pipeline.data_utils as dutls
 import src_code.ml_pipeline.testing.testing as test_utils
+from src_code.versioning import VersionedFileManager
 
 
 if __name__ == "__main__":
@@ -31,11 +32,11 @@ if __name__ == "__main__":
     args = argparser.parse_args()
     MODEL_TYPE: SupportedModels = args.model  # "rf" or "xgb"
 
-    model_path = MODEL_DIR / f"{MODEL_TYPE.upper()}_model_script_train.joblib"
+    # model_file_versioner = VersionedFileManager(file_path=MODEL_DIR / f"{MODEL_TYPE.upper()}_model_train.joblib")
 
     MODELS = {
-        "Random Forest": MODEL_DIR / "RF_model_script_train.joblib",
-        "XGBoost": MODEL_DIR / "XGB_model_script_train.joblib",
+        "Random Forest": VersionedFileManager(file_path=MODEL_DIR / "RF_model_train.joblib"),
+        "XGBoost": VersionedFileManager(file_path=MODEL_DIR / "XGB_model_train.joblib"),
     }
 
     results = []
@@ -49,8 +50,9 @@ if __name__ == "__main__":
     # Dataset Loading
     # -----------------------------------------------------------------------------
     target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS["test"]["output"]
-    test_df = dutls.load_df(df_file_path=target_df_path, logger=script_logger)
-
+    # test_df = dutls.load_df(df_file_path=target_df_path, logger=script_logger)
+    test_df_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / "test_engineered.feather")
+    test_df = dutls.load_df(df_file_path=test_df_versioner.current_newest, logger=script_logger)
     # # -----------------------------------------------------------------------------
     # # Model Loading
     # # -----------------------------------------------------------------------------
@@ -91,10 +93,10 @@ if __name__ == "__main__":
     #     probabilities=probabilities,
     #     logger=script_logger,
     # )
-    for name, path in MODELS.items():
+    for name, verioner in MODELS.items():
         # script_logger.log_check(f"Evaluating model: {name}")
         script_logger.start_section(section_name=f"Evaluating model: {name}")
-        model = dutls.load_model(path, script_logger)
+        model = dutls.load_model(verioner.current_newest, script_logger)
         model_features = model.feature_names_in_
 
         if isinstance(model, RandomForestClassifier):

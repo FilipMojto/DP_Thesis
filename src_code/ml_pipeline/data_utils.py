@@ -10,7 +10,7 @@ from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 
 
 def load_df(df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
-    logger.log_check("Loading the dataset...", print_to_console=True)
+    logger.log_check(f"Loading the dataset from {df_file_path.absolute()}...", print_to_console=True)
 
     df = pd.read_feather(df_file_path)
     logger.log_result(f"Loaded dataframe with {len(df)} rows and {len(df.columns)} columns\n", print_to_console=True)

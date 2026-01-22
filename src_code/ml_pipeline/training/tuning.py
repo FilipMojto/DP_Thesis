@@ -16,19 +16,21 @@ from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.data_utils import load_df
 from src_code.ml_pipeline.preprocessing.feature_config import DROP_COLS
 from src_code.ml_pipeline.models import ModelWrapperFactory
+
 # from src_code.ml_pipeline.training.utils import drop_cols
 from src_code.ml_pipeline.utils import get_n_jobs
+
 
 class TuningWrapperBase(ABC):
     def __init__(self, X_train, y_train, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
         self.X_train = X_train
         self.y_train = y_train
         self.logger = logger
-    
+
     @abstractmethod
     def run_grid_search(self):
         pass
-    
+
 
 class RFTuningWrapper:
     def __init__(
@@ -89,10 +91,12 @@ class RFTuningWrapper:
 
 
 class XGBTuningWrapper:
-    def __init__(self, xgb: XGBClassifier, X_train, y_train):
+    def __init__(self, xgb: XGBClassifier, X_train, y_train, X_val, y_val):
         self.xgb = xgb
         self.X_train = X_train
         self.y_train = y_train
+        self.X_val = X_val
+        self.y_val = y_val
 
     def run_grid_search(self):
         param_grid = {
@@ -112,19 +116,23 @@ class XGBTuningWrapper:
             verbose=3,
         )
 
-        grid.fit(self.X_train, self.y_train)
+        # grid.fit(self.X_train, self.y_train)
+        grid.fit(self.X_train, self.y_train, eval_set=[(self.X_val, self.y_val)], verbose=False)
 
         return grid.best_params_, grid.best_score_
 
 
 class ModelTuningFactory:
     @staticmethod
-    def create(model_type: str, model, X_train, y_train):
+    def create(model_type: str, model, X_train, y_train, X_val=None, y_val=None):
         if model_type == "rf":
             return RFTuningWrapper(rf=model, X_train=X_train, y_train=y_train)
         if model_type == "xgb":
-            return XGBTuningWrapper(xgb=model, X_train=X_train, y_train=y_train)
-        
+            return XGBTuningWrapper(
+                xgb=model, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val
+            )
+
+
 import argparse
 
 if __name__ == "__main__":
@@ -136,11 +144,17 @@ if __name__ == "__main__":
         choices=get_args(SupportedModels),
         help="Type of model to tune: 'rf' for Random Forest, 'xgb' for XGBoost",
     )
-    script_logger = MyLogger(label="TUNING", section_name="TUNING LOGGER SCRIPT", file_log_path=LOG_DIR / "tuning_log.log")
+    script_logger = MyLogger(
+        label="TUNING",
+        section_name="TUNING LOGGER SCRIPT",
+        file_log_path=LOG_DIR / "tuning_log.log",
+    )
     script_logger.start_session(session_id=random.randint(1000, 9999))
     parsed_args = args.parse_args()
 
-    dataset: pd.DataFrame = load_df(df_file_path=ENGINEERING_MAPPINGS['train']['output'])
+    dataset: pd.DataFrame = load_df(
+        df_file_path=ENGINEERING_MAPPINGS["train"]["output"]
+    )
     X_train = dataset.drop(columns=[TARGET])
     y_train = dataset[TARGET]
 
@@ -148,15 +162,16 @@ if __name__ == "__main__":
 
     model_type = parsed_args.model.lower()
 
-    model_wrapper = ModelWrapperFactory.create(model_type=model_type, random_state=42)[0]
+    model_wrapper = ModelWrapperFactory.create(model_type=model_type, random_state=42)[
+        0
+    ]
     model = model_wrapper.get_model()
 
     tuner = ModelTuningFactory.create(
-        model_type=model_type,
-        model=model,
-        X_train=X_train,
-        y_train=y_train
+        model_type=model_type, model=model, X_train=X_train, y_train=y_train
     )
 
     best_params, best_score = tuner.run_grid_search()
-    script_logger.log_result(f"Tuning completed for {model_type.upper()}. Best Params: {best_params}, Best Score: {best_score}")
+    script_logger.log_result(
+        f"Tuning completed for {model_type.upper()}. Best Params: {best_params}, Best Score: {best_score}"
+    )

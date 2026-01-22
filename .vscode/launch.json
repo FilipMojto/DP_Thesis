@@ -18,11 +18,25 @@
             }
         },
         {
-            "name": "Debug train model (module)",
+            "name": "Debug train model (script)",
             "type": "debugpy",
             "request": "launch",
             "module": "src_code.ml_pipeline.train",
-            "args": ["--model", "XGB"],
+            "args": ["--model", "XGB", "--skip-tuning"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
+        },
+
+        {
+            "name": "Debug evaluate model (script)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.ml_pipeline.evaluate",
+            "args": [],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,

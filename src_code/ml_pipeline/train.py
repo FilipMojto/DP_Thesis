@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import List, get_args
 from notebooks.constants import (
     ENGINEERED_FEATURES,
@@ -33,7 +34,7 @@ from src_code.ml_pipeline.validations import CVWrapper
 from src_code.versioning import VersionedFileManager
 from .preprocessing.preprocessing import drop_invalid_rows
 from .data_utils import load_df, load_model, save_model
-from ..config import ENGINEERING_MAPPINGS, LOG_DIR, MODEL_DIR, SupportedModels, SupportedModels
+from ..config import ENGINEERING_MAPPINGS, LOG_DIR, MODEL_DIR, PROCESSED_DATA_DIR, SupportedModels, SupportedModels
 from argparse import ArgumentParser
 from .preprocessing import feature_config as ftr_cfg
 
@@ -98,11 +99,14 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------------
     # Loading df
     # -----------------------------------------------------------------------------
-    target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['train']["output"]
-    target_df = load_df(target_df_path)
+    target_df_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / "train_engineered.feather")
+    # target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['train']["output"]
+    target_df = load_df(target_df_versioner.current_newest)
 
-    validate_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['validate']["output"]
-    validate_df = load_df(validate_df_path)
+    validate_df_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / "val_engineered.feather")
+
+    # validate_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['validate']["output"]
+    validate_df = load_df(validate_df_versioner.current_newest)
 
     script_logger.log_check("Starting training phase...")
 
@@ -133,8 +137,11 @@ if __name__ == "__main__":
     # Model & TrainingPipeline Definition
     # -----------------------------------------------------------------------------
 
+    counter = Counter(y_train)
+    scale_pos_weight = counter[0] / counter[1]  # weight = #negatives / #positives
+
   
-    model_wrapper, step_name = ModelWrapperFactory.create(model_type=MODEL_TYPE.lower(), random_state=RANDOM_STATE)
+    model_wrapper, step_name = ModelWrapperFactory.create(model_type=MODEL_TYPE.lower(), random_state=RANDOM_STATE, logger=script_logger, scale_pos_weight=scale_pos_weight)
     model = model_wrapper.get_model()
 
     # rf_pipeline = ModelPipelineWrapper(rf=model)
@@ -153,7 +160,9 @@ if __name__ == "__main__":
             model_type=MODEL_TYPE.lower(),
             model=model,
             X_train=X_train,
-            y_train=y_train
+            y_train=y_train,
+            X_val=X_validate,
+            y_val=y_validate
         )
 
         best_params, best_score = tuning.run_grid_search()
