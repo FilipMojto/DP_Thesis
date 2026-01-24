@@ -19,6 +19,7 @@ from src_code.ml_pipeline.models import ModelWrapperFactory
 
 # from src_code.ml_pipeline.training.utils import drop_cols
 from src_code.ml_pipeline.utils import get_n_jobs
+from src_code.utils.utils import timeit
 
 
 class TuningWrapperBase(ABC):
@@ -31,8 +32,13 @@ class TuningWrapperBase(ABC):
     def run_grid_search(self):
         pass
 
+    def print_results(self, best_params: dict, best_score: float):
+        # self.logger.log_result(f"Search complete. Time: {end - start:2f}")
+        self.logger.log_result(f"Best Parameters: {best_params}")
+        self.logger.log_result(f"Best MCC Score: {best_score}")
 
-class RFTuningWrapper:
+
+class RFTuningWrapper(TuningWrapperBase):
     def __init__(
         self,
         rf: RandomForestClassifier,
@@ -72,32 +78,44 @@ class RFTuningWrapper:
 
         self.logger.log_result("Initialization completed.")
 
+    @timeit(process_name="RF - Grid Search")
     def run_grid_search(self):
         # 5. Run the search
         self.logger.log_check("Running grid search...")
 
-        start = time.time()
+        # start = time.time()
         self.grid_search.fit(self.X_train, self.y_train)
-        end = time.time()
+        # end = time.time()
 
         best_params = self.grid_search.best_params_
         best_score = self.grid_search.best_score_
 
-        self.logger.log_result(f"Search complete. Time: {end - start:2f}")
-        self.logger.log_result(f"Best Parameters: {best_params}")
-        self.logger.log_result(f"Best MCC Score: {best_score}")
+        # self.logger.log_result(f"Search complete. Time: {end - start:2f}")
+        # self.logger.log_result(f"Best Parameters: {best_params}")
+        # self.logger.log_result(f"Best MCC Score: {best_score}")
+        self.print_results(best_params=best_params, best_score=best_score)
 
         return best_params, best_score
 
 
-class XGBTuningWrapper:
-    def __init__(self, xgb: XGBClassifier, X_train, y_train, X_val, y_val):
+class XGBTuningWrapper(TuningWrapperBase):
+    def __init__(
+        self,
+        xgb: XGBClassifier,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        logger: MyLogger = DEF_NOTEBOOK_LOGGER,
+    ):
         self.xgb = xgb
         self.X_train = X_train
         self.y_train = y_train
         self.X_val = X_val
         self.y_val = y_val
+        self.logger = logger
 
+    @timeit(process_name="XGB - Grid Search")
     def run_grid_search(self):
         param_grid = {
             "n_estimators": [200, 300],
@@ -107,7 +125,7 @@ class XGBTuningWrapper:
             "colsample_bytree": [0.8, 1.0],
         }
 
-        grid = GridSearchCV(
+        self.grid_search = GridSearchCV(
             estimator=self.xgb,
             param_grid=param_grid,
             scoring="roc_auc",  # or MCC if you use it
@@ -117,20 +135,30 @@ class XGBTuningWrapper:
         )
 
         # grid.fit(self.X_train, self.y_train)
-        grid.fit(self.X_train, self.y_train, eval_set=[(self.X_val, self.y_val)], verbose=False)
+        self.grid_search.fit(
+            self.X_train,
+            self.y_train,
+            eval_set=[(self.X_val, self.y_val)],
+            verbose=False,
+        )
 
-        return grid.best_params_, grid.best_score_
+        
+        best_params = self.grid_search.best_params_
+        best_score = self.grid_search.best_score_
+
+        self.print_results(best_params=best_params, best_score=best_score)
+
+        return best_params, best_score
 
 
 class ModelTuningFactory:
     @staticmethod
-    def create(model_type: str, model, X_train, y_train, X_val=None, y_val=None):
+    def create(model_type: str, model, X_train, y_train, X_val=None, y_val=None, logger = DEF_NOTEBOOK_LOGGER):
         if model_type == "rf":
-            return RFTuningWrapper(rf=model, X_train=X_train, y_train=y_train)
+            return RFTuningWrapper(rf=model, X_train=X_train, y_train=y_train, logger=logger)
         if model_type == "xgb":
             return XGBTuningWrapper(
-                xgb=model, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val
-            )
+                xgb=model, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, logger=logger
 
 
 import argparse

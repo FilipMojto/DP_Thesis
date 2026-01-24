@@ -2,6 +2,8 @@ import re
 from pathlib import Path
 from typing import Optional, Tuple
 
+from notebooks.logging_config import MyLogger
+
 
 VERSION_RE = re.compile(r"_v(\d+)$")
 
@@ -68,16 +70,19 @@ class VersionedFileManager:
     """
 
     # def __init__(self, src_dir: Path, file_name: str, extension: str):
-    def __init__(self, file_path: Path):
+    def __init__(self, file_path: Path, logger: MyLogger):
         # self.src_dir = src_dir
         # self.file_name = file_name
         self.file_path = file_path
         self.extension = file_path.suffix
+        self.logger = logger
         # self.base_output = src_dir / file_name
         # self.base_output = file_path.parent / file_path.stem
 
         # self.current_newest, self.current_newest_version = find_newest_version(self.base_output)
         self.update()
+
+        self.logger.log_result(f"Current newest version: {self.current_newest.absolute()}")
 
     def update(self):
         """
@@ -86,6 +91,7 @@ class VersionedFileManager:
         self.current_newest, self.current_newest_version = find_newest_version(
             self.file_path, extension=self.extension
         )
+        # self.current_newest.ab
         # self.next_base_output = next_version_path(self.base_output)
         self.next_base_output = self.file_path.with_name(
             f"{self.file_path.stem}_v{self.current_newest_version + 1}{self.file_path.suffix}"

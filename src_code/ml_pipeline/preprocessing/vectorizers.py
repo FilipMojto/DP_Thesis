@@ -26,15 +26,29 @@ def advanced_clean_msg(text):
 
 DEF_MAX_FEATURES = 100
 
-sklearn_tfidf_vectorizer = TfidfVectorizer(
-    max_features=DEF_MAX_FEATURES,
-    stop_words="english",
-    ngram_range=(1, 2),  # Capture phrases like "fix bug"
-    preprocessor=advanced_clean_msg,
-)
+# sklearn_tfidf_vectorizer = TfidfVectorizer(
+#     max_features=DEF_MAX_FEATURES,
+#     stop_words="english",
+#     ngram_range=(1, 2),  # Capture phrases like "fix bug"
+#     preprocessor=advanced_clean_msg,
+# )
 
-class DenseTfidf(TfidfVectorizer):
+
+# class DenseTfidf(TfidfVectorizer):
+#     def transform(self, X):
+#         return super().transform(X).toarray()
+    
+class PrefixedTfidf(TfidfVectorizer):
+    def get_feature_names_out(self, input_features=None):
+        names = super().get_feature_names_out(input_features)
+        return [f"tfidf_{name}" for name in names]
+
     def transform(self, X):
         return super().transform(X).toarray()
-    
 
+sklearn_tfidf_vectorizer = PrefixedTfidf(
+    max_features=DEF_MAX_FEATURES,
+    stop_words="english",
+    ngram_range=(1, 2),
+    preprocessor=advanced_clean_msg,
+)

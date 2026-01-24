@@ -186,7 +186,7 @@ class NamingPCA(PCA):
     def get_feature_names_out(self, input_features=None):
         return [f"{self.prefix}{i}" for i in range(self.n_components)]
 
-from src_code.ml_pipeline.preprocessing.vectorizers import DenseTfidf, sklearn_tfidf_vectorizer
+from src_code.ml_pipeline.preprocessing.vectorizers import  sklearn_tfidf_vectorizer
 
 if __name__ == "__main__":
 

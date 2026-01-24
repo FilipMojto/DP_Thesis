@@ -70,7 +70,7 @@ def evaluate_model(
     # logger.log_result(f"Best F2 Score: {f2[best_idx]:.4f}")
 
     best_thresh, best_f2 = find_optimal_threshold_F2(precision, recall, pr_thresholds, logger)
-
+    
     preds_thresh = (probs >= best_thresh).astype(int)
 
     report = classification_report(

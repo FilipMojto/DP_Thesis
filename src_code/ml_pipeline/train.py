@@ -92,6 +92,11 @@ if __name__ == "__main__":
     # script_model_path = MODEL_DIR / f"{MODEL_TYPE.upper()}_model_script_train.joblib"   
     model_file = VersionedFileManager(MODEL_DIR / f"{MODEL_TYPE.upper()}_model_train.joblib")
 
+    RESTRICTED_COLS = {'loc_deleted': 0.36989620957290453, 'hunks_count': 0.32891914023397506, 'loc_added': 0.27842754912252743, 'files_changed': 0.2765063273157114, 'ast_delta': 0.25869381693522975, 'max_func_change': 0.25196385880821387, 'complexity_delta': 0.2479336343509937, 'msg_len': 0.23487740034222812}
+    RESTRICTED_COLS_NAMES = [name for name, _ in RESTRICTED_COLS.items()]
+
+
+
     # =============================================================================
     # TRAINING
     # =============================================================================
@@ -107,6 +112,15 @@ if __name__ == "__main__":
 
     # validate_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['validate']["output"]
     validate_df = load_df(validate_df_versioner.current_newest)
+
+    # Only keep restricted features + target
+    selected_features = RESTRICTED_COLS_NAMES + [TARGET]
+
+    # df_reduced = df[selected_features].copy()
+    # target_df = target_df[selected_features]
+    # validate_df = validate_df[selected_features]
+
+
 
     script_logger.log_check("Starting training phase...")
 
@@ -162,7 +176,8 @@ if __name__ == "__main__":
             X_train=X_train,
             y_train=y_train,
             X_val=X_validate,
-            y_val=y_validate
+            y_val=y_validate,
+            logger=script_logger
         )
 
         best_params, best_score = tuning.run_grid_search()
@@ -175,7 +190,7 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------------
 
     if not args.skip_cv:
-        cv_wrapper = CVWrapper(random_state=RANDOM_STATE)
+        cv_wrapper = CVWrapper(random_state=RANDOM_STATE, logger=script_logger)
    
         # We pass the global validation set and the step_name (xgb or rf)
         cv_results = cv_wrapper.cross_validate(

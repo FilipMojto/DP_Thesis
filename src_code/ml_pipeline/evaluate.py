@@ -35,8 +35,8 @@ if __name__ == "__main__":
     # model_file_versioner = VersionedFileManager(file_path=MODEL_DIR / f"{MODEL_TYPE.upper()}_model_train.joblib")
 
     MODELS = {
-        "Random Forest": VersionedFileManager(file_path=MODEL_DIR / "RF_model_train.joblib"),
-        "XGBoost": VersionedFileManager(file_path=MODEL_DIR / "XGB_model_train.joblib"),
+        "Random Forest": VersionedFileManager(file_path=MODEL_DIR / "RF_model_train.joblib", logger=script_logger),
+        "XGBoost": VersionedFileManager(file_path=MODEL_DIR / "XGB_model_train.joblib", logger=script_logger),
     }
 
     results = []
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------------
     target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS["test"]["output"]
     # test_df = dutls.load_df(df_file_path=target_df_path, logger=script_logger)
-    test_df_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / "test_engineered.feather")
+    test_df_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / "test_engineered.feather", logger=script_logger)
     test_df = dutls.load_df(df_file_path=test_df_versioner.current_newest, logger=script_logger)
     # # -----------------------------------------------------------------------------
     # # Model Loading
