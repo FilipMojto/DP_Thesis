@@ -4,6 +4,14 @@ from radon.complexity import cc_visit
 import re
 
 def count_ast_nodes(code):
+    """Counts how many nodes appear in the Python Abstract Syntax Tree (AST) for a given code snippet.
+
+    Args:
+        code (_type_): given code snippet
+
+    Returns:
+        _type_: the number of nodes
+    """
     try:
         # tree = ast.parse(code)
         with warnings.catch_warnings():
@@ -15,16 +23,35 @@ def count_ast_nodes(code):
 
 
 def get_complexity(code):
+    """Computes the cyclomatic complexity of the code using radon.
+
+    Cyclomatic complexity measures the number of independent execution paths (e.g. if, for, while, try, etc.).
+
+    Args:
+        code (_type_): code_snippet
+
+    Returns:
+        _type_: sums of individual complexities
+    """
     try:
+        # cc_visit(code) finds all complexity blocks (functions, methods, classes)
         blocks = cc_visit(code)
         return sum(b.complexity for b in blocks)
     except Exception:
         return 0
 
 def get_functions_in_diff_range(code: str, changed_lines: set) -> list[str]:
-    """
-    Identifies and extracts the full source code of functions that intersect
+    """Identifies and extracts the full source code of functions that intersect
     with the set of lines changed in the diff.
+
+    “Which functions were touched by this commit, and give me their code.”
+
+    Args:
+        code (str): _description_
+        changed_lines (set): _description_
+
+    Returns:
+        list[str]: a list of function source strings
     """
     functions_to_analyze = []
     
@@ -57,6 +84,14 @@ def get_functions_in_diff_range(code: str, changed_lines: set) -> list[str]:
     return functions_to_analyze
 
 def extract_code_structural_features(diff_text):
+    """It computes structural change metrics from a Git diff.
+
+    Args:
+        diff_text (_type_): iterable of diff objects (likely from GitPython)
+
+    Returns:
+        _type_: _description_
+    """
     ast_delta = 0
     complexity_delta = 0
     max_func_change = 0

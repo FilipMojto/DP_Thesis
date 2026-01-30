@@ -68,7 +68,22 @@ class RFWrapper(ModelWrapperBase):
         self.logger.log_result(f"RF fit completed. Time: {end - start:2f}")
 
 
+
 class XGBWrapper(ModelWrapperBase):
+
+    @staticmethod
+    def calc_scale_pos_weight(y):
+        """
+        Calculate scale_pos_weight for XGBoost based on class distribution.
+        Args:
+            y (series): _target labels
+
+        Returns:
+            float: _scale_pos_weight value
+        """
+        counter = Counter(y)
+        scale_pos_weight = counter[0] / counter[1]  # weight = #negatives / #positives
+        return scale_pos_weight
     # DEF_N_ESTIMATORS = 300
     # DEF_LEARNING_RATE = 0.1
 

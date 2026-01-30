@@ -1,5 +1,6 @@
 from logging import Logger
 from pathlib import Path
+
 import pandas as pd
 from typing import Callable, Dict, Iterable
 
@@ -11,11 +12,13 @@ from sklearn.compose import ColumnTransformer
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.pipeline import FunctionTransformer, Pipeline
 
+from notebooks.constants import INTERACTION_FEATURES, LINE_TOKEN_FEATURES
 from notebooks.logging_config import MyLogger
 from notebooks.transformers import EmbeddingExpander, NamingPCA, WinsorizerIQR
 from src_code.config import FITTED_TRANSFORMER, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.preprocessing.transform import build_transformer
+from src_code.utils.utils import timeit
 # from src_code.ml_pipeline.utils import contains_negative
 
 
@@ -129,6 +132,33 @@ def drop_cols(
     logger.log_result(f"Columns dropped: {len(start_cols - end_cols)}")
     logger.log_result(f"Columns remaining: {len(end_cols)}")
     return df
+
+
+import src_code.ml_pipeline.preprocessing.data_engineering as de
+import src_code.ml_pipeline.preprocessing.feature_config as ftr_cfg
+
+
+@timeit(process_name="Data Engineering")
+def engineer_cols(target_df: pd.DataFrame, logger: MyLogger = DEF_NOTEBOOK_LOGGER) -> pd.DataFrame:
+    # logger.log_check("Starting data engineering steps...")
+    # [STAGE 1] Derived Features
+    target_df = de.create_derived_features(
+        df=target_df, mappings=ftr_cfg.DERIVED_FEATURES
+    )
+    # [STAGE 2] Creating Buckets
+    target_df = de.create_buckets(
+        df=target_df, mappings=ftr_cfg.BUCKET_MAPPINGS, encode=True
+    )
+    # [STAGE 3] Aggregating line token features
+    target_df = de.aggr_line_token_features(df=target_df, features=LINE_TOKEN_FEATURES)
+    # [STAGE 4] Feature interactions
+    target_df = de.create_feature_interactions(
+        df=target_df, features=INTERACTION_FEATURES
+    )
+
+    # logger.log_result("Data engineering completed.")
+    return target_df
+
 
 # def transform(
 #     df: pd.DataFrame,

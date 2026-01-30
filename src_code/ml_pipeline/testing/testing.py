@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
-from sklearn.metrics import classification_report, matthews_corrcoef, precision_recall_curve, roc_auc_score, roc_curve
+from sklearn.metrics import average_precision_score, classification_report, matthews_corrcoef, precision_recall_curve, roc_auc_score, roc_curve
 from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.testing.objects import EvaluationResult
@@ -81,6 +81,12 @@ def evaluate_model(
     logger.log_result(f"ROC-AUC: {roc_auc:.4f}")
     # logger.log_result(f"Best MCC: {best_mcc:.4f} @ {best_thresh:.3f}")
     # logger.log_result(f"Best F2: {best_f2:.4f} @ {best_thresh:.3f}")
+
+    # Use trapezoidal rule
+    # auprc_manual = np.trapz(precision, recall)
+    # logger.log_result(f"AUPRC (manual): {auprc_manual:.4f}")
+    auprc = average_precision_score(y_true, probs)
+    logger.log_result(f"AUPRC: {auprc:.4f}")
 
     return EvaluationResult(
         model_name=model_name,

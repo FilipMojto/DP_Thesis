@@ -73,6 +73,21 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}" 
             }
+        },
+
+         {
+            "name": "Debug tune script",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.ml_pipeline.tune",
+            // "args": ["--skip-tuning", "--model", "XGB"],
+            "args": ["--model", "RF"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
         }
     ]
 }

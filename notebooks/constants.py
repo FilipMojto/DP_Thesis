@@ -42,3 +42,20 @@ for i in range(len(INTERACTION_FEATURES)):
         ENGINEERED_FEATURES.append(f"{f1}_x_{f2}")
 
 LOG_FILE = Path().resolve().parent / "notebooks.log"
+
+
+CHURN_METRICS = ['loc_added', 'loc_deleted', 'files_changed', 'hunks_count']
+TEXTUAL_METRICS = ['msg_len', 'has_fix_kw', 'has_bug_kw']
+DEVELOPER_METRICS = ['author_exp_pre', 'author_recent_activity_pre']
+HISTORIC_TEMPORAL_METRICS = ['recent_churn', 'time_since_last_change']
+
+
+LINE_LEVEL_SPECIFIC = ['line_context_embed', 'line_token_features']
+STRUCTURAL_METRICS = ['ast_delta', 'max_func_change', 'complexity_delta']
+
+STATISTICAL_METRICS = CHURN_METRICS + TEXTUAL_METRICS + DEVELOPER_METRICS + HISTORIC_TEMPORAL_METRICS
+# NOTE: Also includes embeddings and tfidf
+NON_STATISTICAL_METRICS = LINE_TOKEN_FEATURES
+
+
+CODE_SUTRUCTURAL_METRICS = ['ast_node_delta', 'max_func_change_size', 'complexity_delta']

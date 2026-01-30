@@ -31,7 +31,7 @@ import pandas as pd
 #     return is_negative.any()
 
 
-def get_n_jobs(reserve: int = 2) -> int:
+def get_n_jobs(reserve: int = 6) -> int:
     """
     Return number of cores to use, reserving some for system responsiveness.
     """

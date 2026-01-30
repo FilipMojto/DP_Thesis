@@ -45,7 +45,8 @@ class PFIWrapper:
             y_test,
             n_repeats=self.n_repeats,
             random_state=self.random_state,
-            n_jobs=self.n_jobs,  # <--- Re-enabled parallel processing
+            n_jobs=self.n_jobs  # <--- Re-enabled parallel processing
+            # scoring="f2"
         )
 
         self.logger.log_result("PFI completed.")
