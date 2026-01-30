@@ -106,6 +106,8 @@ class MyLogger:
         if print_to_console:
             print(msg)
 
+        return session_id
+
     def start_section(
         self, section_name: str, print_to_console: bool = True
     ):

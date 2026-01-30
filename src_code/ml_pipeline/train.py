@@ -228,21 +228,21 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------------
     # Hyperparameter Tuning
     # -----------------------------------------------------------------------------
-    if not args.skip_tuning:
-        tuning = ModelTuningFactory.create(
-            model_type=MODEL_TYPE.lower(),
-            model=model,
-            X_train=X_train,
-            y_train=y_train,
-            X_val=X_validate,
-            y_val=y_validate,
-            logger=script_logger,
-        )
+    # if not args.skip_tuning:
+    #     tuning = ModelTuningFactory.create(
+    #         model_type=MODEL_TYPE.lower(),
+    #         model=model,
+    #         X_train=X_train,
+    #         y_train=y_train,
+    #         X_val=X_validate,
+    #         y_val=y_validate,
+    #         logger=script_logger,
+    #     )
 
-        best_params, best_score = tuning.run_grid_search()
-        model.set_params(**best_params)
-    else:
-        script_logger.log_result("Skipping Hyperparameter Tuning...")
+    #     best_params, best_score = tuning.run_grid_search()
+    #     model.set_params(**best_params)
+    # else:
+    #     script_logger.log_result("Skipping Hyperparameter Tuning...")
 
     # -----------------------------------------------------------------------------
     # Cross-validation
