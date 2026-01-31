@@ -5,3 +5,5 @@ DEF_LOG_FILE = LOG_DIR / "logs_default.log"
 DEF_NOTEBOOK_LOGGER = MyLogger(label="DEF LOGGER", section_name=DEF_LOG_FILE)
 
 DEF_RANDOM_STATE = 42 
+
+SUPPORTED_MODELS = ["RF", "XGB"]

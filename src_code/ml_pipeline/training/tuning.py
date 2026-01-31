@@ -265,11 +265,11 @@ class ModelTuningFactory:
         # y_val=None,
         logger=DEF_NOTEBOOK_LOGGER,
     ):
-        if model_type == "rf":
+        if model_type == "RF":
             return RFTuningWrapper(
                 rf=model, X_train=X_train, y_train=y_train, logger=logger, random_state=random_state
             )
-        if model_type == "xgb":
+        if model_type == "XGB":
             return XGBTuningWrapper(
                 xgb=model,
                 X_train=X_train,

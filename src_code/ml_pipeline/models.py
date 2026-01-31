@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from collections import Counter
 import time
+import numpy as np
 from pyparsing import ABC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
@@ -63,6 +64,11 @@ class RFWrapper(ModelWrapperBase):
     def fit(self, X_train, y_train):
         self.logger.log_check("Starting RF fit...")
         start = time.time()
+        for col in X_train.columns:
+            sample_val = X_train[col].iloc[0]
+            if isinstance(sample_val, (list, np.ndarray, tuple)):
+                print(f"Column '{col}' contains sequences, not scalars!")
+                
         self.rf.fit(X_train, y_train)
         end = time.time()
         self.logger.log_result(f"RF fit completed. Time: {end - start:2f}")
@@ -183,7 +189,7 @@ class XGBWrapper(ModelWrapperBase):
 class ModelWrapperFactory:
     @staticmethod
     def create(model_type: str, random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER, scale_pos_weight = None):
-        if model_type == "rf":
+        if model_type.lower() == "rf":
             return RFWrapper(random_state, logger=logger), "rf"
-        if model_type == "xgb":
+        if model_type.lower() == "xgb":
             return XGBWrapper(random_state, logger=logger, scale_pos_weight=scale_pos_weight), "xgb"

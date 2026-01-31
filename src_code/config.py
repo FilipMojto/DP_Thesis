@@ -25,7 +25,12 @@ CONFIG_FILE_DIR = Path(__file__).resolve()
 PROJECT_ROOT = CONFIG_FILE_DIR.parent.parent
 
 MODEL_DIR = PROJECT_ROOT / "models"
+TUNED_DIR = MODEL_DIR / "tuned_models"
 LOG_DIR = PROJECT_ROOT / "logs"
+SRC_DIR = PROJECT_ROOT / "src_code"
+
+ML_PIPELINE_DIR = SRC_DIR / "ml_pipeline"
+
 RANDOM_FOREST_MODEL = MODEL_DIR / "random_forest_pipeline.joblib"
 
 CACHE_DIR = PROJECT_ROOT / 'cache'

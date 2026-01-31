@@ -28,7 +28,10 @@ def find_newest_version(
     parent = base_output.parent
     base_stem = base_output.stem
 
-    candidates = parent.glob(f"{base_stem}_v*{extension}")
+    clean_stem = re.sub(r'_v\d+$', '', base_stem)
+
+    # candidates = parent.glob(f"{base_stem}_v*{extension}")
+    candidates = parent.glob(f"{clean_stem}_v*{extension}")
 
     newest_path = None
     newest_version = 0

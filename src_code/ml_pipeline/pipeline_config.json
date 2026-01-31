@@ -1,0 +1,40 @@
+{
+    "phases": [
+        {
+            "name": "hyperparameter-tuning",
+            "models": [
+            
+            ],
+            "description": "Hyperparameter tuning for specified models using the preprocessed training data. Possible models: RF, XGB.",
+            "kwargs": {}
+        },
+        {
+            "name": "preprocessing",
+            "subsets": [
+                "train",
+                "val",
+                "test"
+            ],
+            "description": "Final data preprocessing steps after hyperparameter tuning. Output dataset is ready for model training. Possible subsets: train, val, test.",
+            "engineering_kwargs": {},
+            "transformation_kwargs": {}
+        },
+        {
+            "name": "training",
+            "models": [
+                "RF",
+                "XGB"
+            ],
+            "description": "Train specified models using the tuned hyperparameters on the preprocessed training data. Possible models: RF, XGB.",
+            "kwargs": {
+                "load_tuned": false,
+                "skip_pfi": false
+            }
+        },
+        {
+            "name": "evaluation",
+            "description": "Evaluate trained models on validation and test datasets.",
+            "kwargs": {}
+        }
+    ]
+}

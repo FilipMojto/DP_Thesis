@@ -1,12 +1,14 @@
 from pathlib import Path
 from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
-from src_code.config import ENGINEERING_MAPPINGS, MODEL_DIR
+from src_code.config import ENGINEERING_MAPPINGS, MODEL_DIR, TUNED_DIR
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
 from src_code.ml_pipeline.data_utils import load_df, save_model
+from src_code.ml_pipeline.experimenting.utils import log_experiment_id
 from src_code.ml_pipeline.models import ModelWrapperFactory, XGBWrapper
-
+from src_code.config import LOG_DIR
 from src_code.ml_pipeline.training.tuning import ModelTuningFactory
+from src_code.utils.utils import timeit
 from src_code.versioning import VersionedFileManager
 
 DEF_SCRIPT_LOGGER = MyLogger(
@@ -15,26 +17,27 @@ DEF_SCRIPT_LOGGER = MyLogger(
     file_log_path=LOG_DIR / "tuning_log.log",
 )
 
-
+@timeit("Hyperparameter Tuning Phase", logger_name="logger")
 def tune_hyperparams(
     preprocessed_df_path: Path,
     model_type: str,
     logger: MyLogger = DEF_SCRIPT_LOGGER,
     random_state: int = DEF_RANDOM_STATE,
-    expperiment_id: int = None,
+    experiment_id: int = None,
     # scale_pos_weight: float = 1.0,
 ):
     if logger == DEF_SCRIPT_LOGGER:
         # If default logger is used, start a new session
         logger.start_session()
 
-    logger.log_check("Starting hyperparameter tuning phase...")
+    # logger.log_check("Starting hyperparameter tuning phase...")
     logger.log_check(f"Loading preprocessed data from: {preprocessed_df_path}")
-    logger.logger.info(
-        f"Experiment ID: {expperiment_id}"
-        if expperiment_id
-        else "No Experiment ID provided."
-    )
+    # logger.logger.info(
+    #     f"Experiment ID: {expperiment_id}"
+    #     if expperiment_id
+    #     else "No Experiment ID provided."
+    # )
+    log_experiment_id(logger=logger, experiment_id=experiment_id)
 
     preprocessed_df_versioner = VersionedFileManager(
         file_path=preprocessed_df_path, logger=logger
@@ -77,7 +80,7 @@ def tune_hyperparams(
     model.set_params(**best_params)
 
     model_versioner = VersionedFileManager(
-        file_path=MODEL_DIR / f"{step_name}_model_tuned.pkl", logger=logger
+        file_path=TUNED_DIR / f"{step_name}_model_tuned.pkl", logger=logger
     )
 
     save_model(model=model, model_file_path=model_versioner.next_base_output, logger=logger)
@@ -90,7 +93,7 @@ RANDOM_STATE = DEF_RANDOM_STATE
 if __name__ == "__main__":
     import argparse
     import random
-    from src_code.config import LOG_DIR
+
     import pandas as pd
     from src_code.ml_pipeline.training.tuning import SupportedModels, get_args
     from notebooks.logging_config import MyLogger

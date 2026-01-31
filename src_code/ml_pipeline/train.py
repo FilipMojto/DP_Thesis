@@ -1,5 +1,7 @@
 from collections import Counter
 from typing import List, get_args
+
+from sklearn.pipeline import Pipeline
 from notebooks.constants import (
     ENGINEERED_FEATURES,
     INTERACTION_FEATURES,
@@ -10,9 +12,10 @@ from notebooks.constants import (
 )
 from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
+from src_code.ml_pipeline.experimenting.utils import log_experiment_id
 from src_code.ml_pipeline.feature_importance import PFIWrapper
 from src_code.ml_pipeline.models import ModelWrapperFactory, RFWrapper, XGBWrapper
-from src_code.ml_pipeline.pipelines import ModelPipelineWrapper
+
 from src_code.ml_pipeline.preprocessing.data_engineering import (
     aggr_line_token_features,
     create_buckets,
@@ -38,6 +41,7 @@ from src_code.ml_pipeline.training.tuning import (
 )
 from src_code.ml_pipeline.training.utils import analyze_features
 from src_code.ml_pipeline.validations import CVWrapper
+from src_code.utils.utils import timeit
 from src_code.versioning import VersionedFileManager
 from .preprocessing.preprocessing import drop_invalid_rows
 from .data_utils import load_df, load_model, save_model
@@ -46,6 +50,7 @@ from ..config import (
     LOG_DIR,
     MODEL_DIR,
     PROCESSED_DATA_DIR,
+    TUNED_DIR,
     SupportedModels,
     SupportedModels,
 )
@@ -61,68 +66,37 @@ TOP_K_IMPORTANCES = 15
 REFINEMENT_THRESHOLD = 0.0001
 CUSTOM_THRESHOLD = 0.75
 
+DEF_SCRIPT_LOGGER = MyLogger(
+    label="TRAIN",
+    section_name="TRAINING SCRIPT",
+    file_log_path=LOG_DIR / "training_script.log",
+)
 
-if __name__ == "__main__":
-    script_logger = MyLogger(
-        label="TRAIN",
-        section_name="TRAINING SCRIPT",
-        file_log_path=LOG_DIR / "training_script.log",
-    )
-    script_logger.start_session()
-    # script_logger.log_check("Starting training script...")
-    parser = ArgumentParser(description="Parametric ML pipeline script.")
-    parser.add_argument(
-        "--model",
-        type=str,
-        required=False,
-        choices=get_args(SupportedModels),
-        default="RF",
-        help="Model type to use in the pipeline.",
-    )
-    parser.add_argument(
-        "--skip-cv",
-        action="store_true",
-        required=False,
-        default=False,
-        help="Cross-validation is skipped in the training phase.",
-    )
-    parser.add_argument(
-        "--skip-tuning",
-        action="store_true",
-        required=False,
-        default=False,
-        help="Hyperparameter Tunining is skipped in the training phase.",
-    )
-    parser.add_argument(
-        "--skip-pfi",
-        action="store_true",
-        required=False,
-        default=False,
-        help="PFI is skipped in training phase.",
+
+@timeit("Training Phase", logger_name="script_logger")
+def train(
+    model_type: str,
+    script_logger: MyLogger = DEF_SCRIPT_LOGGER,
+    load_tuned: bool = True,
+    skip_pfi: bool = False,
+    experiment_id: int = None
+):
+    log_experiment_id(logger=script_logger, experiment_id=experiment_id)
+    model_output_file = VersionedFileManager(
+        MODEL_DIR / f"{model_type.upper()}_model_train.joblib", logger=script_logger
     )
 
-    args = parser.parse_args()
-    # filtered_phases: List[str] = args.phases
-    # subset: SubsetType = args.subset
-    MODEL_TYPE = args.model  # "rf" or "xgb"
-
-    # script_model_path = MODEL_DIR / f"RF_model_script_train.joblib"
-    # script_model_path = MODEL_DIR / f"{MODEL_TYPE.upper()}_model_script_train.joblib"
-    model_file = VersionedFileManager(
-        MODEL_DIR / f"{MODEL_TYPE.upper()}_model_train.joblib", logger=script_logger
-    )
-
-    RESTRICTED_COLS = {
-        "loc_deleted": 0.36989620957290453,
-        "hunks_count": 0.32891914023397506,
-        "loc_added": 0.27842754912252743,
-        "files_changed": 0.2765063273157114,
-        "ast_delta": 0.25869381693522975,
-        "max_func_change": 0.25196385880821387,
-        "complexity_delta": 0.2479336343509937,
-        "msg_len": 0.23487740034222812,
-    }
-    RESTRICTED_COLS_NAMES = [name for name, _ in RESTRICTED_COLS.items()]
+    # RESTRICTED_COLS = {
+    #     "loc_deleted": 0.36989620957290453,
+    #     "hunks_count": 0.32891914023397506,
+    #     "loc_added": 0.27842754912252743,
+    #     "files_changed": 0.2765063273157114,
+    #     "ast_delta": 0.25869381693522975,
+    #     "max_func_change": 0.25196385880821387,
+    #     "complexity_delta": 0.2479336343509937,
+    #     "msg_len": 0.23487740034222812,
+    # }
+    # RESTRICTED_COLS_NAMES = [name for name, _ in RESTRICTED_COLS.items()]
 
     # =============================================================================
     # TRAINING
@@ -181,7 +155,7 @@ if __name__ == "__main__":
         target_df = target_df[selected_features]
         validate_df = validate_df[selected_features]
 
-    script_logger.log_check("Starting training phase...")
+    # script_logger.log_check("Starting training phase...")
 
     # -----------------------------------------------------------------------------
     # Dropping cols
@@ -213,16 +187,38 @@ if __name__ == "__main__":
     # scale_pos_weight = counter[0] / counter[1]  # weight = #negatives / #positives
 
     model_wrapper, step_name = ModelWrapperFactory.create(
-        model_type=MODEL_TYPE.lower(),
+        model_type=model_type.lower(),
         random_state=RANDOM_STATE,
         logger=script_logger,
         scale_pos_weight=XGBWrapper.calc_scale_pos_weight(y_train),
     )
     model = model_wrapper.get_model()
 
+    if load_tuned:
+        # If loading tuned model, we override the current model's parameters
+
+        tuned_model_versioner = VersionedFileManager(
+            file_path=TUNED_DIR / f"{step_name}_model_tuned.pkl", logger=script_logger
+        )
+        try:
+            tuned_model = load_model(
+                path=tuned_model_versioner.current_newest, logger=script_logger
+            )
+        except FileNotFoundError:
+            msg = "Tuned model not found. Please run hyperparameter tuning phase before training."
+            script_logger.logger.error(msg)
+            raise FileNotFoundError(msg)
+
+        script_logger.log_result(
+            f"Tuning model with new params - {tuned_model.get_params()}"
+        )
+        model.set_params(**tuned_model.get_params())
+
     # rf_pipeline = ModelPipelineWrapper(rf=model)
-    pipeline_wrapper = ModelPipelineWrapper(model=model, step_name=step_name)
-    pipeline = pipeline_wrapper.get_pipeline()
+    # pipeline_wrapper = ModelPipelineWrapper(model=model, step_name=step_name)
+    # pipeline = pipeline_wrapper.get_pipeline()
+    pipeline = Pipeline(steps=[(step_name, model)])
+
     # model = rf_wrapper.get_model()
 
     # -----------------------------------------------------------------------------
@@ -248,22 +244,22 @@ if __name__ == "__main__":
     # Cross-validation
     # -----------------------------------------------------------------------------
 
-    if not args.skip_cv:
-        cv_wrapper = CVWrapper(random_state=RANDOM_STATE, logger=script_logger)
+    # if not args.skip_cv:
+    #     cv_wrapper = CVWrapper(random_state=RANDOM_STATE, logger=script_logger)
 
-        # We pass the global validation set and the step_name (xgb or rf)
-        cv_results = cv_wrapper.cross_validate(
-            model=pipeline,  # This is your Pipeline object
-            X_train=X_train,
-            y_train=y_train,
-            X_val=X_validate,  # Your separate validation set
-            y_val=y_validate,
-            step_name=step_name,  # 'xgb' or 'rf' from your Factory
-        )
+    #     # We pass the global validation set and the step_name (xgb or rf)
+    #     cv_results = cv_wrapper.cross_validate(
+    #         model=pipeline,  # This is your Pipeline object
+    #         X_train=X_train,
+    #         y_train=y_train,
+    #         X_val=X_validate,  # Your separate validation set
+    #         y_val=y_validate,
+    #         step_name=step_name,  # 'xgb' or 'rf' from your Factory
+    #     )
 
-        cv_wrapper.mean_results()
-    else:
-        script_logger.log_result("Skipping cross-validation...")
+    #     cv_wrapper.mean_results()
+    # else:
+    #     script_logger.log_result("Skipping cross-validation...")
 
     # -----------------------------------------------------------------------------
     # Model Fit
@@ -272,7 +268,7 @@ if __name__ == "__main__":
     # This step trains the single, final model pipeline that is saved
     # in the 'model' variable and used for prediction and PFI.
     model_wrapper = fit_model(
-        model_type=MODEL_TYPE.upper(),
+        model_type=model_type.upper(),
         model_wrapper=model_wrapper,
         X_train=X_train,
         y_train=y_train,
@@ -290,7 +286,7 @@ if __name__ == "__main__":
     # PFI & Training Subset Refinement
     # -----------------------------------------------------------------------------
 
-    if not args.skip_pfi:
+    if not skip_pfi:
         # pfi_wrapper = PFIWrapper(
         #     model=model, X_test=X_test, y_test=y_test, random_state=RANDOM_STATE
         # )
@@ -334,5 +330,281 @@ if __name__ == "__main__":
     save_model(
         model=model,
         # path=script_model_path
-        path=model_file.next_base_output,
+        path=model_output_file.next_base_output,
     )
+
+    return model_output_file.next_base_output
+
+
+if __name__ == "__main__":
+    script_logger = DEF_SCRIPT_LOGGER
+    script_logger.start_session()
+    # script_logger.log_check("Starting training script...")
+    parser = ArgumentParser(description="Parametric ML pipeline script.")
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=False,
+        choices=get_args(SupportedModels),
+        default="RF",
+        help="Model type to use in the pipeline.",
+    )
+    parser.add_argument(
+        "--skip-cv",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Cross-validation is skipped in the training phase.",
+    )
+    parser.add_argument(
+        "--skip-tuning",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Hyperparameter Tunining is skipped in the training phase.",
+    )
+    parser.add_argument(
+        "--skip-pfi",
+        action="store_true",
+        required=False,
+        default=False,
+        help="PFI is skipped in training phase.",
+    )
+
+    args = parser.parse_args()
+    # filtered_phases: List[str] = args.phases
+    # subset: SubsetType = args.subset
+    MODEL_TYPE = args.model  # "rf" or "xgb"
+
+    # script_model_path = MODEL_DIR / f"RF_model_script_train.joblib"
+    # script_model_path = MODEL_DIR / f"{MODEL_TYPE.upper()}_model_script_train.joblib"
+    # model_file = VersionedFileManager(
+    #     MODEL_DIR / f"{MODEL_TYPE.upper()}_model_train.joblib", logger=script_logger
+    # )
+
+    # RESTRICTED_COLS = {
+    #     "loc_deleted": 0.36989620957290453,
+    #     "hunks_count": 0.32891914023397506,
+    #     "loc_added": 0.27842754912252743,
+    #     "files_changed": 0.2765063273157114,
+    #     "ast_delta": 0.25869381693522975,
+    #     "max_func_change": 0.25196385880821387,
+    #     "complexity_delta": 0.2479336343509937,
+    #     "msg_len": 0.23487740034222812,
+    # }
+    # RESTRICTED_COLS_NAMES = [name for name, _ in RESTRICTED_COLS.items()]
+
+    # # =============================================================================
+    # # TRAINING
+    # # =============================================================================
+
+    # # -----------------------------------------------------------------------------
+    # # Loading df
+    # # -----------------------------------------------------------------------------
+    # target_df_versioner = VersionedFileManager(
+    #     file_path=PROCESSED_DATA_DIR / "train_engineered.feather", logger=script_logger
+    # )
+    # # target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['train']["output"]
+    # target_df = load_df(target_df_versioner.current_newest)
+
+    # validate_df_versioner = VersionedFileManager(
+    #     file_path=PROCESSED_DATA_DIR / "val_engineered.feather", logger=script_logger
+    # )
+
+    # # validate_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['validate']["output"]
+    # validate_df = load_df(validate_df_versioner.current_newest)
+
+    # # SELECTED_SUBSETS = [STATISTICAL_METRICS]
+    # FEATURE_SUBSETS = {
+    #     "STATISTICAL_METRICS": STATISTICAL_METRICS,
+    #     "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
+    #     # "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
+    #     # "SEMANTIC_METRICS": SEMANTIC_METRICS,
+    # }
+
+    # # SELECTED_SUBSETS = ["STATISTICAL_METRICS", "STRUCTURAL_METRICS"]
+    # SELECTED_SUBSETS = []
+
+    # # Only keep restricted features + target
+    # # selected_features = RESTRICTED_COLS_NAMES + [TARGET]
+    # selected_features = []
+
+    # # for subset in SELECTED_SUBSETS:
+    # #     selected_features.extend(subset)
+
+    # # if selected_features:
+    # #     script_logger.log_result(f"Restricting features to {len(selected_features)} features!")
+    # #     script_logger.log_result(f"First 5 features: {selected_features[:5]}")
+
+    # for subset_name in SELECTED_SUBSETS:
+    #     subset = FEATURE_SUBSETS[subset_name]
+    #     selected_features.extend(subset)
+    #     script_logger.log_result(
+    #         f"Using feature subset '{subset_name}' ({len(subset)} features)"
+    #     )
+
+    # if selected_features:
+    #     selected_features.append(TARGET)
+    #     script_logger.log_result(f"Total selected features: {len(selected_features)}")
+    #     script_logger.log_result(f"First 5 features: {selected_features[:5]}")
+
+    #     target_df = target_df[selected_features]
+    #     validate_df = validate_df[selected_features]
+
+    # script_logger.log_check("Starting training phase...")
+
+    # # -----------------------------------------------------------------------------
+    # # Dropping cols
+    # # -----------------------------------------------------------------------------
+
+    # # target_df = drop_cols(df=target_df, cols=ftr_cfg.DROP_COLS)
+
+    # # -----------------------------------------------------------------------------
+    # # analyzigin features
+    # # -----------------------------------------------------------------------------
+
+    # analyze_features(df=target_df, target=TARGET)
+
+    # # -----------------------------------------------------------------------------
+    # # Traing&Test Split
+    # # -----------------------------------------------------------------------------
+
+    # X_train, X_test, y_train, y_test = split_train_test(
+    #     df=target_df, target=TARGET, random_state=RANDOM_STATE, test_size=TEST_SPLIT
+    # )
+    # X_validate = validate_df.drop(columns=[TARGET])
+    # y_validate = validate_df[TARGET]
+
+    # # -----------------------------------------------------------------------------
+    # # Model & TrainingPipeline Definition
+    # # -----------------------------------------------------------------------------
+
+    # # counter = Counter(y_train)
+    # # scale_pos_weight = counter[0] / counter[1]  # weight = #negatives / #positives
+
+    # model_wrapper, step_name = ModelWrapperFactory.create(
+    #     model_type=MODEL_TYPE.lower(),
+    #     random_state=RANDOM_STATE,
+    #     logger=script_logger,
+    #     scale_pos_weight=XGBWrapper.calc_scale_pos_weight(y_train),
+    # )
+    # model = model_wrapper.get_model()
+
+    # # rf_pipeline = ModelPipelineWrapper(rf=model)
+    # # pipeline_wrapper = ModelPipelineWrapper(model=model, step_name=step_name)
+    # # pipeline = pipeline_wrapper.get_pipeline()
+    # pipeline = Pipeline(steps=[(step_name, model)])
+
+    # # model = rf_wrapper.get_model()
+
+    # # -----------------------------------------------------------------------------
+    # # Hyperparameter Tuning
+    # # -----------------------------------------------------------------------------
+    # # if not args.skip_tuning:
+    # #     tuning = ModelTuningFactory.create(
+    # #         model_type=MODEL_TYPE.lower(),
+    # #         model=model,
+    # #         X_train=X_train,
+    # #         y_train=y_train,
+    # #         X_val=X_validate,
+    # #         y_val=y_validate,
+    # #         logger=script_logger,
+    # #     )
+
+    # #     best_params, best_score = tuning.run_grid_search()
+    # #     model.set_params(**best_params)
+    # # else:
+    # #     script_logger.log_result("Skipping Hyperparameter Tuning...")
+
+    # # -----------------------------------------------------------------------------
+    # # Cross-validation
+    # # -----------------------------------------------------------------------------
+
+    # if not args.skip_cv:
+    #     cv_wrapper = CVWrapper(random_state=RANDOM_STATE, logger=script_logger)
+
+    #     # We pass the global validation set and the step_name (xgb or rf)
+    #     cv_results = cv_wrapper.cross_validate(
+    #         model=pipeline,  # This is your Pipeline object
+    #         X_train=X_train,
+    #         y_train=y_train,
+    #         X_val=X_validate,  # Your separate validation set
+    #         y_val=y_validate,
+    #         step_name=step_name,  # 'xgb' or 'rf' from your Factory
+    #     )
+
+    #     cv_wrapper.mean_results()
+    # else:
+    #     script_logger.log_result("Skipping cross-validation...")
+
+    # # -----------------------------------------------------------------------------
+    # # Model Fit
+    # # -----------------------------------------------------------------------------
+
+    # # This step trains the single, final model pipeline that is saved
+    # # in the 'model' variable and used for prediction and PFI.
+    # model_wrapper = fit_model(
+    #     model_type=MODEL_TYPE.upper(),
+    #     model_wrapper=model_wrapper,
+    #     X_train=X_train,
+    #     y_train=y_train,
+    #     X_validate=X_validate,
+    #     y_validate=y_validate,
+    # )
+
+    # # -----------------------------------------------------------------------------
+    # # Single inference check
+    # # -----------------------------------------------------------------------------
+
+    # check_single_infer(model=model, X_test=X_test)
+
+    # # -----------------------------------------------------------------------------
+    # # PFI & Training Subset Refinement
+    # # -----------------------------------------------------------------------------
+
+    # if not args.skip_pfi:
+    #     # pfi_wrapper = PFIWrapper(
+    #     #     model=model, X_test=X_test, y_test=y_test, random_state=RANDOM_STATE
+    #     # )
+    #     pfi_wrapper = PFIWrapper(
+    #         model=model, random_state=RANDOM_STATE, logger=script_logger
+    #     )
+    #     # importances = pfi_wrapper.run_PFI(X_test=X_test, y_test=y_test, top_k=TOP_K_IMPORTANCES)
+    #     importances = pfi_wrapper.run_PFI(
+    #         X_test=X_validate, y_test=y_validate, top_k=TOP_K_IMPORTANCES
+    #     )
+
+    #     # pfi_wrapper.calc_importances()
+    #     # importances = pfi_wrapper.get_importances(top_k=TOP_K_IMPORTANCES)
+
+    #     X_train, X_test, X_validate = pfi_wrapper.refine_features(
+    #         X_train=X_train,
+    #         X_test=X_test,
+    #         X_val=X_validate,
+    #         threshold=REFINEMENT_THRESHOLD,
+    #     )
+
+    #     # -----------------------------------------------------------------------------
+    #     # Model retraining
+    #     # -----------------------------------------------------------------------------
+
+    #     model_wrapper = fit_model(
+    #         model_type=MODEL_TYPE.upper(),
+    #         model_wrapper=model_wrapper,
+    #         X_train=X_train,
+    #         y_train=y_train,
+    #         X_validate=X_validate,
+    #         y_validate=y_validate,
+    #     )
+
+    # else:
+    #     script_logger.log_result("Skipping PFI process...")
+
+    # script_logger.log_result("Training phase finished.")
+
+    # # save_df(df=target_df, df_fil~e_path=)
+    # save_model(
+    #     model=model,
+    #     # path=script_model_path
+    #     path=model_file.next_base_output,
+    # )

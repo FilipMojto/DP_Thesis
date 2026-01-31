@@ -23,11 +23,11 @@ from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 #     def get_pipeline(self) -> Pipeline:
 #         return self.pipeline
 
-class ModelPipelineWrapper:
-    def __init__(self, model: BaseEstimator, step_name: str, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
-        logger.log_check("Defining Model Pipeline...")
-        self.pipeline = Pipeline(steps=[(step_name, model)])
-        logger.log_result("Pipeline definition done.")
+# class ModelPipelineWrapper:
+#     def __init__(self, model: BaseEstimator, step_name: str, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
+#         logger.log_check("Defining Model Pipeline...")
+#         self.pipeline = Pipeline(steps=[(step_name, model)])
+#         logger.log_result("Pipeline definition done.")
 
-    def get_pipeline(self) -> Pipeline:
-        return self.pipeline
+#     def get_pipeline(self) -> Pipeline:
+#         return self.pipeline
