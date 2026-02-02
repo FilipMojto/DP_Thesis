@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -58,17 +59,7 @@ def evaluate_model(
 
     # Metrics
     roc_auc = roc_auc_score(y_true, probs)
-    # best_thresh, best_mcc = find_optimal_threshold_MCC(y_true, probs, logger)
-
-    # beta = 2
-    # f2 = (1 + beta**2) * (precision * recall) / (beta**2 * precision + recall + 1e-10)
-
-    # best_idx = np.argmax(f2)
-    # best_thresh = pr_thresholds[best_idx]
-
-    # logger.log_result(f"Optimal Threshold for F2: {best_threshold:.4f}")
-    # logger.log_result(f"Best F2 Score: {f2[best_idx]:.4f}")
-
+    
     best_thresh, best_f2 = find_optimal_threshold_F2(precision, recall, pr_thresholds, logger)
     
     preds_thresh = (probs >= best_thresh).astype(int)
@@ -79,12 +70,7 @@ def evaluate_model(
 
     
     logger.log_result(f"ROC-AUC: {roc_auc:.4f}")
-    # logger.log_result(f"Best MCC: {best_mcc:.4f} @ {best_thresh:.3f}")
-    # logger.log_result(f"Best F2: {best_f2:.4f} @ {best_thresh:.3f}")
 
-    # Use trapezoidal rule
-    # auprc_manual = np.trapz(precision, recall)
-    # logger.log_result(f"AUPRC (manual): {auprc_manual:.4f}")
     auprc = average_precision_score(y_true, probs)
     logger.log_result(f"AUPRC: {auprc:.4f}")
 
@@ -117,7 +103,7 @@ def evaluate_model(
 
 #     return precision, recall, thresholds
 
-def plot_pr_grid(results, cols=2):
+def plot_pr_grid(results, experiment_path: Path = None, cols=2):
     rows = math.ceil(len(results) / cols)
     fig, axes = plt.subplots(rows, cols, figsize=(6*cols, 5*rows))
     axes = np.array(axes).reshape(-1)
@@ -129,6 +115,11 @@ def plot_pr_grid(results, cols=2):
         ax.set_xlabel("Recall")
         ax.set_ylabel("Precision")
         ax.grid(True)
+
+    if experiment_path:
+        save_file = experiment_path / "precision_recall_curves.png"
+        plt.savefig(save_file)
+        print(f"Saved PR grid to {save_file}")
 
     plt.tight_layout()
     plt.show()
@@ -187,10 +178,15 @@ def find_optimal_threshold_F2(precision, recall, pr_thresholds, logger: MyLogger
 
 #     logger.log_result("Displayed successfully.")
 
-def plot_roc_grid(results, cols=2):
+def plot_roc_grid(results, experiment_path: Path = None, cols=2):
     rows = math.ceil(len(results) / cols)
     fig, axes = plt.subplots(rows, cols, figsize=(6*cols, 5*rows))
     axes = np.array(axes).reshape(-1)
+
+    if experiment_path:
+        save_file = experiment_path / "roc_curves.png"
+        plt.savefig(save_file)
+        print(f"Saved ROC grid to {save_file}")
 
     for ax, res in zip(axes, results):
         fpr, tpr = res.roc_curve

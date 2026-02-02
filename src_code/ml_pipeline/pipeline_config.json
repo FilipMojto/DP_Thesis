@@ -2,6 +2,7 @@
     "phases": [
         {
             "name": "hyperparameter-tuning",
+            "skip": true,
             "models": [
             
             ],
@@ -10,6 +11,7 @@
         },
         {
             "name": "preprocessing",
+            "skip": false,
             "subsets": [
                 "train",
                 "val",
@@ -23,6 +25,7 @@
         },
         {
             "name": "training",
+            "skip": true,
             "models": [
                 "RF",
                 "XGB"
@@ -35,6 +38,7 @@
         },
         {
             "name": "evaluation",
+            "skip": true,
             "description": "Evaluate trained models on validation and test datasets.",
             "kwargs": {}
         }

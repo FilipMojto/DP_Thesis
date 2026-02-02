@@ -13,12 +13,12 @@ from src_code.config import (
     SubsetType,
     SupportedModels,
 )
-from src_code.ml_pipeline.evaluate import evaluate
-from src_code.ml_pipeline.preprocess import early_preprocess
-from src_code.ml_pipeline.train import train
-from src_code.ml_pipeline.tune import tune_hyperparams
+from src_code.ml_pipeline.scripts.evaluate import evaluate
+from src_code.ml_pipeline.scripts.preprocess import early_preprocess
+from src_code.ml_pipeline.scripts.train import train
+from src_code.ml_pipeline.scripts.tune import tune_hyperparams
 from src_code.versioning import VersionedFileManager
-from src_code.ml_pipeline.preprocess import transform_df
+from src_code.ml_pipeline.scripts.preprocess import transform_df
 
 PIPELINE_CONFIG = [
     "early-preprocessing",
@@ -124,7 +124,7 @@ def main(
         # ... and so on
 
 
-def process_pipeline_config(json_path: Path) -> dict:
+def process_pipeline_config(json_path: Path, script_logger: MyLogger) -> dict:
     with open(json_path, "r") as f:
         config_data = json.load(f)
 
@@ -135,8 +135,18 @@ def process_pipeline_config(json_path: Path) -> dict:
         # evaluation_metrics = []
         evaluate = False
 
+        tune_hyperparams_kwargs = {}
+        engineering_kwargs = {}
+        transformation_kwargs = {}
+        training_kwargs = {}
+        evaluate_kwargs = {}
+
         for phase in config_data.get("phases", []):
             phase_name = phase.get("name")
+
+            if phase.get("skip", False):
+                script_logger.log_result(f"Skipping phase: {phase_name}")
+                continue
 
             match phase_name:
                 # case "early-preprocessing":
@@ -215,7 +225,7 @@ if __name__ == "__main__":
     # )
 
     # args = parser.parse_args()
-    config = process_pipeline_config(json_path=json_dump)
+    config = process_pipeline_config(json_path=json_dump, script_logger=script_logger)
 
     main(
         logger=script_logger,

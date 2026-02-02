@@ -1,0 +1,115 @@
+
+from dataclasses import dataclass
+import numpy as np
+import pandas as pd
+from notebooks.constants import NUMERIC_FEATURES
+from notebooks.logging_config import MyLogger
+from src_code.utils.utils import is_embedding_column, is_tfidf_vectorized
+
+
+def log_general_overview(df: pd.DataFrame, logger: MyLogger):
+    # log.info("[EDA CHECK] Checking the general overview...")
+    logger.log_check("Checking the general overview...", print_to_console=True)
+    # print(f"Dataset shape: {df.shape}")
+    # log.info(f"[EDA RESULT] Dataset shape: {df.shape}")
+    logger.log_result(f"Dataset shape: {df.shape}", print_to_console=True)
+
+    # First few rows
+    df.head()
+
+    # Column types
+    # df_dtypes = df.dtypes
+    # Convert dtypes to list of tuples
+    dtypes_list = [(col, str(dtype)) for col, dtype in df.dtypes.items()]
+
+    # Log it
+    # log.info(f"[EDA RESULT] Dtypes: {dtypes_list}")
+    logger.log_result(f"Dtypes: {dtypes_list}", print_to_console=True)
+
+
+def log_missing_values(df: pd.DataFrame, logger: MyLogger):
+    # log.info("[EDA CHECK] Checking missing values...") 
+    logger.log_check("Checking missing values...", print_to_console=True)
+
+    # Check missing values
+    missing = df.isnull().sum()
+    missing_nonzero = missing[missing > 0]
+
+    # Convert to list of tuples for compact logging
+    missing_list = [(col, int(count)) for col, count in missing_nonzero.items()]
+
+    # Log
+    # log.info(f"[EDA RESULT] Missing values (only non-zero): {missing_list}")
+    logger.log_result(f"Missing values (only non-zero): {missing_list}", print_to_console=True)
+
+def log_numeric_features_with_negatives(df: pd.DataFrame, logger: MyLogger):
+    logger.log_check("Checking negative numeric features...")
+
+    negatives = []
+
+    for col in NUMERIC_FEATURES:
+        # Calculate the total number of rows (non-NaN count) in the column
+        total_count = df[col].count()
+
+        # Calculate the number of negative values in the column
+        negative_count = (df[col] < 0).sum()
+
+        # Calculate the proportion of negative values
+        if total_count > 0:
+            proportion = negative_count / total_count
+        else:
+            proportion = 0  # Handle case where the column is entirely NaN or empty
+
+        if proportion:
+            logger.log_result(
+                f"Negative Feature: **{col}** - Count of negative values: {negative_count} - Proportion of negative values: **{proportion:.4f}"
+            )
+            # log_result(f"Total entries (non-NaN): {total_count}")
+            # log_result(f"Count of negative values: {negative_count}")
+            # log_result(f"Proportion of negative values: **{proportion:.4f}**")
+
+    # log_result(f"Found following negative features: {negatives}")
+
+    for negative in negatives:
+        print(df[negative].describe())
+
+    logger.log_result(f"Found following negative features: {negatives}")
+
+
+@dataclass
+class FeatureCategories:
+    embedding_cols: list
+    tfidf_vectorized_cols: list
+    structural_cols: list
+
+    def all_numeric_cols(self):
+        return self.embedding_cols + self.tfidf_vectorized_cols + self.structural_cols
+
+
+def extract_features(df: pd.DataFrame, logger: MyLogger):
+    logger.log_check("Checking numeric features...")
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    num_cols.remove('label')  # exclude target
+
+    embedding_cols = [c for c in num_cols if is_embedding_column(c)]
+    tfidf_vectorized_cols = [c for c in num_cols if is_tfidf_vectorized(c)]
+
+    structural_cols = [c for c in num_cols if not is_embedding_column(c) and not is_tfidf_vectorized(c)]
+
+
+
+    logger.log_result(f"Embeddings: {embedding_cols}")
+    logger.log_result(f"Size: {len(embedding_cols)}")
+    logger.log_result("")
+    logger.log_result(f"tfidf_vectorized: {tfidf_vectorized_cols}")
+    logger.log_result(f"Size: {len(tfidf_vectorized_cols)}")
+    logger.log_result("")
+
+    logger.log_result(f"Structural: {structural_cols}")
+    logger.log_result(f"Size: {len(structural_cols)}")
+
+    return FeatureCategories(
+        embedding_cols=embedding_cols,
+        tfidf_vectorized_cols=tfidf_vectorized_cols,
+        structural_cols=structural_cols
+    )

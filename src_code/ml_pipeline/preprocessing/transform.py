@@ -77,6 +77,10 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
             ("tokens", log_transformer, LINE_TOKEN_FEATURES),
             ("code_embed", code_emb_pipe, ["code_embed"]),  # Pass as list
             ("msg_embed", msg_emb_pipe, ["msg_embed"]),  # Pass as list
+            # 2. This step keeps the original raw vector column
+            # Note: We use 'passthrough' directly on the column names
+            ("code_embed_raw", "passthrough", ["code_embed"]),
+            ("msg_embed_raw", "passthrough", ["msg_embed"]),
         ],
         remainder="passthrough",
         verbose_feature_names_out=False,  # This now works because names are unique

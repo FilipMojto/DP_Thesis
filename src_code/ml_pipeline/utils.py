@@ -2,6 +2,7 @@ import os
 import pandas as pd
 
 from notebooks.logging_config import MyLogger
+from src_code.config import EVALUATION_DIR, REPORTS_DIR
 
 # def contains_negative(df: pd.DataFrame, col: str) -> bool:
 #     """
@@ -61,3 +62,10 @@ def describe_dataframe(df: pd.DataFrame, logger: MyLogger, name: str = "DataFram
         f"Initial dataframe shape: {df.shape}", print_to_console=True
     )
     # return desc
+
+from pathlib import Path
+
+def get_experiment_dir(experiment_id: int) -> Path:
+    path = Path(f"{EVALUATION_DIR}/experiment_{experiment_id}")
+    path.mkdir(parents=True, exist_ok=True)
+    return path

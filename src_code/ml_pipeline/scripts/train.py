@@ -45,9 +45,9 @@ from src_code.mlops_intstrex.reporters.console_reporter import ConsoleReporter
 from src_code.mlops_intstrex.reporters.tqdm_reporter import TqdmReporter
 from src_code.utils.utils import timeit
 from src_code.versioning import VersionedFileManager
-from .preprocessing.preprocessing import drop_invalid_rows
-from .data_utils import load_df, load_model, save_model
-from ..config import (
+from ..preprocessing.preprocessing import drop_cols, drop_invalid_rows
+from ..data_utils import load_df, load_model, save_model
+from ...config import (
     ENGINEERING_MAPPINGS,
     LOG_DIR,
     MODEL_DIR,
@@ -57,7 +57,7 @@ from ..config import (
     SupportedModels,
 )
 from argparse import ArgumentParser
-from .preprocessing import feature_config as ftr_cfg
+from ..preprocessing import feature_config as ftr_cfg
 
 RANDOM_STATE = 42
 TEST_SPLIT = 0.2
@@ -156,6 +156,14 @@ def train(
 
         target_df = target_df[selected_features]
         validate_df = validate_df[selected_features]
+
+    # -----------------------------------------------------------------------------
+    # Dropping invalid cols
+    # -----------------------------------------------------------------------------
+
+    target_df = drop_cols(
+        df=target_df, cols=ftr_cfg.DROP_COLS, logger=script_logger
+    )
 
     # script_logger.log_check("Starting training phase...")
 

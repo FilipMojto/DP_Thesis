@@ -21,7 +21,7 @@ import src_code.ml_pipeline.preprocessing.preprocessing as prep
 import src_code.ml_pipeline.preprocessing.data_engineering as de
 import src_code.ml_pipeline.preprocessing.transform as tr
 import src_code.ml_pipeline.preprocessing.feature_config as ftr_cfg
-from src_code.ml_pipeline.tune import tune_hyperparams as tune_main
+from src_code.ml_pipeline.scripts.tune import tune_hyperparams as tune_main
 from src_code.ml_pipeline.utils import describe_dataframe, limit_dataframe_rows
 from src_code.utils.utils import timeit
 from src_code.versioning import VersionedFileManager
@@ -85,13 +85,13 @@ def early_preprocess(
         df=target_df, script_logger=script_logger, max_rows=max_rows
     )
 
-    # -----------------------------------------------------------------------------
-    # Dropping invalid cols
-    # -----------------------------------------------------------------------------
+    # # -----------------------------------------------------------------------------
+    # # Dropping invalid cols
+    # # -----------------------------------------------------------------------------
 
-    target_df = prep.drop_cols(
-        df=target_df, cols=ftr_cfg.DROP_COLS, logger=script_logger
-    )
+    # target_df = prep.drop_cols(
+    #     df=target_df, cols=ftr_cfg.DROP_COLS, logger=script_logger
+    # )
 
     # -----------------------------------------------------------------------------
     # Dropping invalid rows

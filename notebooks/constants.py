@@ -42,7 +42,7 @@ for i in range(len(INTERACTION_FEATURES)):
         ENGINEERED_FEATURES.append(f"{f1}_x_{f2}")
 
 LOG_FILE = Path().resolve().parent / "notebooks.log"
-
+LOG_DIR = Path().resolve().parent / "notebooks/logs"
 
 CHURN_METRICS = ['loc_added', 'loc_deleted', 'files_changed', 'hunks_count']
 TEXTUAL_METRICS = ['msg_len', 'has_fix_kw', 'has_bug_kw']
