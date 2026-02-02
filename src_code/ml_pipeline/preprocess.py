@@ -22,6 +22,7 @@ import src_code.ml_pipeline.preprocessing.data_engineering as de
 import src_code.ml_pipeline.preprocessing.transform as tr
 import src_code.ml_pipeline.preprocessing.feature_config as ftr_cfg
 from src_code.ml_pipeline.tune import tune_hyperparams as tune_main
+from src_code.ml_pipeline.utils import describe_dataframe, limit_dataframe_rows
 from src_code.utils.utils import timeit
 from src_code.versioning import VersionedFileManager
 
@@ -35,6 +36,7 @@ DEF_SCRIPT_LOGGER = MyLogger(
 @timeit("Early Preprocessing Phase", logger_name="script_logger")
 def early_preprocess(
     subset: SubsetType,
+    max_rows: int = None,
     experiment_id: int = None,
     script_logger: MyLogger = DEF_SCRIPT_LOGGER,
 ):
@@ -67,8 +69,20 @@ def early_preprocess(
     target_df_path = input_df_file.current_newest
     target_df = dutls.load_df(target_df_path)
 
-    script_logger.log_result(
-        f"Initial dataframe shape: {target_df.shape}", print_to_console=True
+    # script_logger.log_result(
+    #     f"Initial dataframe shape: {target_df.shape}", print_to_console=True
+    # )
+    describe_dataframe(df=target_df, logger=script_logger, name=f"{subset} initial dataframe")
+
+    # if max_rows is not None:
+    #     script_logger.log_check(f"Limiting to first {max_rows} rows for testing...")
+    #     target_df = target_df.head(max_rows)
+    #     script_logger.log_result(
+    #         f"Dataframe shape after row limit: {target_df.shape}",
+    #         print_to_console=True,
+    #     )
+    target_df = limit_dataframe_rows(
+        df=target_df, script_logger=script_logger, max_rows=max_rows
     )
 
     # -----------------------------------------------------------------------------
@@ -182,6 +196,7 @@ def early_preprocess(
 @timeit("Transformation Subphase", logger_name="script_logger")
 def transform_df(
     subset: SubsetType,
+    max_rows: int = None,
     script_logger: MyLogger = DEF_SCRIPT_LOGGER,
     # target_df: pd.DataFrame,
     experiment_id: int = None,
@@ -200,7 +215,14 @@ def transform_df(
     
     df_file_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / f"{subset}_engineered.feather", logger=script_logger)
     target_df = dutls.load_df(df_file_versioner.current_newest, logger=script_logger)
+    
+    describe_dataframe(df=target_df, logger=script_logger, name=f"{subset} before transformation")
+    
+    target_df = limit_dataframe_rows(
+        df=target_df, script_logger=script_logger, max_rows=max_rows
+    )
 
+    
     target_df, fitted_transformer = tr.transform(
         df=target_df,
         subset=subset,
@@ -220,8 +242,10 @@ def transform_df(
     )
     
     script_logger.log_result(f"Column data types: {target_df.dtypes.to_dict()}")
+    output_df_file = VersionedFileManager(file_path=PROCESSED_DATA_DIR / f"{subset}_transformed.feather", logger=script_logger)
     # script_logger.log_result(f"")
     # script_logger.log_result("Transformations subphase finished.")
+    dutls.save_df(df=target_df, df_file_path=output_df_file.next_base_output)
     return target_df
 
 

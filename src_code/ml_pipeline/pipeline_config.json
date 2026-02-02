@@ -16,7 +16,9 @@
                 "test"
             ],
             "description": "Final data preprocessing steps after hyperparameter tuning. Output dataset is ready for model training. Possible subsets: train, val, test.",
-            "engineering_kwargs": {},
+            "engineering_kwargs": {
+                "max_rows": 10000
+            },
             "transformation_kwargs": {}
         },
         {

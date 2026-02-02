@@ -41,6 +41,8 @@ from src_code.ml_pipeline.training.tuning import (
 )
 from src_code.ml_pipeline.training.utils import analyze_features
 from src_code.ml_pipeline.validations import CVWrapper
+from src_code.mlops_intstrex.reporters.console_reporter import ConsoleReporter
+from src_code.mlops_intstrex.reporters.tqdm_reporter import TqdmReporter
 from src_code.utils.utils import timeit
 from src_code.versioning import VersionedFileManager
 from .preprocessing.preprocessing import drop_invalid_rows
@@ -106,13 +108,13 @@ def train(
     # Loading df
     # -----------------------------------------------------------------------------
     target_df_versioner = VersionedFileManager(
-        file_path=PROCESSED_DATA_DIR / "train_engineered.feather", logger=script_logger
+        file_path=PROCESSED_DATA_DIR / "train_transformed.feather", logger=script_logger
     )
     # target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['train']["output"]
     target_df = load_df(target_df_versioner.current_newest)
 
     validate_df_versioner = VersionedFileManager(
-        file_path=PROCESSED_DATA_DIR / "val_engineered.feather", logger=script_logger
+        file_path=PROCESSED_DATA_DIR / "val_transformed.feather", logger=script_logger
     )
 
     # validate_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['validate']["output"]
@@ -291,7 +293,7 @@ def train(
         #     model=model, X_test=X_test, y_test=y_test, random_state=RANDOM_STATE
         # )
         pfi_wrapper = PFIWrapper(
-            model=model, random_state=RANDOM_STATE, logger=script_logger
+            model=model, random_state=RANDOM_STATE, logger=script_logger, reporter_cls=ConsoleReporter
         )
         # importances = pfi_wrapper.run_PFI(X_test=X_test, y_test=y_test, top_k=TOP_K_IMPORTANCES)
         importances = pfi_wrapper.run_PFI(
@@ -313,7 +315,7 @@ def train(
         # -----------------------------------------------------------------------------
 
         model_wrapper = fit_model(
-            model_type=MODEL_TYPE.upper(),
+            model_type=model_type.upper(),
             model_wrapper=model_wrapper,
             X_train=X_train,
             y_train=y_train,

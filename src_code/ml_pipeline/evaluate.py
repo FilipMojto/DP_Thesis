@@ -50,8 +50,8 @@ def evaluate(
     # -----------------------------------------------------------------------------
     # target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS["test"]["output"]
     # test_df = dutls.load_df(df_file_path=target_df_path, logger=script_logger)
-    test_df_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / "test_engineered.feather", logger=script_logger)
-    test_df = dutls.load_df(df_file_path=test_df_versioner.current_newest, logger=script_logger)
+    test_df_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / "test_transformed.feather", logger=logger)
+    test_df = dutls.load_df(df_file_path=test_df_versioner.current_newest, logger=logger)
     # # -----------------------------------------------------------------------------
     # # Model Loading
     # # -----------------------------------------------------------------------------
@@ -94,16 +94,16 @@ def evaluate(
     # )
     for name, verioner in models.items():
         # script_logger.log_check(f"Evaluating model: {name}")
-        script_logger.start_section(section_name=f"Evaluating model: {name}")
-        model = dutls.load_model(verioner.current_newest, script_logger)
+        logger.start_section(section_name=f"Evaluating model: {name}")
+        model = dutls.load_model(verioner.current_newest, logger)
         model_features = model.feature_names_in_
 
         if isinstance(model, RandomForestClassifier):
-            script_logger.log_result("Loaded model is a Random Forest.")
+            logger.log_result("Loaded model is a Random Forest.")
         elif isinstance(model, XGBClassifier):
-            script_logger.log_result("Loaded model is an XGBoost Classifier.")
+            logger.log_result("Loaded model is an XGBoost Classifier.")
         else:
-            script_logger.log_result("Loaded model is of an unknown type.")
+            logger.log_result("Loaded model is of an unknown type.")
 
         # -----------------------------------------------------------------------------
         # Column Filtering
@@ -118,7 +118,7 @@ def evaluate(
         y_true = test_df["label"] if "label" in test_df.columns else None
 
         predictions, probabilities = test_utils.infer(
-            X_test=X_test, model=model, logger=script_logger
+            X_test=X_test, model=model, logger=logger
         )
 
         results.append(
@@ -127,14 +127,14 @@ def evaluate(
                 model=model,
                 X_test=X_test,
                 y_true=y_true,
-                logger=script_logger,
+                logger=logger,
             )
         )
 
 
 
     report_df = test_utils.classification_report_table(results)
-    script_logger.log_result(f"\n{report_df.round(3)}")
+    logger.log_result(f"\n{report_df.round(3)}")
 
     # -----------------------------------------------------------------------------
     # Precision-Recall Curve
@@ -178,8 +178,8 @@ def evaluate(
 
 
 if __name__ == "__main__":
-    script_logger = DEF_SCRIPT_LOGGER
-    script_logger.start_session()
+    logger = DEF_SCRIPT_LOGGER
+    logger.start_session()
     # argparser = argparse.ArgumentParser(
     #     description="Final Evaluation and Deployment Preparation Script"
     # )
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     # MODEL_TYPE: SupportedModels = args.model  # "rf" or "xgb"
 
     evaluate(
-        logger=script_logger
+        logger=logger
     )
 
     # model_file_versioner = VersionedFileManager(file_path=MODEL_DIR / f"{MODEL_TYPE.upper()}_model_train.joblib")

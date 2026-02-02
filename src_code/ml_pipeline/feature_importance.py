@@ -1,19 +1,26 @@
+from typing import Generic, Type, TypeVar
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.inspection import permutation_importance
 
 from notebooks.logging_config import MyLogger
-from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
+from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
 from src_code.ml_pipeline.utils import get_n_jobs
+from src_code.mlops_intstrex.adapters.pfi import PermutationImportanceAdapter
+from src_code.mlops_intstrex.reporters.progress_reporter import ProgressReporter
+from src_code.mlops_intstrex.reporters.tqdm_reporter import TqdmReporter
 
 
-class PFIWrapper:
+T = TypeVar('T', bound=ProgressReporter)
+
+class PFIWrapper(Generic[T]):
     def __init__(
         self,
         model: BaseEstimator,
+        reporter_cls: Type[T],  # Pass the class here
         # X_test,
         # y_test,
-        random_state: int,
+        random_state: int = DEF_RANDOM_STATE,
         # X_val=None,
         # y_val=None,
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
@@ -24,34 +31,41 @@ class PFIWrapper:
 
         # self.perm = permutation_importance(
         self.model = model
+        self.reporter_cls = reporter_cls
         # self.X_test = X_test
         # self.y_test = y_test
         # self.X_val = X_val
         # self.y_val = y_val
         self.n_repeats = 2
         self.random_state = random_state
-        self.n_jobs = get_n_jobs(
-            reserve=reserve_cores
-        )  # <--- Re-enabled parallel processing
+        # self.n_jobs = get_n_jobs(
+        #     reserve=reserve_cores
+        # )  # <--- Re-enabled parallel processing
         # )
+        self.pfi_adapter = PermutationImportanceAdapter(
+            model=self.model, n_repeats=self.n_repeats, reserve_cores=reserve_cores, random_state=self.random_state
+        )
 
         self.logger.log_check("Initialization done.")
 
     def run_PFI(self, X_test, y_test, top_k: int = 10):
         self.logger.log_check("Starting PFI...")
-        self.perm = permutation_importance(
-            self.model,
-            X_test,
-            y_test,
-            n_repeats=self.n_repeats,
-            random_state=self.random_state,
-            n_jobs=self.n_jobs  # <--- Re-enabled parallel processing
-            # scoring="f2"
+        # self.perm = permutation_importance(
+        #     self.model,
+        #     X_test,
+        #     y_test,
+        #     n_repeats=self.n_repeats,
+        #     random_state=self.random_state,
+        #     n_jobs=8,  # <--- Re-enabled parallel processing
+        #     # scoring="f2"
+        # )
+        self.perm = self.pfi_adapter.execute(
+            reporter=self.reporter_cls(), X=X_test, y=y_test
         )
 
         self.logger.log_result("PFI completed.")
 
-    # def calc_importances(self):
+        # def calc_importances(self):
         self.logger.log_check("Calculating PFI importances...")
         self.importances = pd.Series(
             self.perm.importances_mean,  # Retrieves the average importance score
@@ -67,7 +81,7 @@ class PFIWrapper:
         ).sort_values(ascending=False)
         self.logger.log_result("Calculation complete.")
 
-    # def get_importances(self, top_k: int = 10):
+        # def get_importances(self, top_k: int = 10):
         # self.importances = pd.Series(
         #     self.perm.importances_mean, # Retrieves the average importance score
         #                             # (the average drop in model performance)
@@ -89,7 +103,7 @@ class PFIWrapper:
 
         return top_importances
 
-    def refine_features(self, X_train, X_test, X_val = None, threshold: float = 0.0001):
+    def refine_features(self, X_train, X_test, X_val=None, threshold: float = 0.0001):
         self.logger.log_check("Refining features based on best PFI importances...")
         # threshold = 0.0001 # Or use 0.0 to be more inclusive
         top_features = self.importances[self.importances > threshold].index.tolist()
@@ -114,4 +128,8 @@ class PFIWrapper:
         )
 
         self.logger.log_result(f"Features retained: {top_features}")
-        return X_train_filtered, X_test_filtered, X_val_filtered if X_val is not None else None
+        return (
+            X_train_filtered,
+            X_test_filtered,
+            X_val_filtered if X_val is not None else None,
+        )

@@ -82,8 +82,6 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
         verbose_feature_names_out=False,  # This now works because names are unique
     )
 
-
-
     return transformer
 
 

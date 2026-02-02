@@ -1,5 +1,8 @@
 
-class ConsoleReporter:
+from src_code.mlops_intstrex.reporters.progress_reporter import ProgressReporter
+
+
+class ConsoleReporter(ProgressReporter):
     def start(self, total, description=""):
         self.total = total
         self.current = 0

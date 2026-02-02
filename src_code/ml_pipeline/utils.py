@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 
+from notebooks.logging_config import MyLogger
+
 # def contains_negative(df: pd.DataFrame, col: str) -> bool:
 #     """
 #     Checks if a specified numeric column in a DataFrame contains at least one negative value.
@@ -37,3 +39,25 @@ def get_n_jobs(reserve: int = 6) -> int:
     """
     total_cores = os.cpu_count() or 1
     return max(1, total_cores - reserve)
+
+
+def limit_dataframe_rows(df: pd.DataFrame, script_logger: MyLogger, max_rows: int = None) -> pd.DataFrame:
+    if max_rows is not None:
+        script_logger.log_check(f"Limiting to first {max_rows} rows for testing...")
+        target_df = df.head(max_rows)
+        script_logger.log_result(
+            f"Dataframe shape after row limit: {target_df.shape}",
+            print_to_console=True,
+        )
+        return target_df
+    return df
+
+
+def describe_dataframe(df: pd.DataFrame, logger: MyLogger, name: str = "DataFrame"):
+    logger.log_result(f"Describing {name}...")
+    # desc = df.describe(include="all").T
+    # logger.log_result(f"\n{desc}")
+    logger.log_result(
+        f"Initial dataframe shape: {df.shape}", print_to_console=True
+    )
+    # return desc

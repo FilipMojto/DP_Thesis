@@ -162,7 +162,7 @@ class XGBWrapper(ModelWrapperBase):
             y_train,
             eval_set=[(X_val, y_val)],
             # early_stopping_rounds=20,
-            verbose=3,
+            verbose=False,
         )
         end = time.time()
         self.logger.log_result(f"XGBoost fit completed. Time: {end - start:2f}")
