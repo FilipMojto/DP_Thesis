@@ -89,6 +89,28 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
 
     return transformer
 
+def log_dropped_features(transformer, numeric_features_list, logger):
+    # 1. Access the 'num' pipeline from the ColumnTransformer
+    num_pipe = transformer.named_transformers_['num']
+    
+    # 2. Access the VarianceThreshold step (it's the last step in your pipe)
+    selector = num_pipe.named_steps['var_thresh']
+    
+    # 3. Get the mask (True = kept, False = dropped)
+    # Note: If you have steps before var_thresh that change feature count, 
+    # you might need to get names from the step immediately preceding it.
+    mask = selector.get_support()
+    
+    # Names entering the VarianceThreshold are those after winsorizing/logging
+    # In your case, it's NUMERIC_FEATURES + ENGINEERED_FEATURES
+    input_names = np.array(numeric_features_list)
+    
+    dropped_features = input_names[~mask]
+    
+    if len(dropped_features) > 0:
+        logger.log_result(f"VarianceThreshold dropped {len(dropped_features)} features: {dropped_features.tolist()}")
+    else:
+        logger.log_result("VarianceThreshold did not drop any features.")
 
 def transform(
     df: pd.DataFrame,
@@ -115,7 +137,10 @@ def transform(
         transformer.fit(df)
         df = transformer.transform(df)
 
+        log_dropped_features(transformer=transformer, numeric_features_list=NUMERIC_FEATURES + ENGINEERED_FEATURES, logger=logger)
+
         feature_names = transformer.get_feature_names_out()
+        print([name for name in transformer.get_feature_names_out() if 'ratio' in name])
 
 
         # 4. SAVE
@@ -163,7 +188,11 @@ def pca_explained_variance(transformer: ColumnTransformer, name: str) -> float:
 
     try:
         pca = transformer.named_transformers_[name].named_steps["pca"]
-    except KeyError as e:
-        raise KeyError(f"No PCA found under transformer '{name}'") from e
+        return float(pca.explained_variance_ratio_.sum())
 
-    return float(pca.explained_variance_ratio_.sum())
+    except KeyError as e:
+        # raise KeyError(f"No PCA found under transformer '{name}'") from e
+        # pass
+        return -1
+
+    # return float(pca.explained_variance_ratio_.sum())

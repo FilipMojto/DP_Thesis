@@ -72,7 +72,9 @@ def early_preprocess(
     # script_logger.log_result(
     #     f"Initial dataframe shape: {target_df.shape}", print_to_console=True
     # )
-    describe_dataframe(df=target_df, logger=script_logger, name=f"{subset} initial dataframe")
+    describe_dataframe(
+        df=target_df, logger=script_logger, name=f"{subset} initial dataframe"
+    )
 
     # if max_rows is not None:
     #     script_logger.log_check(f"Limiting to first {max_rows} rows for testing...")
@@ -212,17 +214,21 @@ def transform_df(
     #     else "No Experiment ID provided."
     # )
     log_experiment_id(logger=script_logger, experiment_id=experiment_id)
-    
-    df_file_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / f"{subset}_engineered.feather", logger=script_logger)
+
+    df_file_versioner = VersionedFileManager(
+        file_path=PROCESSED_DATA_DIR / f"{subset}_engineered.feather",
+        logger=script_logger,
+    )
     target_df = dutls.load_df(df_file_versioner.current_newest, logger=script_logger)
-    
-    describe_dataframe(df=target_df, logger=script_logger, name=f"{subset} before transformation")
-    
+
+    describe_dataframe(
+        df=target_df, logger=script_logger, name=f"{subset} before transformation"
+    )
+
     target_df = limit_dataframe_rows(
         df=target_df, script_logger=script_logger, max_rows=max_rows
     )
 
-    
     target_df, fitted_transformer = tr.transform(
         df=target_df,
         subset=subset,
@@ -240,9 +246,12 @@ def transform_df(
         f"Message embeddings explain "
         f"{tr.pca_explained_variance(fitted_transformer, 'msg_embed'):.2%} of variance"
     )
-    
+
     script_logger.log_result(f"Column data types: {target_df.dtypes.to_dict()}")
-    output_df_file = VersionedFileManager(file_path=PROCESSED_DATA_DIR / f"{subset}_transformed.feather", logger=script_logger)
+    output_df_file = VersionedFileManager(
+        file_path=PROCESSED_DATA_DIR / f"{subset}_transformed.feather",
+        logger=script_logger,
+    )
     # script_logger.log_result(f"")
     # script_logger.log_result("Transformations subphase finished.")
     dutls.save_df(df=target_df, df_file_path=output_df_file.next_base_output)
@@ -273,6 +282,14 @@ if __name__ == "__main__":
         help="Whether to perform transformations after preprocessing.",
     )
 
+    parser.add_argument(
+        "--max-rows",
+        type=int,
+        required=False,
+        default=None,
+        help="Limit dataset to first n rows only for testing purposes.",
+    )
+
     args = parser.parse_args()
     subset: SubsetType = args.subset
 
@@ -284,13 +301,17 @@ if __name__ == "__main__":
 
     # script_logger.start_session()
     # script_logger.log_check("Starting preprocessing phase...")
+    if args.engineer:
+        early_preprocess(
+            subset=subset,
+            # engineer=args.engineer,
+            # transform=args.transform,
+            script_logger=script_logger,
+            max_rows=args.max_rows,
+        )
 
-    early_preprocess(
-        subset=subset,
-        engineer=args.engineer,
-        transform=args.transform,
-        script_logger=script_logger,
-    )
+    if args.transform:
+        transform_df(subset=subset, max_rows=args.max_rows, script_logger=script_logger)
 
     # # =============================================================================
     # # PREPROCESSING

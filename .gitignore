@@ -161,3 +161,8 @@ logs/
 models/*.joblib
 notebooks/*.feather
 docs/gpt_ideas
+
+reports/**/*.png
+reports/**/*.csv
+reports/**/*.pdf
+reports/**/*.txt

@@ -1,7 +1,10 @@
 
 from dataclasses import dataclass
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
+
 from notebooks.constants import NUMERIC_FEATURES
 from notebooks.logging_config import MyLogger
 from src_code.utils.utils import is_embedding_column, is_tfidf_vectorized
@@ -113,3 +116,27 @@ def extract_features(df: pd.DataFrame, logger: MyLogger):
         tfidf_vectorized_cols=tfidf_vectorized_cols,
         structural_cols=structural_cols
     )
+
+
+def log_empty_content_rows(df: pd.DataFrame, logger: MyLogger):
+    # --- Empty content rows ---
+    empty_content = int((df['content'].str.len() == 0).sum())
+    logger.log_result(f"Empty content rows: {empty_content}")
+
+
+def log_negative_time_since_last_change(df: pd.DataFrame, logger: MyLogger):
+    logger.log_check("Checking Negative time_since_last_change per Repository...")
+
+    # neg_times = df[df['time_since_last_change'] < 0]
+    # neg_times['repo'].value_counts()
+    neg_times = df[df['time_since_last_change'] < 0]
+    neg_repo_counts = neg_times['repo'].value_counts()
+    neg_repo_props = neg_repo_counts / len(df)
+
+    for repo in neg_repo_counts.index:
+        count = neg_repo_counts[repo]
+        prop = neg_repo_props[repo]
+        logger.log_result(f"{repo}: count={count}, proportion={prop:.3%}")
+    sns.countplot(x='repo', data=neg_times)
+    plt.title("Negative time_since_last_change by Repository")
+    plt.show()

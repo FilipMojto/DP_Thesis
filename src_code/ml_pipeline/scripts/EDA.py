@@ -1,8 +1,17 @@
 import argparse
 from typing import get_args
 from notebooks.logging_config import MyLogger
-from src_code.config import EDA_DIR, EXTENDED_DATA_DIR, LOG_DIR, PROCESSED_DATA_DIR, SubsetType
-from src_code.ml_pipeline.EDA.plots import plot_embedding_distributions, plot_num_feature_distributions
+from src_code.config import (
+    EDA_DIR,
+    EXTENDED_DATA_DIR,
+    LOG_DIR,
+    PROCESSED_DATA_DIR,
+    SubsetType,
+)
+from src_code.ml_pipeline.EDA.plots import (
+    plot_embedding_distributions,
+    plot_num_feature_distributions,
+)
 from src_code.ml_pipeline.EDA.utils import extract_features
 from src_code.ml_pipeline.data_utils import load_df
 from src_code.ml_pipeline.experimenting.utils import log_experiment_id
@@ -20,6 +29,7 @@ def perform_EDA(
     subset: SubsetType = "train",
     load_ETL_processed: bool = False,
     experiment_id: int = None,
+    max_rows: int = None,
 ):
     if logger == DEF_SCRIPT_LOGGER:
         # If default logger is used, start a new session
@@ -36,26 +46,64 @@ def perform_EDA(
     input_df_versioner = VersionedFileManager(file_path=input_df_path, logger=logger)
     input_df = load_df(df_file_path=input_df_versioner.current_newest, logger=logger)
     # experiment_dir = EDA_DIR if experiment_id else None
-    exp_dir = get_experiment_dir(experiment_id, target_dir=EDA_DIR) if experiment_id else None
+    exp_dir = (
+        get_experiment_dir(experiment_id, target_dir=EDA_DIR) if experiment_id else None
+    )
 
+    if max_rows and max_rows < len(input_df):
+        logger.log_check(f"Limiting EDA dataset to {max_rows} rows.")
+        # df_row_count = len(input_df)
+        input_df = input_df.head(max_rows)
+    else:
+        logger.log_result(f"Not skipping any rows in dataset.")
 
     describe_dataframe(df=input_df, logger=logger, name=f"EDA {subset} dataframe")
 
     feature_ctgs = extract_features(df=input_df, logger=logger)
 
-    plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, col_type='structural', experiment_dir=exp_dir / "struct_features_distributions")
-    
+    plot_num_feature_distributions(
+        input_df,
+        logger=logger,
+        feature_ctgs=feature_ctgs,
+        drop_cols=["raise"],
+        col_type="structural",
+        experiment_dir=exp_dir / "struct_features_distributions",
+        features_per_page=5
+    )
+    plot_num_feature_distributions(
+        input_df,
+        logger=logger,
+        feature_ctgs=feature_ctgs,
+        col_type="engineered",
+        experiment_dir=exp_dir / "struct_features_engineered_distributions",
+        features_per_page=5
+    )
+
     # plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, cols=feature_ctgs.embedding_cols, experiment_dir=exp_dir / "embedding_distributions")
     # plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, cols=feature_ctgs.tfidf_vectorized_cols, experiment_dir=exp_dir / "tfidf_vectorized_distributions")
-    
-    if not load_ETL_processed:
-        logger.log_check("Plotting embeddings and vectors...")
-        # plot_embedding_distributions(df=input_df, feature_ctgs=feature_ctgs, logger=logger, experiment_dir=exp_dir / "embedding_distributions")
-        plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, col_type='embedding', experiment_dir=exp_dir / "embedding_distributions")
-        plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, col_type='vectorized', experiment_dir=exp_dir / "tfidf_vectorized_distributions")
 
-    else:
-        logger.log_result("ETL-processed data does not have embeddings!")
+    # NOTE: DONT DELETE!!
+
+    # if not load_ETL_processed:
+    #     logger.log_check("Plotting embeddings and vectors...")
+    #     # plot_embedding_distributions(df=input_df, feature_ctgs=feature_ctgs, logger=logger, experiment_dir=exp_dir / "embedding_distributions")
+    #     plot_num_feature_distributions(
+    #         input_df,
+    #         logger=logger,
+    #         feature_ctgs=feature_ctgs,
+    #         col_type="embedding",
+    #         experiment_dir=exp_dir / "embedding_distributions",
+    #     )
+    #     plot_num_feature_distributions(
+    #         input_df,
+    #         logger=logger,
+    #         feature_ctgs=feature_ctgs,
+    #         col_type="vectorized",
+    #         experiment_dir=exp_dir / "tfidf_vectorized_distributions",
+    #     )
+
+    # else:
+    #     logger.log_result("ETL-processed data does not have embeddings!")
 
 
 if __name__ == "__main__":
@@ -77,11 +125,20 @@ if __name__ == "__main__":
         help="Loads and uses ETL-processed dataset istead of classic pipeline-processed one.",
     )
 
+    argparser.add_argument(
+        "--max-rows",
+        type=int,
+        required=False,
+        default=None,
+        help="Limit dataset to first n rows only for testing purposes.",
+    )
+
     args = argparser.parse_args()
 
     perform_EDA(
         logger=DEF_SCRIPT_LOGGER,
         subset=args.subset,
         load_ETL_processed=args.load_etl_df,
-        experiment_id=4
+        experiment_id=4,
+        max_rows=args.max_rows,
     )
