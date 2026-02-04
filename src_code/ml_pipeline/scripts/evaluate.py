@@ -4,10 +4,12 @@ from typing import get_args
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from notebooks.logging_config import MyLogger
-from src_code.config import ENGINEERING_MAPPINGS, LOG_DIR, MODEL_DIR, PROCESSED_DATA_DIR, SupportedModels
+from src_code.config import ENGINEERING_MAPPINGS, EVALUATION_DIR, LOG_DIR, MODEL_DIR, PROCESSED_DATA_DIR, SupportedModels
 from src_code.ml_pipeline.config import SUPPORTED_MODELS
 import src_code.ml_pipeline.data_utils as dutls
 from src_code.ml_pipeline.experimenting.utils import log_experiment_id
+from src_code.ml_pipeline.preprocessing.feature_config import DROP_COLS
+from src_code.ml_pipeline.preprocessing.preprocessing import drop_cols
 import src_code.ml_pipeline.testing.testing as test_utils
 from src_code.ml_pipeline.utils import get_experiment_dir
 from src_code.utils.utils import timeit
@@ -31,7 +33,7 @@ def evaluate(
     #     "XGBoost": VersionedFileManager(file_path=MODEL_DIR / "XGB_model_train.joblib", logger=logger),
     # }
     log_experiment_id(logger=logger, experiment_id=experiment_id)
-    exp_dir = get_experiment_dir(experiment_id) if experiment_id else None
+    exp_dir = get_experiment_dir(experiment_id, target_dir=EVALUATION_DIR) if experiment_id else None
     
     models = {
         model_type: VersionedFileManager(
@@ -51,6 +53,10 @@ def evaluate(
 
     test_df_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / "test_transformed.feather", logger=logger)
     test_df = dutls.load_df(df_file_path=test_df_versioner.current_newest, logger=logger)
+
+    test_df = drop_cols(
+        df=test_df, cols=DROP_COLS, logger=logger
+    )
     # # -----------------------------------------------------------------------------
     # # Model Loading
     # # -----------------------------------------------------------------------------

@@ -32,6 +32,7 @@ REPORTS_DIR = PROJECT_ROOT / "reports"
 
 ML_PIPELINE_DIR = SRC_DIR / "ml_pipeline"
 EVALUATION_DIR = REPORTS_DIR / "evaluation"
+EDA_DIR = REPORTS_DIR / "eda"
 
 RANDOM_FOREST_MODEL = MODEL_DIR / "random_forest_pipeline.joblib"
 

@@ -2,16 +2,17 @@
     "phases": [
         {
             "name": "hyperparameter-tuning",
-            "skip": true,
+            "skip": false,
             "models": [
-            
+                "RF",
+                "XGB"
             ],
             "description": "Hyperparameter tuning for specified models using the preprocessed training data. Possible models: RF, XGB.",
             "kwargs": {}
         },
         {
             "name": "preprocessing",
-            "skip": false,
+            "skip": true,
             "subsets": [
                 "train",
                 "val",
@@ -19,7 +20,7 @@
             ],
             "description": "Final data preprocessing steps after hyperparameter tuning. Output dataset is ready for model training. Possible subsets: train, val, test.",
             "engineering_kwargs": {
-                "max_rows": 10000
+        
             },
             "transformation_kwargs": {}
         },

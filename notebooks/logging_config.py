@@ -20,7 +20,7 @@ LOG_PATH = os.path.join(os.getcwd(), "logs/notebooks.log")
 #             encoding="utf-8"
 #         )
 #         formatter = logging.Formatter(
-#             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+#             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"    ``
 #         )
 #         handler.setFormatter(formatter)
 #         logger.addHandler(handler)

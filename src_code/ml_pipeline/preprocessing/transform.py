@@ -9,7 +9,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.pipeline import FunctionTransformer, Pipeline
 
-from notebooks.constants import LINE_TOKEN_FEATURES, NUMERIC_FEATURES
+from notebooks.constants import ENGINEERED_FEATURES, LINE_TOKEN_FEATURES, NUMERIC_FEATURES
 from notebooks.logging_config import MyLogger
 from notebooks.transformers import EmbeddingExpander, FeatureInteractionTransformer, NamingPCA, WinsorizerIQR
 from src_code.config import FITTED_TRANSFORMER, SubsetType
@@ -69,11 +69,12 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
 
     pipelines.extend([msg_emb_pipe, code_emb_pipe, numeric_pipe])
 
+    # num_features = NUMERIC_FEATURES + ENGINEERED_FEATURES
 
     transformer = ColumnTransformer(
         transformers=[
             ("text", sklearn_tfidf_vectorizer, "message"),
-            ("num", numeric_pipe, NUMERIC_FEATURES),
+            ("num", numeric_pipe, NUMERIC_FEATURES + ENGINEERED_FEATURES),
             ("tokens", log_transformer, LINE_TOKEN_FEATURES),
             ("code_embed", code_emb_pipe, ["code_embed"]),  # Pass as list
             ("msg_embed", msg_emb_pipe, ["msg_embed"]),  # Pass as list

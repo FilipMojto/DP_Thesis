@@ -165,6 +165,10 @@ def train(
         df=target_df, cols=ftr_cfg.DROP_COLS, logger=script_logger
     )
 
+    validate_df = drop_cols(
+        df=validate_df, cols=ftr_cfg.DROP_COLS, logger=script_logger
+    )
+
     # script_logger.log_check("Starting training phase...")
 
     # -----------------------------------------------------------------------------

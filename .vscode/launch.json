@@ -64,7 +64,7 @@
             "name": "Debug preprocess script",
             "type": "debugpy",
             "request": "launch",
-            "module": "src_code.ml_pipeline.preprocess",
+            "module": "src_code.ml_pipeline.scripts.preprocess",
             // "args": ["--skip-tuning", "--model", "XGB"],
             "args": ["--subset", "train"],
             "cwd": "${workspaceFolder}",
@@ -79,9 +79,24 @@
             "name": "Debug tune script",
             "type": "debugpy",
             "request": "launch",
-            "module": "src_code.ml_pipeline.tune",
+            "module": "src_code.ml_pipeline.scripts.tune",
             // "args": ["--skip-tuning", "--model", "XGB"],
             "args": ["--model", "RF"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
+        },
+
+        {
+            "name": "Debug EDA script",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.ml_pipeline.scripts.EDA",
+            // "args": ["--skip-tuning", "--model", "XGB"],
+            "args": ["--load-etl-df"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,

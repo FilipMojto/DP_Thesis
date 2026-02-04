@@ -65,7 +65,7 @@ def describe_dataframe(df: pd.DataFrame, logger: MyLogger, name: str = "DataFram
 
 from pathlib import Path
 
-def get_experiment_dir(experiment_id: int) -> Path:
-    path = Path(f"{EVALUATION_DIR}/experiment_{experiment_id}")
+def get_experiment_dir(experiment_id: int, target_dir: Path) -> Path:
+    path = Path(f"{target_dir}/experiment_{experiment_id}")
     path.mkdir(parents=True, exist_ok=True)
     return path

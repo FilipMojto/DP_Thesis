@@ -26,8 +26,8 @@ EMBEDDINGS = ["code_embed", "msg_embed"]
 ENGINEERED_FEATURES = [
     "loc_churn_ratio",
     "activity_per_exp",
-    "loc_added_bucket",
-    "extreme_churn_flag",
+    # "loc_added_bucket",
+    # "extreme_churn_flag",
     "line_token_total",
 ]
 

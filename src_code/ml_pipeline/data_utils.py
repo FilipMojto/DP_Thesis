@@ -7,6 +7,7 @@ from sklearn.base import BaseEstimator
 
 from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
+from src_code.versioning import VersionedFileManager
 
 
 def load_df(df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
@@ -16,6 +17,11 @@ def load_df(df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     logger.log_result(f"Loaded dataframe with {len(df)} rows and {len(df.columns)} columns\n", print_to_console=True)
 
     return df
+
+
+def load_df_newest(df_file_path: Path, logger: MyLogger):
+    input_df_versioner = VersionedFileManager(file_path=df_file_path, logger=logger)
+    return load_df(df_file_path=input_df_versioner.current_newest, logger=logger)
 
 
 def save_df(df: pd.DataFrame, df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
