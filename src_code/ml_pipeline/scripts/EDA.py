@@ -1,5 +1,8 @@
 import argparse
-from typing import get_args
+from typing import Dict, List, get_args
+
+import pandas as pd
+from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
 from src_code.config import (
     EDA_DIR,
@@ -9,7 +12,7 @@ from src_code.config import (
     SubsetType,
 )
 from src_code.ml_pipeline.EDA.plots import (
-    plot_embedding_distributions,
+    plot_categorical_comparison,
     plot_num_feature_distributions,
 )
 from src_code.ml_pipeline.EDA.utils import extract_features
@@ -38,13 +41,52 @@ def perform_EDA(
     log_experiment_id(logger=logger, experiment_id=experiment_id)
     logger.log_check(f"etl_processed: {load_ETL_processed}")
 
-    input_df_path = (
-        EXTENDED_DATA_DIR / f"{subset}_extended.feather"
-        if load_ETL_processed
-        else PROCESSED_DATA_DIR / f"{subset}_transformed.feather"
-    )
-    input_df_versioner = VersionedFileManager(file_path=input_df_path, logger=logger)
-    input_df = load_df(df_file_path=input_df_versioner.current_newest, logger=logger)
+    # input_df_path = (
+    #     EXTENDED_DATA_DIR / f"{subset}_extended.feather"
+    #     if load_ETL_processed
+    #     else PROCESSED_DATA_DIR / f"{subset}_transformed.feather"
+    # )
+    # input_df_versioner = VersionedFileManager(file_path=input_df_path, logger=logger)
+    # input_df = load_df(df_file_path=input_df_versioner.current_newest, logger=logger)
+
+    df_labels: List[SubsetType] = ["train", "test", "val"]
+    dfs: Dict[str, pd.DataFrame] = {}
+
+    for df_label in df_labels:
+        df_path = (
+            EXTENDED_DATA_DIR / f"{df_label}_extended.feather"
+            if load_ETL_processed
+            else PROCESSED_DATA_DIR / f"{df_label}_transformed.feather"
+        )
+        df_versioner = VersionedFileManager(file_path=df_path, logger=logger)
+        dfs[df_label] = load_df(df_file_path=df_versioner.current_newest, logger=logger)
+
+    input_df = dfs[subset]
+
+    # train_df_path = (
+    #     EXTENDED_DATA_DIR / f"train_extended.feather"
+    #     if load_ETL_processed
+    #     else PROCESSED_DATA_DIR / f"train_transformed.feather"
+    # )
+    # train_df_versioner = VersionedFileManager(file_path=train_df_path, logger=logger)
+    # train_df = load_df(df_file_path=train_df_versioner.current_newest, logger=logger)
+
+    # test_df_path = (
+    #     EXTENDED_DATA_DIR / f"test_extended.feather"
+    #     if load_ETL_processed
+    #     else PROCESSED_DATA_DIR / f"test_transformed.feather"
+    # )
+    # test_df_versioner = VersionedFileManager(file_path=test_df_path, logger=logger)
+    # test_df = load_df(df_file_path=test_df_versioner.current_newest, logger=logger)
+
+    # val_df_path = (
+    #     EXTENDED_DATA_DIR / f"test_extended.feather"
+    #     if load_ETL_processed
+    #     else PROCESSED_DATA_DIR / f"test_transformed.feather"
+    # )
+    # val_df_versioner = VersionedFileManager(file_path=val_df_path, logger=logger)
+    # val_df = load_df(df_file_path=val_df_versioner.current_newest, logger=logger)
+
     # experiment_dir = EDA_DIR if experiment_id else None
     exp_dir = (
         get_experiment_dir(experiment_id, target_dir=EDA_DIR) if experiment_id else None
@@ -68,7 +110,7 @@ def perform_EDA(
         drop_cols=["raise"],
         col_type="structural",
         experiment_dir=exp_dir / "struct_features_distributions",
-        features_per_page=5
+        rows_per_page=5,
     )
     plot_num_feature_distributions(
         input_df,
@@ -76,7 +118,7 @@ def perform_EDA(
         feature_ctgs=feature_ctgs,
         col_type="engineered",
         experiment_dir=exp_dir / "struct_features_engineered_distributions",
-        features_per_page=5
+        rows_per_page=5,
     )
 
     # plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, cols=feature_ctgs.embedding_cols, experiment_dir=exp_dir / "embedding_distributions")
@@ -104,6 +146,24 @@ def perform_EDA(
 
     # else:
     #     logger.log_result("ETL-processed data does not have embeddings!")
+
+    # plot_feature_distribution(df=input_df, feature=TARGET, logger=logger, rotation=0, exp_dir=exp_dir / "other_distributions")
+
+    plot_categorical_comparison(
+        dfs=dfs,
+        feature=TARGET,
+        logger=logger,
+        experiment_dir=exp_dir / "other_distributions",
+        rows_per_page=3,
+    )
+
+    plot_categorical_comparison(
+        dfs=dfs,
+        feature='repo',
+        logger=logger,
+        experiment_dir=exp_dir / "other_distributions",
+        rows_per_page=3,
+    )
 
 
 if __name__ == "__main__":

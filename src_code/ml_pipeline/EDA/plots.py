@@ -1,6 +1,6 @@
 import math
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Dict, Iterable, List, Literal
 
 from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise_distances
@@ -39,30 +39,111 @@ from src_code.ml_pipeline.scripts.train import RANDOM_STATE
 #         f"Label proportions: {[(int(k), round(float(v), 4)) for k, v in label_props.items()]}"
 #     )
 
+def grid_paginator(
+    features: Iterable[str],
+    col_name: str,
+    experiment_dir: Path,
+    n_cols: int = 1,
+    rows_per_page: int = 3,
+    preset: str = "a4-portrait"
+):
+    """Manages the creation of multi-page PDF grids for LaTeX."""
+    setup_latex_style(preset)
+    
+    total_features = len(features)
+    features_per_page = n_cols * rows_per_page
+    num_pages = math.ceil(total_features / features_per_page)
 
-def plot_feature_distribution(df: pd.DataFrame, feature: str, logger: MyLogger, rotation: int = 0):
-    logger.log_check("Checking commits per repository...")
+    for page in range(num_pages):
+        start_idx = page * features_per_page
+        end_idx = min(start_idx + features_per_page, total_features)
+        page_features = features[start_idx:end_idx]
 
-    repo_counts = df[feature].value_counts()
+        fig, axes = plt.subplots(rows_per_page, n_cols)
+        # Ensure axes is always an iterable array even for 1x1
+        axes_list = np.atleast_1d(axes).flatten()
 
-    # Plot
-    plt.figure(figsize=(10, 5))
-    sns.barplot(x=repo_counts.index, y=repo_counts.values)
-    plt.title("Commits per Repository")
-    plt.ylabel("Number of Commits")
-    plt.xticks(rotation=rotation)
-    plt.show()
+        for i, feature in enumerate(page_features):
+            yield axes_list[i], feature
 
-    # Raw counts (one-line log)
-    logger.log_result(
-        f"Repo commit counts: {[(repo, int(count)) for repo, count in repo_counts.items()]}"
-    )
+        # Cleanup unused axes on the last page
+        for j in range(len(page_features), len(axes_list)):
+            fig.delaxes(axes_list[j])
 
-    # Proportions (one-line log)
-    repo_props = repo_counts / len(df)
-    logger.log_result(
-        f"Repo commit proportions: {[(repo, round(float(prop), 4)) for repo, prop in repo_props.items()]}"
-    )
+        plt.tight_layout()
+        if experiment_dir:
+            suffix = f"_p{page+1}" if num_pages > 1 else ""
+            save_path = experiment_dir / f"{col_name}_dist{suffix}.pdf"
+            plt.savefig(save_path, bbox_inches="tight", dpi=300)
+            plt.close()
+        else:
+            plt.show()
+            
+
+# def plot_feature_distribution(df: pd.DataFrame, feature: str, logger: MyLogger, rotation: int = 0, exp_dir: Path = None):
+#     logger.log_check(f"Checking commits per {feature}...")
+
+#     repo_counts = df[feature].value_counts()
+
+#     # Plot
+#     plt.figure(figsize=(10, 5))
+#     sns.barplot(x=repo_counts.index, y=repo_counts.values)
+#     plt.title(f"Commits per {feature}")
+#     plt.ylabel("Number of Commits")
+#     plt.xticks(rotation=rotation)
+
+#     if exp_dir:
+#         exp_dir.mkdir(parents=True, exist_ok=True)
+#         save_plt_as_image(experiment_dir=exp_dir, file_name=f"{feature}_distribution")
+#     else:
+#         plt.show()
+
+#     # Raw counts (one-line log)
+#     logger.log_result(
+#         f"{feature} commit counts: {[(repo, int(count)) for repo, count in repo_counts.items()]}"
+#     )
+
+#     # Proportions (one-line log)
+#     repo_props = repo_counts / len(df)
+#     logger.log_result(
+#         f"{feature} commit proportions: {[(repo, round(float(prop), 4)) for repo, prop in repo_props.items()]}"
+#     )
+def plot_categorical_comparison(
+    dfs: Dict[str, pd.DataFrame], 
+    feature: str,
+    logger: MyLogger,
+    experiment_dir: Path = None,
+    rows_per_page: int = 3
+):
+    """Compares categorical distributions across multiple dataframes."""
+    
+    # We use our generator to handle the layout
+    gen = grid_paginator([feature], feature, experiment_dir, n_cols=1, rows_per_page=rows_per_page)
+    
+    for ax, feature in gen:
+        # Combine counts from all DFs for comparison
+        plot_data = []
+        for name, df in dfs.items():
+            counts = df[feature].value_counts(normalize=True).reset_index()
+            counts.columns = [feature, 'proportion']
+            counts['Source'] = name
+            plot_data.append(counts)
+        
+        comparison_df = pd.concat(plot_data)
+
+        sns.barplot(
+            data=comparison_df, 
+            x=feature, 
+            y='proportion', 
+            hue='Source', 
+            ax=ax,
+            palette="muted"
+        )
+        ax.set_title(f"Comparison: {feature}", fontweight="bold")
+        ax.set_ylabel("Proportion of Commits")
+        ax.legend(title="Dataset")
+
+    logger.log_result(f"Categorical comparison for {feature} completed.")
 
 
 def setup_latex_style(preset="a4-portrait"):
@@ -96,8 +177,9 @@ def plot_num_feature_distributions(
     experiment_dir: Path = None,
     drop_cols: Iterable[str] = None,
     preset="a4-portrait",
-    features_per_page=6,
+    rows_per_page=6,
 ):
+    
     def sample_cols(cols, logger: MyLogger, ratio=0.05, random_state=RANDOM_STATE):
         n_total = len(cols)
         n_sample = max(1, int(n_total * ratio))
@@ -212,98 +294,73 @@ def plot_num_feature_distributions(
         # md_path = experiment_dir / "stats_summary.md"
         # stats_df.to_markdown(md_path, index=False)
         save_df_as_md(df=stats_df, path=experiment_dir / f"{col_type}_stats_summary.md")
+    
+    gen = grid_paginator(filtered_cols, col_type, experiment_dir, n_cols=1, rows_per_page=rows_per_page, preset=preset)
+    
+    for ax, feature in gen:
+        sns.histplot(
+            data=df, x=feature, kde=True, ax=ax,
+            stat="density", color="#a8dadc", edgecolor="white",
+            line_kws={"color": "#e63946", "linewidth": 2}
+        )
+        ax.set_title(f"Distribution: {feature}", fontweight="bold")
+        ax.set_xlabel("")
 
-    setup_latex_style(preset)
+    # setup_latex_style(preset)
 
-    # Calculate how many pages we need
-    total_features = len(filtered_cols)
-    features_per_page = features_per_page
-    num_pages = math.ceil(total_features / features_per_page)
+    # # Calculate how many pages we need
+    # total_features = len(filtered_cols)
+    # features_per_page = features_per_page
+    # num_pages = math.ceil(total_features / features_per_page)
 
-    for page in range(num_pages):
-        start_idx = page * features_per_page
-        end_idx = min(start_idx + features_per_page, total_features)
-        page_features = filtered_cols[start_idx:end_idx]
+    # for page in range(num_pages):
+    #     start_idx = page * features_per_page
+    #     end_idx = min(start_idx + features_per_page, total_features)
+    #     page_features = filtered_cols[start_idx:end_idx]
 
-        # Grid layout for this page (e.g., 3 rows x 2 columns)
-        # n_cols = 2
-        # n_rows = math.ceil(len(page_features) / n_cols)
-        # Inside your plot function, change the grid calculation:
-        n_cols = 1  # Forced to 1 for side-by-side comparison
-        n_rows = features_per_page  # Usually 3
+    #     # Grid layout for this page (e.g., 3 rows x 2 columns)
+    #     # n_cols = 2
+    #     # n_rows = math.ceil(len(page_features) / n_cols)
+    #     # Inside your plot function, change the grid calculation:
+    #     n_cols = 1  # Forced to 1 for side-by-side comparison
+    #     n_rows = features_per_page  # Usually 3
 
-        # Create figure using the preset figsize
-        fig, axes = plt.subplots(n_rows, n_cols)
-        axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
+    #     # Create figure using the preset figsize
+    #     fig, axes = plt.subplots(n_rows, n_cols)
+    #     axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
 
-        for i, col in enumerate(page_features):
-            sns.histplot(
-                data=df,
-                x=col,
-                kde=True,
-                ax=axes[i],
-                stat="density",
-                color="#a8dadc",
-                edgecolor="white",
-                line_kws={"color": "#e63946", "linewidth": 2},
-            )
-            axes[i].set_title(f"Feature: {col}", fontweight="bold")
-            axes[i].set_xlabel("")  # Keep clean for LaTeX
+    #     for i, col in enumerate(page_features):
+    #         sns.histplot(
+    #             data=df,
+    #             x=col,
+    #             kde=True,
+    #             ax=axes[i],
+    #             stat="density",
+    #             color="#a8dadc",
+    #             edgecolor="white",
+    #             line_kws={"color": "#e63946", "linewidth": 2},
+    #         )
+    #         axes[i].set_title(f"Feature: {col}", fontweight="bold")
+    #         axes[i].set_xlabel("")  # Keep clean for LaTeX
 
-        # Clean up empty slots
-        for j in range(len(page_features), len(axes)):
-            fig.delaxes(axes[j])
+    #     # Clean up empty slots
+    #     for j in range(len(page_features), len(axes)):
+    #         fig.delaxes(axes[j])
 
-        plt.tight_layout()
+    #     plt.tight_layout()
 
-        # Save each page separately
-        suffix = f"_p{page+1}" if num_pages > 1 else ""
+    #     # Save each page separately
+    #     suffix = f"_p{page+1}" if num_pages > 1 else ""
 
-        if experiment_dir:
-            save_path = experiment_dir / f"{col_type}_dist{suffix}.pdf"
-            plt.savefig(save_path, bbox_inches="tight", dpi=300)
-        else:
-            plt.show()
-        plt.close()
+    #     if experiment_dir:
+    #         save_path = experiment_dir / f"{col_type}_dist{suffix}.pdf"
+    #         plt.savefig(save_path, bbox_inches="tight", dpi=300)
+    #     else:
+    #         plt.show()
+    #     plt.close()
     
     return stats_df
 
-
-# def plot_embedding_distributions(
-#     df: pd.DataFrame,
-#     feature_ctgs: FeatureCategories,
-#     logger: MyLogger,
-#     experiment_dir: Path = None,
-# ):
-#     logger.log_check("Checking Embedding Feature Distributions...")
-
-#     # def sample_embeddings(
-#     #     embedding_cols, logger: MyLogger, ratio=0.05, random_state=RANDOM_STATE
-#     # ):
-#     #     n_total = len(embedding_cols)
-#     #     n_sample = max(1, int(n_total * ratio))
-#     #     logger.log_result(
-#     #         f"Sampling {n_sample} out of {n_total} embedding columns for plotting."
-#     #     )
-
-#     #     rng = np.random.default_rng(random_state)
-#     #     return rng.choice(embedding_cols, size=n_sample, replace=False).tolist()
-
-#     # sampled_emb_cols = sample_embeddings(
-#     #     feature_ctgs.embedding_cols, ratio=0.05, logger=logger
-#     # )
-
-#     df[sampled_emb_cols].hist(bins=50, figsize=(20, 15))
-#     plt.suptitle(
-#         f"Embedding Distributions (Random {len(sampled_emb_cols)}/{len(feature_ctgs.embedding_cols)})"
-#     )
-
-#     if experiment_dir:
-#         experiment_dir.mkdir(parents=True, exist_ok=True)
-
-#         save_plt_as_image(experiment_dir=experiment_dir)
-
-#     plt.show()
 
 
 def plot_file_types_distributions(df: pd.DataFrame, logger: MyLogger):

@@ -1,12 +1,15 @@
 import os
 from pathlib import Path
+from typing import Dict, Iterable, get_args
 
 import joblib
 import pandas as pd
 from sklearn.base import BaseEstimator
 
 from notebooks.logging_config import MyLogger
+from src_code.config import PROCESSED_DATA_DIR, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
+from src_code.ml_pipeline.preprocessing.config import PreprocessMode
 from src_code.versioning import VersionedFileManager
 
 
@@ -22,6 +25,17 @@ def load_df(df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
 def load_df_newest(df_file_path: Path, logger: MyLogger):
     input_df_versioner = VersionedFileManager(file_path=df_file_path, logger=logger)
     return load_df(df_file_path=input_df_versioner.current_newest, logger=logger)
+
+
+def load_dfs(mode: PreprocessMode, logger: MyLogger, df_labels: Iterable[str] = get_args(SubsetType)):
+    dfs: Dict[str, pd.DataFrame] = {}
+
+    for df_label in df_labels:
+        input_df_versioner = VersionedFileManager(file_path=PROCESSED_DATA_DIR / f"{df_label}_{mode}ed.feather", logger=logger)
+        dfs[df_label] = load_df(df_file_path=input_df_versioner.current_newest, logger=logger)
+    
+    return dfs
+    
 
 
 def save_df(df: pd.DataFrame, df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):

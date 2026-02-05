@@ -166,3 +166,5 @@ reports/**/*.png
 reports/**/*.csv
 reports/**/*.pdf
 reports/**/*.txt
+
+docs/**/*.docx
