@@ -11,12 +11,18 @@ from src_code.config import (
     PROCESSED_DATA_DIR,
     SubsetType,
 )
+from src_code.ml_pipeline.EDA.correlations import plot_corr_matrix
+from src_code.ml_pipeline.EDA.outliers import plot_boxplots_with_outliers
 from src_code.ml_pipeline.EDA.plots import (
+    plot_2D_embedding_separability,
     plot_categorical_comparison,
+    plot_embedding_norm_distribution,
+    plot_line_discrepancy_distribution,
     plot_num_feature_distributions,
+    plot_parwise_relationship,
 )
-from src_code.ml_pipeline.EDA.utils import extract_features
-from src_code.ml_pipeline.data_utils import load_df
+from src_code.ml_pipeline.EDA.utils import NumFeatureSets
+from src_code.ml_pipeline.data_utils import load_df, load_dfs
 from src_code.ml_pipeline.experimenting.utils import log_experiment_id
 from src_code.ml_pipeline.utils import describe_dataframe, get_experiment_dir
 from src_code.versioning import VersionedFileManager
@@ -33,6 +39,7 @@ def perform_EDA(
     load_ETL_processed: bool = False,
     experiment_id: int = None,
     max_rows: int = None,
+    intersect_with_processed=False,
 ):
     if logger == DEF_SCRIPT_LOGGER:
         # If default logger is used, start a new session
@@ -49,17 +56,42 @@ def perform_EDA(
     # input_df_versioner = VersionedFileManager(file_path=input_df_path, logger=logger)
     # input_df = load_df(df_file_path=input_df_versioner.current_newest, logger=logger)
 
-    df_labels: List[SubsetType] = ["train", "test", "val"]
-    dfs: Dict[str, pd.DataFrame] = {}
+    # df_labels: List[SubsetType] = ["train", "test", "val"]
+    # dfs: Dict[str, pd.DataFrame] = {}
 
-    for df_label in df_labels:
-        df_path = (
-            EXTENDED_DATA_DIR / f"{df_label}_extended.feather"
-            if load_ETL_processed
-            else PROCESSED_DATA_DIR / f"{df_label}_transformed.feather"
-        )
-        df_versioner = VersionedFileManager(file_path=df_path, logger=logger)
-        dfs[df_label] = load_df(df_file_path=df_versioner.current_newest, logger=logger)
+    # for df_label in df_labels:
+    #     df_path = (
+    #         # EXTENDED_DATA_DIR / f"{df_label}_extended.feather"
+    #         PROCESSED_DATA_DIR / f"{df_label}_engineered.feather"
+    #         if load_ETL_processed
+    #         else PROCESSED_DATA_DIR / f"{df_label}_transformed.feather"
+    #     )
+    #     df_versioner = VersionedFileManager(file_path=df_path, logger=logger)
+    #     dfs[df_label] = load_df(df_file_path=df_versioner.current_newest, logger=logger)
+
+    dfs = load_dfs(
+        mode="engineer" if load_ETL_processed else "transform", logger=logger
+    )
+
+    if load_ETL_processed and intersect_with_processed:
+        logger.log_check("Dropping cols not present in the processed data...")
+        # Load the reference data
+        dfs_processed = load_dfs(mode="transform", logger=logger)
+
+        # Get the reference columns from the corresponding processed subset
+        # Assuming 'subset' is the key you want to match against
+        reference_cols = dfs_processed[subset].columns
+
+        for df_label, df in dfs.items():
+            # Find columns in current df that are NOT in reference_cols
+            cols_to_drop = [c for c in df.columns if c not in reference_cols]
+
+            if cols_to_drop:
+                dfs[df_label] = df.drop(columns=cols_to_drop)
+                logger.log_result(f"Dropped cols: {cols_to_drop}")
+                logger.log_result(
+                    f"Dropped {len(cols_to_drop)} columns from {df_label}"
+                )
 
     input_df = dfs[subset]
 
@@ -101,25 +133,25 @@ def perform_EDA(
 
     describe_dataframe(df=input_df, logger=logger, name=f"EDA {subset} dataframe")
 
-    feature_ctgs = extract_features(df=input_df, logger=logger)
+    feature_sets = NumFeatureSets.extract_features(df=input_df, logger=logger)
 
-    plot_num_feature_distributions(
-        input_df,
-        logger=logger,
-        feature_ctgs=feature_ctgs,
-        drop_cols=["raise"],
-        col_type="structural",
-        experiment_dir=exp_dir / "struct_features_distributions",
-        rows_per_page=5,
-    )
-    plot_num_feature_distributions(
-        input_df,
-        logger=logger,
-        feature_ctgs=feature_ctgs,
-        col_type="engineered",
-        experiment_dir=exp_dir / "struct_features_engineered_distributions",
-        rows_per_page=5,
-    )
+    # plot_num_feature_distributions(
+    #     input_df,
+    #     logger=logger,
+    #     feature_ctgs=feature_sets,
+    #     drop_cols=["raise"],
+    #     col_type="structural",
+    #     experiment_dir=exp_dir / "struct_features_distributions",
+    #     rows_per_page=5,
+    # )
+    # plot_num_feature_distributions(
+    #     input_df,
+    #     logger=logger,
+    #     feature_ctgs=feature_sets,
+    #     col_type="engineered",
+    #     experiment_dir=exp_dir / "struct_features_engineered_distributions",
+    #     rows_per_page=5,
+    # )
 
     # plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, cols=feature_ctgs.embedding_cols, experiment_dir=exp_dir / "embedding_distributions")
     # plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, cols=feature_ctgs.tfidf_vectorized_cols, experiment_dir=exp_dir / "tfidf_vectorized_distributions")
@@ -149,22 +181,100 @@ def perform_EDA(
 
     # plot_feature_distribution(df=input_df, feature=TARGET, logger=logger, rotation=0, exp_dir=exp_dir / "other_distributions")
 
-    plot_categorical_comparison(
-        dfs=dfs,
-        feature=TARGET,
-        logger=logger,
-        experiment_dir=exp_dir / "other_distributions",
-        rows_per_page=3,
-    )
+    # plot_embedding_norm_distribution(df=input_df, logger=logger, experiment_dir=exp_dir / "embedding_distributions")
 
-    plot_categorical_comparison(
-        dfs=dfs,
-        feature='repo',
-        logger=logger,
-        experiment_dir=exp_dir / "other_distributions",
-        rows_per_page=3,
-    )
+    # -----------------------------------------------------------------------------
+    # Other distributions
+    # -----------------------------------------------------------------------------
 
+    # plot_categorical_comparison(
+    #     dfs=dfs,
+    #     feature=TARGET,
+    #     logger=logger,
+    #     experiment_dir=exp_dir / "other_distributions",
+    #     rows_per_page=3,
+    # )
+
+    # plot_categorical_comparison(
+    #     dfs=dfs,
+    #     feature="repo",
+    #     logger=logger,
+    #     experiment_dir=exp_dir / "other_distributions",
+    #     rows_per_page=3,
+    # )
+
+    # for df in dfs.values():
+    #     df["ext"] = df["filepath"].str.split(".").str[-1]
+
+    # plot_categorical_comparison(
+    #     dfs=dfs, feature="ext", logger=logger, experiment_dir=exp_dir / "other_distributions", rows_per_page=3
+    # )
+
+    # plot_line_discrepancy_distribution(df=input_df, logger=logger, experiment_dir=exp_dir / "other_distributions")
+
+    # -----------------------------------------------------------------------------
+    # Correlations
+    # -----------------------------------------------------------------------------
+
+    # logger.log_check("Generating corr matrix heatmaps...")
+
+    # feature_sets
+    # corr_config = {
+    #     "numeric": {"data": feature_sets.numeric_cols, "top_n": 5, "proceed": True},
+    #     "engineered": {"data": feature_sets.engineered_cols, "top_n": 5, "proceed": not load_ETL_processed},
+    #     "embeddings": {"data": feature_sets.embedding_cols, "top_n": 5, "proceed": not load_ETL_processed},
+    #     "tfidf": {"data": feature_sets.tfidf_vectorized_cols, "top_n": 5, "proceed": not load_ETL_processed},
+    # }
+
+    # for label, config in corr_config.items():
+    #     if not config['proceed']:
+    #         logger.log_result(f"Skipping {label} feature set...")
+    #         continue
+    #     else:
+    #         logger.log_check(f"Proceeding with {label} feature set...")
+
+    #     corr_matrix = input_df[
+    #         [x for x in config["data"]] + [TARGET]
+    #     ].corr()
+
+    #     plot_corr_matrix(
+    #         corr_matrix=corr_matrix,
+    #         label=label,
+    #         logger=logger,
+    #         target=TARGET,
+    #         top_n=config['top_n'],
+    #         min_abs_corr=0.15,
+    #         experiment_dir=exp_dir / "correlations",
+    #     )
+
+    # plot_parwise_relationship(
+    #     df=input_df,
+    #     feature_ctgs=feature_sets,
+    #     logger=logger,
+    #     experiment_dir=exp_dir / "correlations",
+    #     top_features=5
+    # )
+
+    # -----------------------------------------------------------------------------
+    # Outliers
+    # -----------------------------------------------------------------------------
+
+    # logger.log_check("Starting the outlier phase...")
+
+    # plot_boxplots_with_outliers(
+    #     df=input_df,
+    #     feature_sets=feature_sets,
+    #     logger=logger,
+    #     experiment_dir=exp_dir / "outliers",
+    #     drop_binaries=True,
+    # )
+
+    # -----------------------------------------------------------------------------
+    # Target Separability
+    # -----------------------------------------------------------------------------
+    
+    plot_2D_embedding_separability(df=input_df, logger=logger, sample_size=2000, experiment_dir=exp_dir / 'separability')
+    
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="EDA Script for ML pipeline.")
@@ -193,6 +303,14 @@ if __name__ == "__main__":
         help="Limit dataset to first n rows only for testing purposes.",
     )
 
+    argparser.add_argument(
+        "--intersect-with-processed",
+        action="store_true",
+        required=False,
+        default=False,
+        help="If unprocessed data is used drop any column not present in the processed data.",
+    )
+
     args = argparser.parse_args()
 
     perform_EDA(
@@ -201,4 +319,5 @@ if __name__ == "__main__":
         load_ETL_processed=args.load_etl_df,
         experiment_id=4,
         max_rows=args.max_rows,
+        intersect_with_processed=args.intersect_with_processed,
     )

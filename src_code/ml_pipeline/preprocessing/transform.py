@@ -89,7 +89,7 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
 
     return transformer
 
-def log_dropped_features(transformer, numeric_features_list, logger):
+def log_dropped_features(transformer, numeric_features_list, logger: MyLogger):
     # 1. Access the 'num' pipeline from the ColumnTransformer
     num_pipe = transformer.named_transformers_['num']
     
@@ -139,8 +139,8 @@ def transform(
 
         log_dropped_features(transformer=transformer, numeric_features_list=NUMERIC_FEATURES + ENGINEERED_FEATURES, logger=logger)
 
-        feature_names = transformer.get_feature_names_out()
-        print([name for name in transformer.get_feature_names_out() if 'ratio' in name])
+        # feature_names = transformer.get_feature_names_out()
+        # print([name for name in transformer.get_feature_names_out() if 'ratio' in name])
 
 
         # 4. SAVE

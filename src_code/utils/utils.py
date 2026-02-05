@@ -1,5 +1,8 @@
 import re
 
+import pandas as pd
+
+from notebooks.constants import ENGINEERED_FEATURES
 from notebooks.logging_config import MyLogger
 
 def is_embedding_column(col_name: str) -> bool:
@@ -27,6 +30,16 @@ def is_tfidf_vectorized(col_name: str) -> bool:
         tfidf                -> False
     """
     return bool(re.match(r"^tfidf_.+", col_name))
+
+
+def is_engineered(col_name: str) -> bool:
+    return col_name in ENGINEERED_FEATURES
+
+
+def is_binary(df: pd.DataFrame, col_name: str) -> bool:
+    values = df[col_name].dropna().unique()
+    return len(values) == 2
+
 
 import time
 from functools import wraps

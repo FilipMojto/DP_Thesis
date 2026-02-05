@@ -7,7 +7,7 @@ import seaborn as sns
 
 from notebooks.constants import NUMERIC_FEATURES
 from notebooks.logging_config import MyLogger
-from src_code.utils.utils import is_embedding_column, is_tfidf_vectorized
+from src_code.utils.utils import is_embedding_column, is_engineered, is_tfidf_vectorized
 
 
 def log_general_overview(df: pd.DataFrame, logger: MyLogger):
@@ -80,42 +80,45 @@ def log_numeric_features_with_negatives(df: pd.DataFrame, logger: MyLogger):
 
 
 @dataclass
-class FeatureCategories:
+class NumFeatureSets:
+    numeric_cols: list
+    engineered_cols: list
     embedding_cols: list
     tfidf_vectorized_cols: list
-    structural_cols: list
 
     def all_numeric_cols(self):
-        return self.embedding_cols + self.tfidf_vectorized_cols + self.structural_cols
+        return self.embedding_cols + self.tfidf_vectorized_cols + self.numeric_cols
+
+    @staticmethod
+    def extract_features(df: pd.DataFrame, logger: MyLogger):
+        logger.log_check("Checking numeric features...")
+        num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        num_cols.remove('label')  # exclude target
+
+        embedding_cols = [c for c in num_cols if is_embedding_column(c)]
+        tfidf_vectorized_cols = [c for c in num_cols if is_tfidf_vectorized(c)]
+        engineered_cols = [c for c in num_cols if is_engineered(c)]
+
+        numeric_cols = [c for c in num_cols if not is_embedding_column(c) and not is_tfidf_vectorized(c) and not is_engineered(c)]
 
 
-def extract_features(df: pd.DataFrame, logger: MyLogger):
-    logger.log_check("Checking numeric features...")
-    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    num_cols.remove('label')  # exclude target
 
-    embedding_cols = [c for c in num_cols if is_embedding_column(c)]
-    tfidf_vectorized_cols = [c for c in num_cols if is_tfidf_vectorized(c)]
+        logger.log_result(f"Embeddings: {embedding_cols}")
+        logger.log_result(f"Size: {len(embedding_cols)}")
+        logger.log_result("")
+        logger.log_result(f"tfidf_vectorized: {tfidf_vectorized_cols}")
+        logger.log_result(f"Size: {len(tfidf_vectorized_cols)}")
+        logger.log_result("")
 
-    structural_cols = [c for c in num_cols if not is_embedding_column(c) and not is_tfidf_vectorized(c)]
+        logger.log_result(f"Structural: {numeric_cols}")
+        logger.log_result(f"Size: {len(numeric_cols)}")
 
-
-
-    logger.log_result(f"Embeddings: {embedding_cols}")
-    logger.log_result(f"Size: {len(embedding_cols)}")
-    logger.log_result("")
-    logger.log_result(f"tfidf_vectorized: {tfidf_vectorized_cols}")
-    logger.log_result(f"Size: {len(tfidf_vectorized_cols)}")
-    logger.log_result("")
-
-    logger.log_result(f"Structural: {structural_cols}")
-    logger.log_result(f"Size: {len(structural_cols)}")
-
-    return FeatureCategories(
-        embedding_cols=embedding_cols,
-        tfidf_vectorized_cols=tfidf_vectorized_cols,
-        structural_cols=structural_cols
-    )
+        return NumFeatureSets(
+            numeric_cols=numeric_cols,
+            engineered_cols=engineered_cols,
+            embedding_cols=embedding_cols,
+            tfidf_vectorized_cols=tfidf_vectorized_cols,
+        )
 
 
 def log_empty_content_rows(df: pd.DataFrame, logger: MyLogger):

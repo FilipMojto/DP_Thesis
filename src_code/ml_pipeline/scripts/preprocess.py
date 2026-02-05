@@ -293,11 +293,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     subset: SubsetType = args.subset
 
-    script_logger = MyLogger(
-        label="PREPROCESS",
-        section_name="PREPROCESS LOGGER SCRIPT",
-        file_log_path=LOG_DIR / "preprocess_log.log",
-    )
+    # script_logger = MyLogger(
+    #     label="PREPROCESS",
+    #     section_name="PREPROCESS LOGGER SCRIPT",
+    #     file_log_path=LOG_DIR / "preprocess_log.log",
+    # )
+    script_logger = DEF_SCRIPT_LOGGER
 
     # script_logger.start_session()
     # script_logger.log_check("Starting preprocessing phase...")

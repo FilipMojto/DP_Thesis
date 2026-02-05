@@ -13,8 +13,8 @@ from matplotlib import pyplot as plt
 from scipy.stats import skew, kurtosis
 
 from notebooks.logging_config import MyLogger
-from src_code.ml_pipeline.EDA.utils import FeatureCategories
-from src_code.ml_pipeline.EDA.utils import FeatureCategories
+from src_code.ml_pipeline.EDA.utils import NumFeatureSets
+from src_code.ml_pipeline.EDA.utils import NumFeatureSets
 from src_code.ml_pipeline.experimenting.utils import save_df_as_md, save_plt_as_image
 from src_code.ml_pipeline.scripts.train import RANDOM_STATE
 
@@ -39,25 +39,29 @@ from src_code.ml_pipeline.scripts.train import RANDOM_STATE
 #         f"Label proportions: {[(int(k), round(float(v), 4)) for k, v in label_props.items()]}"
 #     )
 
+
 def grid_paginator(
     features: Iterable[str],
     col_name: str,
     experiment_dir: Path,
     n_cols: int = 1,
     rows_per_page: int = 3,
-    preset: str = "a4-portrait"
+    preset: str = "a4-portrait",
 ):
     """Manages the creation of multi-page PDF grids for LaTeX."""
     setup_latex_style(preset)
-    
-    total_features = len(features)
+
+    # Sort features alphabetically to ensure alignment across different runs/datasets
+    sorted_features = sorted(list(features))
+    total_features = len(sorted_features)
+    # total_features = len(features)
     features_per_page = n_cols * rows_per_page
     num_pages = math.ceil(total_features / features_per_page)
 
     for page in range(num_pages):
         start_idx = page * features_per_page
         end_idx = min(start_idx + features_per_page, total_features)
-        page_features = features[start_idx:end_idx]
+        page_features = sorted_features[start_idx:end_idx]
 
         fig, axes = plt.subplots(rows_per_page, n_cols)
         # Ensure axes is always an iterable array even for 1x1
@@ -72,13 +76,14 @@ def grid_paginator(
 
         plt.tight_layout()
         if experiment_dir:
+            experiment_dir.mkdir(parents=True, exist_ok=True)
             suffix = f"_p{page+1}" if num_pages > 1 else ""
             save_path = experiment_dir / f"{col_name}_dist{suffix}.pdf"
             plt.savefig(save_path, bbox_inches="tight", dpi=300)
             plt.close()
         else:
             plt.show()
-            
+
 
 # def plot_feature_distribution(df: pd.DataFrame, feature: str, logger: MyLogger, rotation: int = 0, exp_dir: Path = None):
 #     logger.log_check(f"Checking commits per {feature}...")
@@ -103,41 +108,47 @@ def grid_paginator(
 #         f"{feature} commit counts: {[(repo, int(count)) for repo, count in repo_counts.items()]}"
 #     )
 
+
 #     # Proportions (one-line log)
 #     repo_props = repo_counts / len(df)
 #     logger.log_result(
 #         f"{feature} commit proportions: {[(repo, round(float(prop), 4)) for repo, prop in repo_props.items()]}"
 #     )
 def plot_categorical_comparison(
-    dfs: Dict[str, pd.DataFrame], 
+    dfs: Dict[str, pd.DataFrame],
     feature: str,
     logger: MyLogger,
     experiment_dir: Path = None,
-    rows_per_page: int = 3
+    rows_per_page: int = 3,
 ):
     """Compares categorical distributions across multiple dataframes."""
-    
+
+    if experiment_dir:
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+
     # We use our generator to handle the layout
-    gen = grid_paginator([feature], feature, experiment_dir, n_cols=1, rows_per_page=rows_per_page)
-    
+    gen = grid_paginator(
+        [feature], feature, experiment_dir, n_cols=1, rows_per_page=rows_per_page
+    )
+
     for ax, feature in gen:
         # Combine counts from all DFs for comparison
         plot_data = []
         for name, df in dfs.items():
             counts = df[feature].value_counts(normalize=True).reset_index()
-            counts.columns = [feature, 'proportion']
-            counts['Source'] = name
+            counts.columns = [feature, "proportion"]
+            counts["Source"] = name
             plot_data.append(counts)
-        
+
         comparison_df = pd.concat(plot_data)
 
         sns.barplot(
-            data=comparison_df, 
-            x=feature, 
-            y='proportion', 
-            hue='Source', 
+            data=comparison_df,
+            x=feature,
+            y="proportion",
+            hue="Source",
             ax=ax,
-            palette="muted"
+            palette="muted",
         )
         ax.set_title(f"Comparison: {feature}", fontweight="bold")
         ax.set_ylabel("Proportion of Commits")
@@ -170,7 +181,7 @@ def setup_latex_style(preset="a4-portrait"):
 def plot_num_feature_distributions(
     df: pd.DataFrame,
     logger: MyLogger,
-    feature_ctgs: FeatureCategories,
+    feature_ctgs: NumFeatureSets,
     col_type: Literal[
         "structural", "engineered", "embedding", "vectorized"
     ] = "structural",
@@ -179,7 +190,7 @@ def plot_num_feature_distributions(
     preset="a4-portrait",
     rows_per_page=6,
 ):
-    
+
     def sample_cols(cols, logger: MyLogger, ratio=0.05, random_state=RANDOM_STATE):
         n_total = len(cols)
         n_sample = max(1, int(n_total * ratio))
@@ -211,13 +222,13 @@ def plot_num_feature_distributions(
         case "structural":
             filtered_cols = [
                 feature
-                for feature in feature_ctgs.structural_cols
+                for feature in feature_ctgs.numeric_cols
                 if feature not in ENGINEERED_FEATURES
             ]
         case "engineered":
             filtered_cols = [
                 feature
-                for feature in feature_ctgs.structural_cols
+                for feature in feature_ctgs.numeric_cols
                 if feature in ENGINEERED_FEATURES
             ]
         case "embedding":
@@ -232,7 +243,7 @@ def plot_num_feature_distributions(
             )
 
         case _:
-            filtered_cols = feature_ctgs.structural_cols
+            filtered_cols = feature_ctgs.numeric_cols
 
     if drop_cols:
         filtered_cols = [col for col in filtered_cols if col not in drop_cols]
@@ -285,7 +296,7 @@ def plot_num_feature_distributions(
             "Pct_Zeros",
         ],
     )
-    
+
     if experiment_dir:
         experiment_dir.mkdir(parents=True, exist_ok=True)
         # Convert summary list to a DataFrame
@@ -294,14 +305,26 @@ def plot_num_feature_distributions(
         # md_path = experiment_dir / "stats_summary.md"
         # stats_df.to_markdown(md_path, index=False)
         save_df_as_md(df=stats_df, path=experiment_dir / f"{col_type}_stats_summary.md")
-    
-    gen = grid_paginator(filtered_cols, col_type, experiment_dir, n_cols=1, rows_per_page=rows_per_page, preset=preset)
-    
+
+    gen = grid_paginator(
+        filtered_cols,
+        col_type,
+        experiment_dir,
+        n_cols=1,
+        rows_per_page=rows_per_page,
+        preset=preset,
+    )
+
     for ax, feature in gen:
         sns.histplot(
-            data=df, x=feature, kde=True, ax=ax,
-            stat="density", color="#a8dadc", edgecolor="white",
-            line_kws={"color": "#e63946", "linewidth": 2}
+            data=df,
+            x=feature,
+            kde=True,
+            ax=ax,
+            stat="density",
+            color="#a8dadc",
+            edgecolor="white",
+            line_kws={"color": "#e63946", "linewidth": 2},
         )
         ax.set_title(f"Distribution: {feature}", fontweight="bold")
         ax.set_xlabel("")
@@ -358,30 +381,29 @@ def plot_num_feature_distributions(
     #     else:
     #         plt.show()
     #     plt.close()
-    
+
     return stats_df
 
 
+# def plot_file_types_distributions(df: pd.DataFrame, logger: MyLogger):
+#     logger.log_check("Checking File Extension Distribution...")
 
-def plot_file_types_distributions(df: pd.DataFrame, logger: MyLogger):
-    logger.log_check("Checking File Extension Distribution...")
+#     # Compute extensions
+#     df["ext"] = df["filepath"].str.split(".").str[-1]
 
-    # Compute extensions
-    df["ext"] = df["filepath"].str.split(".").str[-1]
+#     # Counts
+#     ext_counts = df["ext"].value_counts()
+#     logger.log_result(f"Extension counts: {ext_counts.to_dict()}")
 
-    # Counts
-    ext_counts = df["ext"].value_counts()
-    logger.log_result(f"Extension counts: {ext_counts.to_dict()}")
-
-    # Proportions
-    ext_props = (ext_counts / len(df)).round(4)
-    logger.log_result(f"Extension proportions: {ext_props.to_dict()}")
-    # Plot
-    plt.figure(figsize=(8, 4))
-    sns.barplot(x=ext_counts.index, y=ext_counts.values)
-    plt.title("File Extension Distribution")
-    plt.ylabel("Count")
-    plt.show()
+#     # Proportions
+#     ext_props = (ext_counts / len(df)).round(4)
+#     logger.log_result(f"Extension proportions: {ext_props.to_dict()}")
+#     # Plot
+#     plt.figure(figsize=(8, 4))
+#     sns.barplot(x=ext_counts.index, y=ext_counts.values)
+#     plt.title("File Extension Distribution")
+#     plt.ylabel("Count")
+#     plt.show()
 
 
 def plot_commit_msg_len_distribution(df: pd.DataFrame, logger: MyLogger):
@@ -400,30 +422,86 @@ def plot_commit_msg_len_distribution(df: pd.DataFrame, logger: MyLogger):
     # logger.log_result(f"Empty content rows: {empty_content}")
 
 
-def plot_line_discrepancy_distribution(df: pd.DataFrame, logger: MyLogger):
-    # --- Line discrepancy analysis ---
-    logger.log_check(
-        "Checking line count discrepancy (content_lines - loc_added - loc_deleted)..."
-    )
+# def plot_line_discrepancy_distribution(df: pd.DataFrame, logger: MyLogger):
+#     # --- Line discrepancy analysis ---
+#     logger.log_check(
+#         "Checking line count discrepancy (content_lines - loc_added - loc_deleted)..."
+#     )
 
+#     line_discrepancy = (
+#         df["content"].str.count("\n") - df["loc_added"] - df["loc_deleted"]
+#     )
+#     disc_stats = line_discrepancy.describe().to_dict()
+
+#     # Convert numpy values to python floats
+#     disc_stats = {k: float(v) for k, v in disc_stats.items()}
+
+#     logger.log_result(f"line_discrepancy stats: {disc_stats}")
+
+#     # Optional plot (not logged)
+#     plt.figure(figsize=(8, 4))
+#     sns.histplot(line_discrepancy, bins=50, kde=True)
+#     plt.title("Line Discrepancy Distribution")
+#     plt.show()
+# def plot_line_discrepancy_distribution(df: pd.DataFrame, logger: MyLogger, experiment_dir: Path = None):
+#     logger.log_check("Plotting log-scaled line discrepancy distribution...")
+#     line_discrepancy = (df["content"].str.count("\n") - df["loc_added"] - df["loc_deleted"])
+
+#     setup_latex_style("a4-portrait")
+#     fig, ax = plt.subplots(figsize=(6.3, 4))
+
+#     # Use log_scale=(True, False) to only scale the X-axis
+#     # We add a small offset if there are zeros/negatives, or use symlog
+#     sns.histplot(line_discrepancy, bins=100, kde=True, ax=ax, log_scale=(True, False))
+
+#     ax.set_title("Line Discrepancy (Log Scale)")
+#     ax.set_xlabel("Discrepancy (Log Scale)")
+#     ax.set_ylabel("Frequency")
+
+
+#     if experiment_dir:
+#         experiment_dir.mkdir(parents=True, exist_ok=True)
+#         plt.savefig(experiment_dir / "discrepancy_log.pdf", bbox_inches="tight")
+#     else:
+#         plt.show()
+def plot_line_discrepancy_distribution(
+    df: pd.DataFrame, logger: MyLogger, experiment_dir: Path = None
+):
+    logger.log_check("Plotting symlog-scaled line discrepancy distribution...")
+
+    # Calculate discrepancy
     line_discrepancy = (
         df["content"].str.count("\n") - df["loc_added"] - df["loc_deleted"]
     )
-    disc_stats = line_discrepancy.describe().to_dict()
 
-    # Convert numpy values to python floats
-    disc_stats = {k: float(v) for k, v in disc_stats.items()}
+    setup_latex_style("a4-portrait")
+    fig, ax = plt.subplots(figsize=(6.3, 4))
 
-    logger.log_result(f"line_discrepancy stats: {disc_stats}")
+    # Note: We do NOT use log_scale=True here because it breaks on negatives.
+    # Instead, we plot normally and then transform the AXIS.
+    sns.histplot(line_discrepancy, bins=100, kde=True, ax=ax, color="#4C72B0")
 
-    # Optional plot (not logged)
-    plt.figure(figsize=(8, 4))
-    sns.histplot(line_discrepancy, bins=50)
-    plt.title("Line Discrepancy Distribution")
-    plt.show()
+    # Apply symlog to handle the -8 to 7324 range
+    ax.set_xscale("symlog")
+
+    ax.set_title("Line Discrepancy Distribution (Symlog Scale)")
+    ax.set_xlabel("Discrepancy (Linear near 0, Log for outliers)")
+    ax.set_ylabel("Count")
+
+    # Add a vertical line at 0 for reference
+    ax.axvline(0, color="red", linestyle="--", alpha=0.5, label="Zero Discrepancy")
+    ax.legend()
+
+    if experiment_dir:
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+        plt.savefig(experiment_dir / "discrepancy_symlog.pdf", bbox_inches="tight")
+    else:
+        plt.show()
 
 
-def plot_embedding_norm_distribution(df: MyLogger, logger: MyLogger):
+def plot_embedding_norm_distribution(
+    df: pd.DataFrame, logger: MyLogger, experiment_dir: Path = None
+):
     logger.log_check(
         "Checking Embedding Norm Distributions (NAME, SKEW, KURT, MEAN, STD)..."
     )
@@ -434,12 +512,29 @@ def plot_embedding_norm_distribution(df: MyLogger, logger: MyLogger):
     plt.figure(figsize=(12, 5))
     sns.histplot(df["code_embed_norm"], bins=50, kde=True)
     plt.title("Code Embedding Norm Distribution")
-    plt.show()
+    # plt.show()
+
+    if experiment_dir:
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+        plt.savefig(
+            experiment_dir / "code_embed_norm_distribution.pdf", bbox_inches="tight"
+        )
+    else:
+        plt.show()
 
     plt.figure(figsize=(12, 5))
     sns.histplot(df["msg_embed_norm"], bins=50, kde=True)
     plt.title("Message Embedding Norm Distribution")
-    plt.show()
+
+    setup_latex_style("a4-portrait")
+    # plt.show()
+    if experiment_dir:
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+        plt.savefig(
+            experiment_dir / "msg_embed_norm_distribution.pdf", bbox_inches="tight"
+        )
+    else:
+        plt.show()
 
     for col in ["code_embed_norm", "msg_embed_norm"]:
         series = df[col].dropna()
@@ -524,9 +619,10 @@ def plot_keyword_distributions(
 
 def plot_parwise_relationship(
     df: pd.DataFrame,
-    feature_ctgs: FeatureCategories,
+    feature_ctgs: NumFeatureSets,
     logger: MyLogger,
     top_features: int = 5,
+    experiment_dir: Path = None,
 ):
     # TOP_FEATURES = 5
 
@@ -589,14 +685,47 @@ def plot_parwise_relationship(
             corr_val = df[[feat1, feat2]].corr().iloc[0, 1]
             logger.log_result(f"Correlation {feat1} & {feat2}: {corr_val:.2f}")
 
+    df_sample = df[selected_features].sample(min(len(df), 5000), random_state=42)
+
     # Pairplot for visualization
-    sns.pairplot(df[selected_features], hue="label", corner=True)
+    # sns.pairplot(df[selected_features], hue="label", corner=True)
+    # In your pairplot call, use plot_kws to rasterize
+    sns.pairplot(
+        df_sample[selected_features],
+        hue="label",
+        corner=True,
+        plot_kws={
+            "rasterized": True,  # This renders the dots as a bitmap
+            "alpha": 0.4,
+            "s": 5,
+            "edgecolor": None,
+        },
+    )
     plt.suptitle("Pairplot of Selected Features", y=1.02)
-    plt.show()
+
+    if experiment_dir:
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+        save_path = experiment_dir / f"pairwise_relationships.pdf"
+        plt.savefig(save_path, bbox_inches="tight", dpi=300)
+    else:
+        plt.show()
 
 
-def plot_2D_embedding_separability(df: pd.DataFrame, logger: MyLogger, embeddings = EMBEDDINGS, sample_size: int = 2000):
+def plot_2D_embedding_separability(
+    df: pd.DataFrame,
+    logger: MyLogger,
+    embeddings=EMBEDDINGS,
+    sample_size: int = 2000,
+    experiment_dir: Path = None,
+):
     # sample_size = 2000  # safe for memory
+    results_df = pd.DataFrame({
+        "embedding": [],
+        "inter_label_dist": [],
+        "intra_dist_label0": [],
+        "intra_dist_label1": [],
+    })
+
 
     for emb_name in embeddings:
         logger.log_check(f"PCA of {emb_name}")
@@ -613,39 +742,83 @@ def plot_2D_embedding_separability(df: pd.DataFrame, logger: MyLogger, embedding
 
         # Explained variance
         var_explained = pca.explained_variance_ratio_
-        logger.log_result(f"{emb_name} - Explained variance by PC1: {var_explained[0]:.2%}, PC2: {var_explained[1]:.2%}")
-
+        logger.log_result(
+            f"{emb_name} - Explained variance by PC1: {var_explained[0]:.2%}, PC2: {var_explained[1]:.2%}"
+        )
 
         # 1. Split by labels (Ensure these are numpy arrays)
-        labels = df['label'].values
+        labels = df["label"].values
         points_label0 = emb_2d[labels == 0]
         points_label1 = emb_2d[labels == 1]
 
         # 2. Fixed Sampling: Use iloc if it's a DF, or index directly if it's an array
         # To be safe, we force points_label0 to be a numpy array if it isn't already
-        if hasattr(points_label0, 'values'):
+        if hasattr(points_label0, "values"):
             points_label0 = points_label0.values
-        if hasattr(points_label1, 'values'):
+        if hasattr(points_label1, "values"):
             points_label1 = points_label1.values
 
-        idx0 = np.random.choice(points_label0.shape[0], min(sample_size, points_label0.shape[0]), replace=False)
-        idx1 = np.random.choice(points_label1.shape[0], min(sample_size, points_label1.shape[0]), replace=False)
+        idx0 = np.random.choice(
+            points_label0.shape[0],
+            min(sample_size, points_label0.shape[0]),
+            replace=False,
+        )
+        idx1 = np.random.choice(
+            points_label1.shape[0],
+            min(sample_size, points_label1.shape[0]),
+            replace=False,
+        )
 
         points_label0_sample = points_label0[idx0]
         points_label1_sample = points_label1[idx1]
 
         # Distances
-        inter_label_dist = pairwise_distances(points_label0_sample, points_label1_sample).mean()
+        inter_label_dist = pairwise_distances(
+            points_label0_sample, points_label1_sample
+        ).mean()
         intra_dist_label0 = pairwise_distances(points_label0_sample).mean()
         intra_dist_label1 = pairwise_distances(points_label1_sample).mean()
 
-        logger.log_result(f"{emb_name} - Mean distance between label 0 and 1 in PCA 2D space: {inter_label_dist:.3f}")
-        logger.log_result(f"{emb_name} - Mean intra-label distances: label 0: {intra_dist_label0:.3f}, label 1: {intra_dist_label1:.3f}")
+        logger.log_result(
+            f"{emb_name} - Mean distance between label 0 and 1 in PCA 2D space: {inter_label_dist:.3f}"
+        )
+        logger.log_result(
+            f"{emb_name} - Mean intra-label distances: label 0: {intra_dist_label0:.3f}, label 1: {intra_dist_label1:.3f}"
+        )
+
+    
+
+        # results_df = pd.DataFrame({
+        #     "inter_label_dist": [f"{inter_label_dist:.3f}"],
+        #     "intra_dist_label0": [f"{intra_dist_label0:.3f}"],
+        #     "intra_dist_label1": [f"{intra_dist_label1:.3f}"],
+        # })
+        results_df.loc[len(results_df)] = {
+            "embedding": emb_name,
+            "inter_label_dist": inter_label_dist,
+            "intra_dist_label0": intra_dist_label0,
+            "intra_dist_label1": intra_dist_label1,
+        }
+
+        if experiment_dir:
+            experiment_dir.mkdir(parents=True, exist_ok=True)
+            save_df_as_md(df=results_df.round(3), path=experiment_dir / f"{emb_name}_stats.md")
 
         # Plot
-        plt.figure(figsize=(10,7))
-        plt.scatter(emb_2d[:,0], emb_2d[:,1], c=df['label'], cmap='coolwarm', alpha=0.5)
+        plt.figure(figsize=(10, 7))
+        plt.scatter(
+            emb_2d[:, 0], emb_2d[:, 1], c=df["label"], cmap="coolwarm", alpha=0.5
+        )
         plt.title(f"PCA of {emb_name} Colored by Label")
         plt.xlabel("PC1")
         plt.ylabel("PC2")
-        plt.show()
+        # plt.show()
+        if experiment_dir:
+            experiment_dir.mkdir(parents=True, exist_ok=True)
+            save_path = experiment_dir / f"2D_{emb_name}_embedding_separability.pdf"
+            plt.savefig(save_path, bbox_inches="tight", dpi=300)
+        else:
+            plt.show()
+
+    
+    return results_df

@@ -1,11 +1,13 @@
 
 
+from pathlib import Path
 from matplotlib import pyplot as plt
 import pandas as pd
 import seaborn as sns
 
 from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
+from src_code.ml_pipeline.EDA.plots import setup_latex_style
 
 
 def select_top_correlated_features(
@@ -32,42 +34,106 @@ def select_top_correlated_features(
     return corr_sorted.index.tolist(), corr_sorted
 
 
+# def plot_corr_matrix(
+#     corr_matrix: pd.DataFrame,
+#     label: str,
+#     logger: MyLogger,
+#     target: str = TARGET,
+#     top_n: int = None,
+#     min_abs_corr: float | None = None,
+#     experiment_dir: Path = None
+# ):
+#     logger.log_check("Computing correlation matrix...")
+
+#     if top_n:
+#         top_features, corr_vals = select_top_correlated_features(
+#             corr=corr_matrix, target=target, top_n=top_n, min_abs_corr=min_abs_corr
+#         )
+#         selected_cols = top_features + [target]
+#         # corr_matrix = corr_matrix[selected_cols]
+#         corr_matrix = corr_matrix.loc[selected_cols, selected_cols]
+#         logger.log_result(
+#             f"Selected {len(top_features)} features "
+#             f"(top_n={top_n}, min_abs_corr={min_abs_corr})",
+#             print_to_console=True,
+#         )
+
+#     # corr_matrix = df[structural_cols + ['label']].corr()
+#     plt.figure(figsize=(22, 20))
+
+#     sns.heatmap(
+#         corr_matrix,
+#         annot=True,
+#         fmt=".2f",
+#         cmap="coolwarm",
+#         center=0,
+#         square=True,
+#     )
+#     plt.title("Correlation Matrix")
+#     plt.tight_layout()
+
+#     if experiment_dir:
+#         experiment_dir.mkdir(parents=True, exist_ok=True)
+#         setup_latex_style("a4-portrait")
+#         # suffix = f"_p{page+1}" if num_pages > 1 else ""
+#         suffix = ""
+#         save_path = experiment_dir / f"{label}_heatmap.pdf"
+#         plt.savefig(save_path, bbox_inches="tight", dpi=300)
+#     else:
+#         plt.show()
 def plot_corr_matrix(
     corr_matrix: pd.DataFrame,
+    label: str,
     logger: MyLogger,
     target: str = TARGET,
-    top_n: int = None,
+    top_n: int = 15,  # Keep this manageable for a single page
     min_abs_corr: float | None = None,
+    experiment_dir: Path = None
 ):
     logger.log_check("Computing correlation matrix...")
 
+    # 1. Feature Selection
     if top_n:
-        top_features, corr_vals = select_top_correlated_features(
+        top_features, _ = select_top_correlated_features(
             corr=corr_matrix, target=target, top_n=top_n, min_abs_corr=min_abs_corr
         )
         selected_cols = top_features + [target]
-        # corr_matrix = corr_matrix[selected_cols]
         corr_matrix = corr_matrix.loc[selected_cols, selected_cols]
-        logger.log_result(
-            f"Selected {len(top_features)} features "
-            f"(top_n={top_n}, min_abs_corr={min_abs_corr})",
-            print_to_console=True,
-        )
 
-    # corr_matrix = df[structural_cols + ['label']].corr()
-    plt.figure(figsize=(22, 20))
+    # 2. Apply LaTeX Style BEFORE creating the figure
+    setup_latex_style("a4-portrait")
+    
+    # 3. Calculate dynamic height based on number of features
+    # A4 width is ~6.3. We want square cells, so height approx = width
+    fig_width = 6.3 
+    fig_height = min(fig_width * (len(selected_cols) / 10), 9.0) # Scale height but cap at page limit
+    
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
+    # 4. Professional Heatmap Styling
     sns.heatmap(
         corr_matrix,
         annot=True,
         fmt=".2f",
-        cmap="coolwarm",
+        cmap="RdBu_r", # Red-Blue is more standard for academic papers
         center=0,
         square=True,
+        cbar_kws={"shrink": 0.8}, # Make colorbar slightly smaller
+        annot_kws={"size": 7},    # Smaller font for numbers to prevent overlap
+        ax=ax
     )
-    plt.title("Correlation Matrix")
-    plt.tight_layout()
-    plt.show()
+    
+    ax.set_title(f"Correlation Matrix: {label}", pad=20)
+    
+    # 5. Save with tight bounding box
+    if experiment_dir:
+        save_path = experiment_dir / f"{label}_heatmap.pdf"
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+        # Use bbox_inches="tight" to ensure no labels are cut off
+        plt.savefig(save_path, format='pdf', bbox_inches="tight")
+        logger.log_result(f"Saved thesis-ready heatmap to {save_path}")
+    else:
+        plt.show()
 
 
 
