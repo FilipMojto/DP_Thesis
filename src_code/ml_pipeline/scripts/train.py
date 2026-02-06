@@ -75,7 +75,7 @@ DEF_SCRIPT_LOGGER = MyLogger(
 )
 
 
-@timeit("Training Phase", logger_name="script_logger")
+@timeit("Training Phase", logger_param="script_logger")
 def train(
     model_type: str,
     script_logger: MyLogger = DEF_SCRIPT_LOGGER,

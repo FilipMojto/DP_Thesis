@@ -1,4 +1,6 @@
+import argparse
 import os
+from typing import Any, Callable, Dict, Iterable
 import pandas as pd
 
 from notebooks.logging_config import MyLogger
@@ -34,11 +36,11 @@ from src_code.config import EVALUATION_DIR, REPORTS_DIR
 #     return is_negative.any()
 
 
-def get_n_jobs(reserve: int = 6) -> int:
+def get_n_jobs(reserve: int = 2) -> int:
     """
     Return number of cores to use, reserving some for system responsiveness.
     """
-    total_cores = os.cpu_count() or 1
+    total_cores = (os.cpu_count() / 2) or 1
     return max(1, total_cores - reserve)
 
 
@@ -69,3 +71,20 @@ def get_experiment_dir(experiment_id: int, target_dir: Path) -> Path:
     path = Path(f"{target_dir}/experiment_{experiment_id}")
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+class MyParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def resolve_args(self, args: argparse.Namespace, resolvers: Dict[str, Callable[[Any], Any]]):
+        # args = self.parse_args()
+        return {name: resolver(args) for name, resolver in resolvers.items()}
+
+    def validate(
+        self,
+        args: argparse.Namespace,
+        validators: Iterable[Callable[[argparse.Namespace], None]],
+    ) -> None:
+        for validator in validators:
+            validator(args)

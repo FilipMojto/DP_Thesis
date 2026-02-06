@@ -16,7 +16,9 @@ from src_code.config import FITTED_TRANSFORMER, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.preprocessing.vectorizers import sklearn_tfidf_vectorizer
 
-set_config(transform_output="pandas")
+# set_config(transform_output="pandas")
+set_config(transform_output="default")
+
 log_transformer = FunctionTransformer(np.log1p, validate=False, feature_names_out="one-to-one",)
 
 PCA_CODE_EMB_COMPONENTS = 60
@@ -80,8 +82,8 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
             ("msg_embed", msg_emb_pipe, ["msg_embed"]),  # Pass as list
             # 2. This step keeps the original raw vector column
             # Note: We use 'passthrough' directly on the column names
-            ("code_embed_raw", "passthrough", ["code_embed"]),
-            ("msg_embed_raw", "passthrough", ["msg_embed"]),
+            # ("code_embed_raw", "passthrough", ["code_embed"]),
+            # ("msg_embed_raw", "passthrough", ["msg_embed"]),
         ],
         remainder="passthrough",
         verbose_feature_names_out=False,  # This now works because names are unique

@@ -145,7 +145,7 @@ class XGBWrapper(ModelWrapperBase):
             random_state=random_state,
             n_jobs=DEF_N_JOBS,
             tree_method="hist",
-            early_stopping_rounds=20,
+            # early_stopping_rounds=20,
             scale_pos_weight=scale_pos_weight
         )
 

@@ -65,7 +65,7 @@ from functools import wraps
 #         return wrapper
 #     return decorator
 
-def timeit(process_name: str = None, logger_name: str = None):
+def timeit(process_name: str = None, logger_param: str = None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -75,8 +75,8 @@ def timeit(process_name: str = None, logger_name: str = None):
             name = process_name or kwargs.get("process_name") or func.__name__
             logger: MyLogger = None
             # print(f"[{name}] Starting...")
-            if logger_name:
-                logger = kwargs.get(logger_name)
+            if logger_param:
+                logger = kwargs.get(logger_param)
                 if logger:
                     logger.log_check(f"[{name}] Starting...")
             else:
@@ -94,3 +94,41 @@ def timeit(process_name: str = None, logger_name: str = None):
             return result
         return wrapper
     return decorator
+
+
+def logerror(process_name: str = None, logger_param: str = None):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            name = process_name or kwargs.get("process_name") or func.__name__
+
+            # 2. Resolve the logger
+            logger = None
+            if logger_param:
+                logger = kwargs.get(logger_param)
+            
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                error_msg = f"[{name}] Failed with error: {str(e)}"
+                
+                # 3. Log the error
+                if logger and hasattr(logger, 'log_error'):
+                    logger.log_error(error_msg)
+                else:
+                    print(error_msg)
+                
+                # 4. Re-raise so the application knows something went wrong
+                raise e
+        return wrapper
+    return decorator
+
+
+# class MyDataFrame():
+#     def __init__(self, df: pd.DataFrame, logger: MyLogger):
+#         self.logger = logger
+#         self.df = df
+#         self.feature_sets = NumFeatureSets.extract_features(df=df, logger=self.logger)
+
+#     def data(self):
+#         return self.df

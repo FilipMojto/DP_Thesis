@@ -167,4 +167,6 @@ reports/**/*.csv
 reports/**/*.pdf
 reports/**/*.txt
 
+models/**/*.pkl
+
 docs/**/*.docx

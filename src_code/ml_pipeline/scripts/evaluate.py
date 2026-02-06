@@ -22,7 +22,7 @@ DEF_SCRIPT_LOGGER = MyLogger(
     file_log_path=LOG_DIR / "eval_deploy_log.log",
 )
 
-@timeit("Evaluation Phase", logger_name="logger")
+@timeit("Evaluation Phase", logger_param="logger")
 def evaluate(
     logger: MyLogger = DEF_SCRIPT_LOGGER,
     models_to_evaluate: list = SUPPORTED_MODELS,

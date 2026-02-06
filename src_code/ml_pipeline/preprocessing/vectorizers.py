@@ -38,14 +38,22 @@ DEF_MAX_FEATURES = 100
 #     def transform(self, X):
 #         return super().transform(X).toarray()
     
+# class PrefixedTfidf(TfidfVectorizer):
+#     def get_feature_names_out(self, input_features=None):
+#         names = super().get_feature_names_out(input_features)
+#         return [f"tfidf_{name}" for name in names]
+
+#     def transform(self, X):
+#         return super().transform(X).toarray()
 class PrefixedTfidf(TfidfVectorizer):
     def get_feature_names_out(self, input_features=None):
         names = super().get_feature_names_out(input_features)
         return [f"tfidf_{name}" for name in names]
 
     def transform(self, X):
-        return super().transform(X).toarray()
-
+        # Force the output to float64 immediately
+        return super().transform(X).toarray().astype('float64')
+    
 sklearn_tfidf_vectorizer = PrefixedTfidf(
     max_features=DEF_MAX_FEATURES,
     stop_words="english",

@@ -1,4 +1,4 @@
-from sklearn.model_selection import ParameterGrid
+from sklearn.model_selection import GridSearchCV, ParameterGrid
 
 from src_code.mlops_intstrex.joblib_progress import joblib_progress
 from src_code.mlops_intstrex.reporters.progress_reporter import ProgressReporter
@@ -20,7 +20,7 @@ from src_code.mlops_intstrex.reporters.progress_reporter import ProgressReporter
 #     reporter.close()
 
 class GridSearchAdapter:
-    def __init__(self, grid_search):
+    def __init__(self, grid_search: GridSearchCV):
         self.grid_search = grid_search
         # Pre-calculate total based on internal knowledge of GridSearchCV
         self.n_combos = len(ParameterGrid(grid_search.param_grid))
@@ -29,6 +29,7 @@ class GridSearchAdapter:
     def execute(self, reporter: ProgressReporter, X, y):
         reporter.start(self.total, "GridSearchCV")
         with joblib_progress(reporter, total_tasks=self.total):
+            # self.grid_search.set_params()
             self.grid_search.fit(X, y)
         reporter.close()
         return self.grid_search

@@ -33,7 +33,7 @@ DEF_SCRIPT_LOGGER = MyLogger(
 )
 
 
-@timeit("Early Preprocessing Phase", logger_name="script_logger")
+@timeit("Early Preprocessing Phase", logger_param="script_logger")
 def early_preprocess(
     subset: SubsetType,
     max_rows: int = None,
@@ -195,7 +195,7 @@ def early_preprocess(
     return output_df_file.next_base_output
 
 
-@timeit("Transformation Subphase", logger_name="script_logger")
+@timeit("Transformation Subphase", logger_param="script_logger")
 def transform_df(
     subset: SubsetType,
     max_rows: int = None,

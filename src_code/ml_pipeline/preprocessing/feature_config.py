@@ -40,3 +40,16 @@ DROP_COLS = [
     # "files_changed",
     # "loc_added_bucket"
 ]
+
+TUNING_DROP_COLS = [
+    "commit",
+    "repo",
+    "filepath",
+    "author_email",
+    "datetime",
+    "content",
+    "methods",
+    "lines",
+    "canonical_datetime",
+    # "message",
+]
