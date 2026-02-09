@@ -121,10 +121,13 @@ def transform(
     logger: MyLogger = DEF_NOTEBOOK_LOGGER,
     fitted_transformer: Path = FITTED_TRANSFORMER,
     print_to_console: bool = True,
+    pandas_output: bool = False,
 ):
     logger.log_check("Performing df transformation...")
     # set_config(transform_output="pandas")
     # log_transformer = FunctionTransformer(np.log1p, validate=False)
+
+    transformed_array = None
 
     if subset == "train":
        
@@ -136,8 +139,26 @@ def transform(
         # 3. FIT and TRANSFORM
         transformer = build_transformer(random_state=random_state)
 
+     
         transformer.fit(df)
-        df = transformer.transform(df)
+        # df = transformer.transform(df)
+        transformed_array = transformer.transform(df)
+
+        # if pandas_output:
+        #     # transformer.set_output(transform="pandas") # <--- Force this specific instance
+        #     # 2. Get the feature names
+        #     # This works because your PrefixedTfidf implements get_feature_names_out
+        #     feature_names = transformer.get_feature_names_out()
+
+        #     # 3. Reconstruct the DataFrame
+        #     df = pd.DataFrame(
+        #         transformed_array, 
+        #         columns=feature_names, 
+        #         index=df.index  # Crucial to keep your original index!
+        #     )
+        # else:
+        #     df = transformed_array
+
 
         log_dropped_features(transformer=transformer, numeric_features_list=NUMERIC_FEATURES + ENGINEERED_FEATURES, logger=logger)
 
@@ -156,7 +177,8 @@ def transform(
         )
         transformer: ColumnTransformer = joblib.load(fitted_transformer)
 
-        df = transformer.transform(df)
+        # df = transformer.transform(df)
+        transformed_array = transformer.transform(df)
     else:
         msg = "Unknown subset value!"
         logger.logger.error(msg)
@@ -165,6 +187,21 @@ def transform(
     logger.log_result(
         "Transformations applied successfully.", print_to_console=print_to_console
     )
+
+    if pandas_output:
+        # transformer.set_output(transform="pandas") # <--- Force this specific instance
+        # 2. Get the feature names
+        # This works because your PrefixedTfidf implements get_feature_names_out
+        feature_names = transformer.get_feature_names_out()
+
+        # 3. Reconstruct the DataFrame
+        df = pd.DataFrame(
+            transformed_array, 
+            columns=feature_names, 
+            index=df.index  # Crucial to keep your original index!
+        )
+    else:
+        df = transformed_array
 
     return df, transformer
 

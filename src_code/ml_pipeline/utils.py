@@ -65,26 +65,26 @@ def describe_dataframe(df: pd.DataFrame, logger: MyLogger, name: str = "DataFram
     )
     # return desc
 
-from pathlib import Path
+# from pathlib import Path
 
-def get_experiment_dir(experiment_id: int, target_dir: Path) -> Path:
-    path = Path(f"{target_dir}/experiment_{experiment_id}")
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+# def get_experiment_dir(experiment_id: int, target_dir: Path) -> Path:
+#     path = Path(f"{target_dir}/experiment_{experiment_id}")
+#     path.mkdir(parents=True, exist_ok=True)
+#     return path
 
 
-class MyParser(argparse.ArgumentParser):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+# class MyParser(argparse.ArgumentParser):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
 
-    def resolve_args(self, args: argparse.Namespace, resolvers: Dict[str, Callable[[Any], Any]]):
-        # args = self.parse_args()
-        return {name: resolver(args) for name, resolver in resolvers.items()}
+#     def resolve_args(self, args: argparse.Namespace, resolvers: Dict[str, Callable[[Any], Any]]):
+#         # args = self.parse_args()
+#         return {name: resolver(args) for name, resolver in resolvers.items()}
 
-    def validate(
-        self,
-        args: argparse.Namespace,
-        validators: Iterable[Callable[[argparse.Namespace], None]],
-    ) -> None:
-        for validator in validators:
-            validator(args)
+#     def validate(
+#         self,
+#         args: argparse.Namespace,
+#         validators: Iterable[Callable[[argparse.Namespace], None]],
+#     ) -> None:
+#         for validator in validators:
+#             validator(args)

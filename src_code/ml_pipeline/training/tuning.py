@@ -197,7 +197,7 @@ class RFTuningWrapper(TuningWrapperBase):
     @timeit(process_name="RF - Grid Search")
     def run_grid_search(self):
         # 5. Run the search
-        self.logger.log_check("Running grid search...")
+        # self.logger.log_check("Running grid search...")
 
         # start = time.time()
         # self.grid_search.fit(self.X_train, self.y_train)

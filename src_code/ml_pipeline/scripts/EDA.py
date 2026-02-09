@@ -22,7 +22,7 @@ from src_code.ml_pipeline.EDA.plots import (
     plot_parwise_relationship,
 )
 from src_code.ml_pipeline.EDA.utils import NumFeatureSets
-from src_code.ml_pipeline.data_utils import load_df, load_dfs
+from src_code.ml_pipeline.data_utils import load_df, load_input_dfs
 from src_code.ml_pipeline.experimenting.utils import log_experiment_id
 from src_code.ml_pipeline.utils import describe_dataframe, get_experiment_dir
 from src_code.versioning import VersionedFileManager
@@ -69,14 +69,14 @@ def perform_EDA(
     #     df_versioner = VersionedFileManager(file_path=df_path, logger=logger)
     #     dfs[df_label] = load_df(df_file_path=df_versioner.current_newest, logger=logger)
 
-    dfs = load_dfs(
+    dfs = load_input_dfs(
         mode="engineer" if load_ETL_processed else "transform", logger=logger
     )
 
     if load_ETL_processed and intersect_with_processed:
         logger.log_check("Dropping cols not present in the processed data...")
         # Load the reference data
-        dfs_processed = load_dfs(mode="transform", logger=logger)
+        dfs_processed = load_input_dfs(mode="transform", logger=logger)
 
         # Get the reference columns from the corresponding processed subset
         # Assuming 'subset' is the key you want to match against

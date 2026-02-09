@@ -107,12 +107,16 @@
         },
 
         {
-            "name": "Debug main script",
+            "name": "Debug pipeline script",
             "type": "debugpy",
             "request": "launch",
-            "module": "src_code.ml_pipeline.main",
+            "module": "src_code.ml_pipeline.pipeline",
             // "args": ["--skip-tuning", "--model", "XGB"],
             // "args": ["--model", "RF"],
+            // "args": ["tune", "--model", "RF", "--max-rows", "4000"],
+            // "args": ["preprocess", "--subset", "train", "--max-rows", "4000"],
+            "args": ["engineer", "--subset", "all", "--max-rows", "4000"],
+
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,

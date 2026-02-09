@@ -1,13 +1,17 @@
 from pathlib import Path
 import argparse
 import random
+from typing import Any, Callable, Dict
 
 import joblib
+import pandas as pd
 
-
+from src_code.ml_pipeline.training.tuning import SupportedModels, get_args
+from notebooks.logging_config import MyLogger
 from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
 from src_code.config import (
+    ENGINEERED_DATA_DIR,
     ENGINEERING_MAPPINGS,
     MODEL_DIR,
     PROCESSED_DATA_DIR,
@@ -15,7 +19,8 @@ from src_code.config import (
 )
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
 from src_code.ml_pipeline.data_utils import load_df, save_model
-from src_code.ml_pipeline.experimenting.utils import log_experiment_id
+from src_code.ml_pipeline.experimenting.types import ARG_RESOLVERS_COLL, ARG_VALIDATOR, ARG_VALIDATORS_COLL
+from src_code.ml_pipeline.experimenting.utils import MyParser, log_experiment_id
 from src_code.ml_pipeline.models import ModelWrapperFactory, XGBWrapper
 from src_code.config import LOG_DIR
 from src_code.ml_pipeline.preprocessing.feature_config import (
@@ -24,7 +29,7 @@ from src_code.ml_pipeline.preprocessing.feature_config import (
 )
 from src_code.ml_pipeline.preprocessing.preprocessing import drop_cols
 from src_code.ml_pipeline.training.tuning import ModelTuningFactory, log_selected_features
-from src_code.ml_pipeline.utils import MyParser, get_n_jobs
+from src_code.ml_pipeline.utils import get_n_jobs
 from src_code.utils.utils import logerror, timeit
 from src_code.versioning import VersionedFileManager
 
@@ -38,8 +43,8 @@ DEF_SCRIPT_LOGGER = MyLogger(
 @timeit("Hyperparameter Tuning Phase", logger_param="logger")
 @logerror("Hyperparameter Tuning Phase", logger_param="logger")
 def tune_hyperparams(
-    preprocessed_df_path: Path,
     model_type: str,
+    preprocessed_df_path: Path = Path(ENGINEERED_DATA_DIR / 'train_engineered.feather'),
     logger: MyLogger = DEF_SCRIPT_LOGGER,
     random_state: int = DEF_RANDOM_STATE,
     experiment_id: int = None,
@@ -52,13 +57,14 @@ def tune_hyperparams(
         logger.start_session()
 
     # logger.log_check("Starting hyperparameter tuning phase...")
-    logger.log_check(f"Loading preprocessed data from: {preprocessed_df_path}")
+    # logger.log_check(f"Loading preprocessed data from: {preprocessed_df_path}")
     # logger.logger.info(
     #     f"Experiment ID: {expperiment_id}"
     #     if expperiment_id
     #     else "No Experiment ID provided."
     # )
     log_experiment_id(logger=logger, experiment_id=experiment_id)
+    # logger.log_result("")
 
     preprocessed_df_versioner = VersionedFileManager(
         file_path=preprocessed_df_path, logger=logger
@@ -131,22 +137,33 @@ def tune_hyperparams(
 
 RANDOM_STATE = DEF_RANDOM_STATE
 
-ARG_RESOLVERS = {
-    "n_workers": lambda args: (
-        (int)(get_n_jobs(reserve=2)) if args.workers < 0 else args.workers
+# ARG_RESOLVERS: Dict[str, Callable[[argparse.Namespace], Any]] = {
+#     "n_workers": lambda args: (
+#         (int)(get_n_jobs(reserve=2)) if args.workers < 0 else args.workers
+#     ),
+#     "max_rows": lambda args: args.max_rows,
+#     "random_state": lambda args: RANDOM_STATE,
+#     "model_type": lambda args: args.model,
+# }
+ARG_RESOLVERS: ARG_RESOLVERS_COLL = {
+    "n_workers": lambda cfg: (
+        int(get_n_jobs(reserve=2)) if cfg["workers"] < 0 else cfg["workers"]
     ),
-    "max_rows": lambda args: args.max_rows,
-    "random_state": lambda args: RANDOM_STATE,
-    "model_type": lambda args: args.model,
+    "max_rows": lambda cfg: cfg["max_rows"],
+    "random_state": lambda cfg: RANDOM_STATE,
+    "model_type": lambda cfg: cfg["model"],
 }
 
-def validate_workers(args: argparse.Namespace) -> None:
-    if args.workers == 0:
-        raise ValueError(
-            f"Invalid workers argument: {args.workers}. Cannot equal zero."
-        )
+# def validate_workers(args: argparse.Namespace) -> None:
+#     if args.workers == 0:
+#         raise ValueError(
+#             f"Invalid workers argument: {args.workers}. Cannot equal zero."
+#         )
+def validate_workers(cfg: Dict[str, Any]) -> None:
+    if cfg.get("workers", 1) == 0:
+        raise ValueError("workers cannot be zero")
     
-VALIDATORS = [
+ARG_VALIDATORS: ARG_VALIDATORS_COLL = [
     validate_workers,
 ]    
 
@@ -156,13 +173,8 @@ def build_kwargs(args):
     return {name: resolver(args) for name, resolver in ARG_RESOLVERS.items()}
 
 
-if __name__ == "__main__":
-  
-    import pandas as pd
-    from src_code.ml_pipeline.training.tuning import SupportedModels, get_args
-    from notebooks.logging_config import MyLogger
-
-    parser = MyParser(description="Model Tuning")
+def get_parser():
+    parser = MyParser(add_help=False, description="Model Tuning")
     parser.add_argument(
         "--model",
         type=str,
@@ -191,21 +203,61 @@ if __name__ == "__main__":
         "--workers",
         type=int,
         required=False,
-        default=1
-        ,
+        default=1,
         help="Use mutliple cores for parallel processing",
     )
+
+    return parser
+
+
+if __name__ == "__main__":
+
+
+    # parser = MyParser(description="Model Tuning")
+    # parser.add_argument(
+    #     "--model",
+    #     type=str,
+    #     required=True,
+    #     choices=get_args(SupportedModels),
+    #     help="Type of model to tune: 'RF' for Random Forest, 'XGB' for XGBoost",
+    # )
+
+    # parser.add_argument(
+    #     "--max-rows",
+    #     type=int,
+    #     required=False,
+    #     default=None,
+    #     help="Limit dataset to first n rows only for testing purposes.",
+    # )
+
+    # parser.add_argument(
+    #     "--reserve-cores",
+    #     type=int,
+    #     required=False,
+    #     default=2,
+    #     help="Reserve cores when using workers for parallel processing",
+    # )
+
+    # parser.add_argument(
+    #     "--workers",
+    #     type=int,
+    #     required=False,
+    #     default=1,
+    #     help="Use mutliple cores for parallel processing",
+    # )
 
     # script_logger = MyLogger(
     #     label="TUNING",
     #     section_name="TUNING LOGGER SCRIPT",
     #     file_log_path=LOG_DIR / "tuning_log.log",
     # )
+    parser = get_parser()
+
     script_logger = DEF_SCRIPT_LOGGER
     script_logger.start_session(session_id=random.randint(1000, 9999))
     args = parser.parse_args()
 
-    parser.validate(args=args, validators=VALIDATORS)
+    parser.validate(args=args, validators=ARG_VALIDATORS)
     # resolved_kwargs = build_kwargs(args)
     resolved_kwargs = parser.resolve_args(args=args, resolvers=ARG_RESOLVERS)
 

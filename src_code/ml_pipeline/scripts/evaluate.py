@@ -7,11 +7,10 @@ from notebooks.logging_config import MyLogger
 from src_code.config import ENGINEERING_MAPPINGS, EVALUATION_DIR, LOG_DIR, MODEL_DIR, PROCESSED_DATA_DIR, SupportedModels
 from src_code.ml_pipeline.config import SUPPORTED_MODELS
 import src_code.ml_pipeline.data_utils as dutls
-from src_code.ml_pipeline.experimenting.utils import log_experiment_id
+from src_code.ml_pipeline.experimenting.utils import get_experiment_dir, log_experiment_id
 from src_code.ml_pipeline.preprocessing.feature_config import DROP_COLS
 from src_code.ml_pipeline.preprocessing.preprocessing import drop_cols
 import src_code.ml_pipeline.testing.testing as test_utils
-from src_code.ml_pipeline.utils import get_experiment_dir
 from src_code.utils.utils import timeit
 from src_code.versioning import VersionedFileManager
 

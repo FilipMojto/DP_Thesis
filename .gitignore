@@ -170,3 +170,5 @@ reports/**/*.txt
 models/**/*.pkl
 
 docs/**/*.docx
+
+testing
