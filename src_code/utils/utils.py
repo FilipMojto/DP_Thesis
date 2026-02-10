@@ -44,41 +44,27 @@ def is_binary(df: pd.DataFrame, col_name: str) -> bool:
 import time
 from functools import wraps
 
-# def timeit(process_name: str = None):
-#     """
-#     Decorator to measure execution time of a function.
-    
-#     Parameters:
-#         process_name (str): Optional name of the process to display.
-#     """
-#     def decorator(func):
-#         @wraps(func)
-#         def wrapper(*args, **kwargs):
-#             name = process_name or func.__name__
-#             print(f"[{name}] Starting...")
-#             start_time = time.time()
-#             result = func(*args, **kwargs)
-#             end_time = time.time()
-#             elapsed = end_time - start_time
-#             print(f"[{name}] Finished in {elapsed:.4f} seconds.")
-#             return result
-#         return wrapper
-#     return decorator
 
 def timeit(process_name: str = None, logger_param: str = None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # 1. Try to get name from the decorator param
-            # 2. Try to get it from a specific keyword argument passed to the function
-            # 3. Fall back to the function name
             name = process_name or kwargs.get("process_name") or func.__name__
-            logger: MyLogger = None
-            # print(f"[{name}] Starting...")
-            if logger_param:
+
+            logger = None
+
+            # 1️⃣ Explicit logger passed via kwargs
+            if logger_param and logger_param in kwargs:
                 logger = kwargs.get(logger_param)
-                if logger:
-                    logger.log_check(f"[{name}] Starting...")
+
+            # 2️⃣ Instance method → try self.logger
+            if logger is None and args:
+                self_obj = args[0]
+                logger = getattr(self_obj, "logger", None)
+
+            # 3️⃣ Logging
+            if logger:
+                logger.log_check(f"[{name}] Starting...")
             else:
                 print(f"[{name}] Starting...")
 
@@ -92,6 +78,7 @@ def timeit(process_name: str = None, logger_param: str = None):
                 print(f"[{name}] Finished in {elapsed:.4f} seconds.")
 
             return result
+
         return wrapper
     return decorator
 
