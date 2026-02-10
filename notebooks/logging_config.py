@@ -53,6 +53,7 @@ LOG_PATH = os.path.join(os.getcwd(), "logs/notebooks.log")
 
 class MyLogger:
     DEF_NOTEBOOK_NAME = "UNKNOWN NOTEBOOK"
+    DEF_SESSION_ID = random.randint(100, 999)
 
     def __init__(self, label: str, section_name: str = None, file_log_path=LOG_PATH):
         if not section_name:
@@ -98,7 +99,7 @@ class MyLogger:
             print(msg)
 
     def start_session(
-        self, session_id: int = random.randint(100, 999), print_to_console: bool = True
+        self, session_id: int = DEF_SESSION_ID, print_to_console: bool = True
     ):
         msg = f"================== Starting notebook: {self.section_name} (Session {session_id}) =================="
         self.logger.info(msg)

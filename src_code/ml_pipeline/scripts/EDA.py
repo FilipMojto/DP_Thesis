@@ -41,9 +41,11 @@ def perform_EDA(
     max_rows: int = None,
     intersect_with_processed=False,
 ):
-    if logger == DEF_SCRIPT_LOGGER:
-        # If default logger is used, start a new session
-        logger.start_session()
+    # if logger == DEF_SCRIPT_LOGGER:
+    #     # If default logger is used, start a new session
+    #     logger.start_session()
+    logger.start_session(session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID)
+
 
     log_experiment_id(logger=logger, experiment_id=experiment_id)
     logger.log_check(f"etl_processed: {load_ETL_processed}")

@@ -35,8 +35,8 @@ DROP_COLS = [
     "content",
     "methods",
     "lines",
-    "code_embed",
-    "msg_embed",
+    # "code_embed",
+    # "msg_embed",
     # "files_changed",
     # "loc_added_bucket"
 ]

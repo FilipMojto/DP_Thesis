@@ -10,10 +10,14 @@ from src_code.versioning import VersionedFileManager
 from .scripts.engineer import get_parser as engineer_parser
 from .scripts.tune import get_parser as tune_parser
 from .scripts.preprocess import get_parser as prep_parser
+from .scripts.train import get_parser as train_parser
+from .scripts.evaluate import get_parser as eval_parser
 
 from .scripts.engineer import early_preprocess
 from .scripts.tune import tune_hyperparams
 from .scripts.preprocess import transform_df
+from .scripts.train import train
+from .scripts.evaluate import evaluate
 
 
 MLPhase = Literal["eda", "engineer", "tune", "preprocess", "train", "eval"]
@@ -35,6 +39,8 @@ if __name__ == "__main__":
     sub.add_parser("engineer", parents=[engineer_parser()])
     sub.add_parser("tune", parents=[tune_parser()])
     sub.add_parser("preprocess", parents=[prep_parser()])
+    sub.add_parser("train", parents=[train_parser()])
+    sub.add_parser("eval", parents=[eval_parser()])
 
     args = parser.parse_args()
 
@@ -61,7 +67,9 @@ if __name__ == "__main__":
             # logger=logger,
             experiment_id=experiment_id,
             max_rows=args.max_rows,
-            n_workers=args.workers,
+            n_cores=args.workers,
+            core_mode=args.core_mode,
+            reserve_cores=args.reserve_cores,
         )
     elif args.phase == "preprocess":
         transform_df(
@@ -70,3 +78,12 @@ if __name__ == "__main__":
             # script_logger=logger,
             experiment_id=experiment_id,
         )
+    elif args.phase == "train":
+        train(
+            model_type=args.model,
+            load_tuned=args.load_tuned,
+            skip_pfi=args.skip_pfi,
+            experiment_id=experiment_id,
+        )
+    elif args.phase == 'eval':
+        evaluate(models=args.models, experiment_id=experiment_id)

@@ -106,7 +106,7 @@ def load_model(path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     # logger.log_result(f"The model was trained on {len(model_features)} features:")
 
     logger.log_result("Loading successful.")
-    logger.log_result(f"Hyperparameters: {model.get_params()}")
+    # logger.log_result(f"Hyperparameters: {model.get_params()}")
     logger.log_result(
         f"The model was trained on {len(model.feature_names_in_)} features:"
     )

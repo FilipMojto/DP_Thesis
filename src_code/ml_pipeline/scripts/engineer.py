@@ -49,10 +49,12 @@ def early_preprocess(
     # =============================================================================
     # PREPROCESSING
     # =============================================================================
+    logger.start_session(session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID)
 
-    if logger == DEF_SCRIPT_LOGGER:
-        # If default logger is used, start a new session
-        logger.start_session()
+
+    # if logger == DEF_SCRIPT_LOGGER:
+    #     # If default logger is used, start a new session
+    #     logger.start_session()
 
     # script_logger.log_check("Starting preprocessing phase...")
     # script_logger.log_check(
@@ -102,9 +104,11 @@ def early_preprocess(
         #         f"Dataframe shape after row limit: {target_df.shape}",
         #         print_to_console=True,
         #     )
-        target_df = limit_dataframe_rows(
-            df=target_df, script_logger=logger, max_rows=max_rows
-        )
+
+        if max_rows:
+            target_df = limit_dataframe_rows(
+                df=target_df, script_logger=logger, max_rows=max_rows
+            )
 
         # # -----------------------------------------------------------------------------
         # # Dropping invalid cols

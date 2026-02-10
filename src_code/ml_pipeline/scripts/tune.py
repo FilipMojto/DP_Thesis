@@ -19,7 +19,11 @@ from src_code.config import (
 )
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
 from src_code.ml_pipeline.data_utils import load_df, save_model
-from src_code.ml_pipeline.experimenting.types import ARG_RESOLVERS_COLL, ARG_VALIDATOR, ARG_VALIDATORS_COLL
+from src_code.ml_pipeline.experimenting.types import (
+    ARG_RESOLVERS_COLL,
+    ARG_VALIDATOR,
+    ARG_VALIDATORS_COLL,
+)
 from src_code.ml_pipeline.experimenting.utils import MyParser, log_experiment_id
 from src_code.ml_pipeline.models import ModelWrapperFactory, XGBWrapper
 from src_code.config import LOG_DIR
@@ -28,8 +32,11 @@ from src_code.ml_pipeline.preprocessing.feature_config import (
     TUNING_DROP_COLS,
 )
 from src_code.ml_pipeline.preprocessing.preprocessing import drop_cols
-from src_code.ml_pipeline.training.tuning import ModelTuningFactory, log_selected_features
-from src_code.ml_pipeline.utils import get_n_jobs
+from src_code.ml_pipeline.training.tuning import (
+    ModelTuningFactory,
+    log_selected_features,
+)
+from src_code.ml_pipeline.utils import CoreConfig, CoreModeType, get_n_jobs
 from src_code.utils.utils import logerror, timeit
 from src_code.versioning import VersionedFileManager
 
@@ -44,27 +51,26 @@ DEF_SCRIPT_LOGGER = MyLogger(
 @logerror("Hyperparameter Tuning Phase", logger_param="logger")
 def tune_hyperparams(
     model_type: str,
-    preprocessed_df_path: Path = Path(ENGINEERED_DATA_DIR / 'train_engineered.feather'),
+    preprocessed_df_path: Path = Path(ENGINEERED_DATA_DIR / "train_engineered.feather"),
     logger: MyLogger = DEF_SCRIPT_LOGGER,
     random_state: int = DEF_RANDOM_STATE,
     experiment_id: int = None,
     max_rows: int = None,
-    n_workers: int = 1,
+    core_mode: CoreModeType = "manual",
+    n_cores: int = 1,
+    reserve_cores: int = 2,
     # scale_pos_weight: float = 1.0,
 ):
-    if logger == DEF_SCRIPT_LOGGER:
-        # If default logger is used, start a new session
-        logger.start_session()
+    logger.start_session(session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID)
+    # if logger == DEF_SCRIPT_LOGGER:
+    #     # If default logger is used, start a new session
+    #     logger.start_session()
 
-    # logger.log_check("Starting hyperparameter tuning phase...")
-    # logger.log_check(f"Loading preprocessed data from: {preprocessed_df_path}")
-    # logger.logger.info(
-    #     f"Experiment ID: {expperiment_id}"
-    #     if expperiment_id
-    #     else "No Experiment ID provided."
-    # )
     log_experiment_id(logger=logger, experiment_id=experiment_id)
     # logger.log_result("")
+    logger.log_result(
+        f"Config: [{model_type=}, {random_state=}, {experiment_id=}, {max_rows=}, {n_cores=}]"
+    )
 
     preprocessed_df_versioner = VersionedFileManager(
         file_path=preprocessed_df_path, logger=logger
@@ -105,32 +111,41 @@ def tune_hyperparams(
         y_train=y_train,
         random_state=random_state,
         logger=logger,
-        n_workers=n_workers,
+        # n_workers=n_workers,
+        core_config=CoreConfig(
+            reserve_cores=reserve_cores, num_of_cores=n_cores, mode=core_mode
+        ),
     )
 
     best_params, best_score = tuning_wrapper.run_grid_search()
     clean_params = {
-        key.replace("model__", ""): value 
-        for key, value in best_params.items()
+        key.replace("model__", ""): value for key, value in best_params.items()
     }
     log_selected_features(tuning_wrapper.grid_search, logger=logger)
-        
+
     logger.log_result(
         f"Tuning completed for model '{model_type}'. Best Score: {best_score}, Best Params (Cleaned): {clean_params}",
         print_to_console=True,
     )
-    model.set_params(**clean_params)
+    # model.set_params(**clean_params)
 
     model_versioner = VersionedFileManager(
         file_path=TUNED_DIR / f"{step_name}_model_tuned.pkl", logger=logger
     )
 
-    save_model(model=model, path=model_versioner.next_base_output, logger=logger)
+    best_fitted_model = tuning_wrapper.grid_search.best_estimator_
+    logger.log_result(
+        f"The model was trained on {best_fitted_model.feature_names_in_} features:"
+    )
 
-    grid_search_dir =  MODEL_DIR / "grid_search"
+    # save_model(model=model, path=model_versioner.next_base_output, logger=logger)
+    save_model(
+        model=best_fitted_model, path=model_versioner.next_base_output, logger=logger
+    )
+
+    grid_search_dir = MODEL_DIR / "grid_search"
     grid_search_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(tuning_wrapper.grid_search, grid_search_dir / "grid_search.pkl")
-
 
     return model_versioner.next_base_output
 
@@ -154,6 +169,7 @@ ARG_RESOLVERS: ARG_RESOLVERS_COLL = {
     "model_type": lambda cfg: cfg["model"],
 }
 
+
 # def validate_workers(args: argparse.Namespace) -> None:
 #     if args.workers == 0:
 #         raise ValueError(
@@ -162,19 +178,21 @@ ARG_RESOLVERS: ARG_RESOLVERS_COLL = {
 def validate_workers(cfg: Dict[str, Any]) -> None:
     if cfg.get("workers", 1) == 0:
         raise ValueError("workers cannot be zero")
-    
+
+
 ARG_VALIDATORS: ARG_VALIDATORS_COLL = [
     validate_workers,
-]    
+]
 
 # resolved_kwargs = {name: resolver(args) for name, resolver in ARG_RESOLVERS.items()}
+
 
 def build_kwargs(args):
     return {name: resolver(args) for name, resolver in ARG_RESOLVERS.items()}
 
 
 def get_parser():
-    parser = MyParser(add_help=False, description="Model Tuning")
+    parser = argparse.ArgumentParser(add_help=False, description="Model Tuning")
     parser.add_argument(
         "--model",
         type=str,
@@ -207,11 +225,17 @@ def get_parser():
         help="Use mutliple cores for parallel processing",
     )
 
+    parser.add_argument(
+        "--core-mode",
+        type=str,
+        choices=get_args(CoreModeType),
+        help="Use manual for manual specification of cores used in the process, use max for utilizing the maximum amount of cores.",
+    )
+
     return parser
 
 
 if __name__ == "__main__":
-
 
     # parser = MyParser(description="Model Tuning")
     # parser.add_argument(
@@ -253,13 +277,13 @@ if __name__ == "__main__":
     # )
     parser = get_parser()
 
-    script_logger = DEF_SCRIPT_LOGGER
-    script_logger.start_session(session_id=random.randint(1000, 9999))
+    logger = DEF_SCRIPT_LOGGER
+    # logger.start_session(session_id=random.randint(1000, 9999))
     args = parser.parse_args()
 
-    parser.validate(args=args, validators=ARG_VALIDATORS)
+    # parser.validate(args=args, validators=ARG_VALIDATORS)
     # resolved_kwargs = build_kwargs(args)
-    resolved_kwargs = parser.resolve_args(args=args, resolvers=ARG_RESOLVERS)
+    # resolved_kwargs = parser.resolve_args(args=args, resolvers=ARG_RESOLVERS)
 
     # if args.workers == 0:
     #     raise ValueError(
@@ -270,10 +294,15 @@ if __name__ == "__main__":
     best_model_path = tune_hyperparams(
         preprocessed_df_path=PROCESSED_DATA_DIR / "train_engineered",
         # model_type=model_type,
-        logger=script_logger,
-        # random_state=RANDOM_STATE,
-        # max_rows=args.max_rows,
-        # n_workers=get_n_jobs(reserve=2) if args.workers < 0 else args.workers,
-        **resolved_kwargs,
-        # scale_pos_weight=scale_pos_weight,
+        logger=logger,
+        experiment_id=None,
+        max_rows=args.max_rows,
+        model_type=args.model,
+        n_cores=args.workers,
+        core_mode=args.core_mode,
+        # # random_state=RANDOM_STATE,
+        # # max_rows=args.max_rows,
+        # # n_workers=get_n_jobs(reserve=2) if args.workers < 0 else args.workers,
+        # **resolved_kwargs,
+        # # scale_pos_weight=scale_pos_weight,
     )

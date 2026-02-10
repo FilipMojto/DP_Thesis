@@ -40,14 +40,18 @@ class MyParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def resolve_args(self, args: Config, resolvers: Dict[str, ARG_RESOLVER]):
-        # args = self.parse_args()
-        return {name: resolver(args) for name, resolver in resolvers.items()}
+    # def resolve_args(self, args: Config, resolvers: Dict[str, ARG_RESOLVER]):
+    #     # args = self.parse_args()
+    #     return {name: resolver(args) for name, resolver in resolvers.items()}
 
-    def validate(
-        self,
-        args: Config,
-        validators: Iterable[ARG_VALIDATOR],
-    ) -> None:
-        for validator in validators:
-            validator(args)
+    # def validate(
+    #     self,
+    #     args: Config,
+    #     validators: Iterable[ARG_VALIDATOR],
+    # ) -> None:
+    #     for validator in validators:
+    #         validator(args)
+    pass
+
+
+# MyParser(desc)
