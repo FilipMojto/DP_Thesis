@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, Iterable, get_args
+from typing import Dict, Iterable, Literal, get_args
 
 import joblib
 import pandas as pd
@@ -53,9 +53,31 @@ def load_input_dfs(
             else ENGINEERED_DATA_DIR / f"{df_label}_engineered.feather"
         )
 
-        input_df_versioner = VersionedFileManager(
-            file_path=file_path, logger=logger
+        input_df_versioner = VersionedFileManager(file_path=file_path, logger=logger)
+        dfs[df_label] = load_df(
+            df_file_path=input_df_versioner.current_newest, logger=logger
         )
+
+    return dfs
+
+
+EDAMode = Literal["etl", "preprocessed"]
+
+
+def load_input_dfs_eda(
+    mode: EDAMode, logger: MyLogger, df_labels: Iterable[str] = get_args(SubsetType)
+):
+    dfs: Dict[str, pd.DataFrame] = {}
+
+    for df_label in df_labels:
+        # target_dir = EXTENDED_DATA_DIR if mode == 'engineer' else ENGINEERED_DATA_DIR
+        file_path = (
+            EXTENDED_DATA_DIR / f"{df_label}_extended.feather"
+            if mode == 'etl'
+            else TRANSFORMED_DATA_DIR / f"{df_label}_transformed.feather"
+        )
+
+        input_df_versioner = VersionedFileManager(file_path=file_path, logger=logger)
         dfs[df_label] = load_df(
             df_file_path=input_df_versioner.current_newest, logger=logger
         )

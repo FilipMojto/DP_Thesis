@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict
 import joblib
 import pandas as pd
 
-from src_code.ml_pipeline.training.tuning import SupportedModels, get_args
+from src_code.ml_pipeline.training.tuning import SupportedModel, get_args
 from notebooks.logging_config import MyLogger
 from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
@@ -197,7 +197,7 @@ def get_parser():
         "--model",
         type=str,
         required=True,
-        choices=get_args(SupportedModels),
+        choices=get_args(SupportedModel),
         help="Type of model to tune: 'RF' for Random Forest, 'XGB' for XGBoost",
     )
 

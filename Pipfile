@@ -15,6 +15,7 @@ GitPython = "*"
 transformers = "*"
 torch = "*"
 xgboost = "*"
+skorch = "*"
 
 [dev-packages]
 

@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 from scipy.stats import skew, kurtosis
 
 from notebooks.logging_config import MyLogger
+from src_code.ml_pipeline.EDA.formats import save_as_pdf, save_as_png
 from src_code.ml_pipeline.EDA.utils import NumFeatureSets
 from src_code.ml_pipeline.EDA.utils import NumFeatureSets
 from src_code.ml_pipeline.experimenting.utils import save_df_as_md, save_plt_as_image
@@ -38,6 +39,26 @@ from src_code.ml_pipeline.scripts.train import RANDOM_STATE
 #     logger.log_result(
 #         f"Label proportions: {[(int(k), round(float(v), 4)) for k, v in label_props.items()]}"
 #     )
+
+def setup_latex_style(preset="a4-portrait"):
+    """Sets global matplotlib params for LaTeX consistency."""
+    if preset == "a4-portrait":
+        # Text width is approx 6.3 inches.
+        # We set figure width to match exactly to avoid LaTeX scaling.
+        plt.rcParams.update(
+            {
+                "figure.figsize": (6.3, 9.0),  # Almost full A4 height
+                "font.size": 9,
+                "axes.labelsize": 9,
+                "axes.titlesize": 10,
+                "xtick.labelsize": 8,
+                "ytick.labelsize": 8,
+                "legend.fontsize": 8,
+                "lines.linewidth": 1.5,
+            }
+        )
+    elif preset == "monitor":
+        plt.rcParams.update({"figure.figsize": (16, 9), "font.size": 12})
 
 
 def grid_paginator(
@@ -85,35 +106,6 @@ def grid_paginator(
             plt.show()
 
 
-# def plot_feature_distribution(df: pd.DataFrame, feature: str, logger: MyLogger, rotation: int = 0, exp_dir: Path = None):
-#     logger.log_check(f"Checking commits per {feature}...")
-
-#     repo_counts = df[feature].value_counts()
-
-#     # Plot
-#     plt.figure(figsize=(10, 5))
-#     sns.barplot(x=repo_counts.index, y=repo_counts.values)
-#     plt.title(f"Commits per {feature}")
-#     plt.ylabel("Number of Commits")
-#     plt.xticks(rotation=rotation)
-
-#     if exp_dir:
-#         exp_dir.mkdir(parents=True, exist_ok=True)
-#         save_plt_as_image(experiment_dir=exp_dir, file_name=f"{feature}_distribution")
-#     else:
-#         plt.show()
-
-#     # Raw counts (one-line log)
-#     logger.log_result(
-#         f"{feature} commit counts: {[(repo, int(count)) for repo, count in repo_counts.items()]}"
-#     )
-
-
-#     # Proportions (one-line log)
-#     repo_props = repo_counts / len(df)
-#     logger.log_result(
-#         f"{feature} commit proportions: {[(repo, round(float(prop), 4)) for repo, prop in repo_props.items()]}"
-#     )
 def plot_categorical_comparison(
     dfs: Dict[str, pd.DataFrame],
     feature: str,
@@ -155,27 +147,6 @@ def plot_categorical_comparison(
         ax.legend(title="Dataset")
 
     logger.log_result(f"Categorical comparison for {feature} completed.")
-
-
-def setup_latex_style(preset="a4-portrait"):
-    """Sets global matplotlib params for LaTeX consistency."""
-    if preset == "a4-portrait":
-        # Text width is approx 6.3 inches.
-        # We set figure width to match exactly to avoid LaTeX scaling.
-        plt.rcParams.update(
-            {
-                "figure.figsize": (6.3, 9.0),  # Almost full A4 height
-                "font.size": 9,
-                "axes.labelsize": 9,
-                "axes.titlesize": 10,
-                "xtick.labelsize": 8,
-                "ytick.labelsize": 8,
-                "legend.fontsize": 8,
-                "lines.linewidth": 1.5,
-            }
-        )
-    elif preset == "monitor":
-        plt.rcParams.update({"figure.figsize": (16, 9), "font.size": 12})
 
 
 def plot_num_feature_distributions(
@@ -617,7 +588,7 @@ def plot_keyword_distributions(
         )
 
 
-def plot_parwise_relationship(
+def plot_pairwise_relationship(
     df: pd.DataFrame,
     feature_ctgs: NumFeatureSets,
     logger: MyLogger,
@@ -705,8 +676,11 @@ def plot_parwise_relationship(
 
     if experiment_dir:
         experiment_dir.mkdir(parents=True, exist_ok=True)
-        save_path = experiment_dir / f"pairwise_relationships.pdf"
-        plt.savefig(save_path, bbox_inches="tight", dpi=300)
+        # save_path = experiment_dir / f"pairwise_relationships.pdf"
+        # plt.savefig(save_path, bbox_inches="tight", dpi=300)
+
+        save_as_pdf(experiment_dir / f"pairwise_relationships.pdf")
+        save_as_png(experiment_dir / f"pairwise_relationships.png")
     else:
         plt.show()
 

@@ -7,12 +7,14 @@ from src_code.config import ENGINEERED_DATA_DIR, LOG_DIR
 from src_code.ml_pipeline.data_utils import load_df
 from src_code.versioning import VersionedFileManager
 
+from .scripts.EDA import get_parser as eda_parser
 from .scripts.engineer import get_parser as engineer_parser
 from .scripts.tune import get_parser as tune_parser
 from .scripts.preprocess import get_parser as prep_parser
 from .scripts.train import get_parser as train_parser
 from .scripts.evaluate import get_parser as eval_parser
 
+from .scripts.EDA import perform_EDA
 from .scripts.engineer import early_preprocess
 from .scripts.tune import tune_hyperparams
 from .scripts.preprocess import transform_df
@@ -34,18 +36,31 @@ if __name__ == "__main__":
 
     sub = parser.add_subparsers(dest="phase", required=True)
 
-    # sub.add_parser("eda", parents=[eda_parser()])
-    # sub.add_parser("preprocess", parents=[preprocess_parser()])
+    sub.add_parser("eda", parents=[eda_parser()])
     sub.add_parser("engineer", parents=[engineer_parser()])
     sub.add_parser("tune", parents=[tune_parser()])
     sub.add_parser("preprocess", parents=[prep_parser()])
     sub.add_parser("train", parents=[train_parser()])
     sub.add_parser("eval", parents=[eval_parser()])
 
+    run = sub.add_parser("run")
+    run.add_argument(
+        "phases", nargs="+", choices=["eda", "preprocess", "tune", "train", "evaluate"]
+    )
+    run.add_argument("--dataset", required=True)
+
     args = parser.parse_args()
 
     # args.phase = (MLPhase)(args.phase)
     experiment_id = random.randint(1, 1000)
+
+    if args.phase == "eda":
+        perform_EDA(
+            subset=args.subset,
+            experiment_id=experiment_id,
+            max_rows=args.max_rows,
+            intersect_with_processed=args.intersect_with_processed,
+        )
 
     if args.phase == "engineer":
         early_preprocess(
@@ -83,7 +98,8 @@ if __name__ == "__main__":
             model_type=args.model,
             load_tuned=args.load_tuned,
             skip_pfi=args.skip_pfi,
+            top_k=args.top_k,
             experiment_id=experiment_id,
         )
-    elif args.phase == 'eval':
+    elif args.phase == "eval":
         evaluate(models=args.models, experiment_id=experiment_id)

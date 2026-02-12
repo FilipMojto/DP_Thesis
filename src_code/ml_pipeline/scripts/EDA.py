@@ -19,12 +19,12 @@ from src_code.ml_pipeline.EDA.plots import (
     plot_embedding_norm_distribution,
     plot_line_discrepancy_distribution,
     plot_num_feature_distributions,
-    plot_parwise_relationship,
+    plot_pairwise_relationship,
 )
 from src_code.ml_pipeline.EDA.utils import NumFeatureSets
-from src_code.ml_pipeline.data_utils import load_df, load_input_dfs
-from src_code.ml_pipeline.experimenting.utils import log_experiment_id
-from src_code.ml_pipeline.utils import describe_dataframe, get_experiment_dir
+from src_code.ml_pipeline.data_utils import load_df, load_input_dfs, load_input_dfs_eda
+from src_code.ml_pipeline.experimenting.utils import get_experiment_dir, log_experiment_id
+from src_code.ml_pipeline.utils import describe_dataframe
 from src_code.versioning import VersionedFileManager
 
 
@@ -34,7 +34,7 @@ DEF_SCRIPT_LOGGER = MyLogger(
 
 
 def perform_EDA(
-    logger: MyLogger,
+    logger: MyLogger = DEF_SCRIPT_LOGGER,
     subset: SubsetType = "train",
     load_ETL_processed: bool = False,
     experiment_id: int = None,
@@ -48,7 +48,8 @@ def perform_EDA(
 
 
     log_experiment_id(logger=logger, experiment_id=experiment_id)
-    logger.log_check(f"etl_processed: {load_ETL_processed}")
+    # logger.log_check(f"etl_processed: {load_ETL_processed}")
+    logger.log_result(f"Config: {subset=}, {load_ETL_processed=}, {experiment_id=}, {max_rows=}, {intersect_with_processed=}")
 
     # input_df_path = (
     #     EXTENDED_DATA_DIR / f"{subset}_extended.feather"
@@ -71,14 +72,14 @@ def perform_EDA(
     #     df_versioner = VersionedFileManager(file_path=df_path, logger=logger)
     #     dfs[df_label] = load_df(df_file_path=df_versioner.current_newest, logger=logger)
 
-    dfs = load_input_dfs(
-        mode="engineer" if load_ETL_processed else "transform", logger=logger
+    dfs = load_input_dfs_eda(
+        mode="etl" if load_ETL_processed else "preprocessed", logger=logger
     )
 
     if load_ETL_processed and intersect_with_processed:
         logger.log_check("Dropping cols not present in the processed data...")
         # Load the reference data
-        dfs_processed = load_input_dfs(mode="transform", logger=logger)
+        dfs_processed = load_input_dfs_eda(mode="preprocessed", logger=logger)
 
         # Get the reference columns from the corresponding processed subset
         # Assuming 'subset' is the key you want to match against
@@ -249,13 +250,13 @@ def perform_EDA(
     #         experiment_dir=exp_dir / "correlations",
     #     )
 
-    # plot_parwise_relationship(
-    #     df=input_df,
-    #     feature_ctgs=feature_sets,
-    #     logger=logger,
-    #     experiment_dir=exp_dir / "correlations",
-    #     top_features=5
-    # )
+    plot_pairwise_relationship(
+        df=input_df,
+        feature_ctgs=feature_sets,
+        logger=logger,
+        experiment_dir=exp_dir / "correlations",
+        top_features=3
+    )
 
     # -----------------------------------------------------------------------------
     # Outliers
@@ -275,51 +276,86 @@ def perform_EDA(
     # Target Separability
     # -----------------------------------------------------------------------------
     
-    plot_2D_embedding_separability(df=input_df, logger=logger, sample_size=2000, experiment_dir=exp_dir / 'separability')
-    
+    # plot_2D_embedding_separability(df=input_df, logger=logger, sample_size=2000, experiment_dir=exp_dir / 'separability')
 
-if __name__ == "__main__":
-    argparser = argparse.ArgumentParser(description="EDA Script for ML pipeline.")
 
-    argparser.add_argument(
+def get_parser():
+    parser = argparse.ArgumentParser(description="EDA Script for ML pipeline.", add_help=False)
+
+    parser.add_argument(
         "--subset",
         choices=get_args(SubsetType),
         default="train",
         required=False,
         help="Specify which subset (train, test or validate) to run through the pipeline.",
     )
-
-    argparser.add_argument(
+    parser.add_argument(
         "--load-etl-df",
         action="store_true",
         required=False,
         default=False,
         help="Loads and uses ETL-processed dataset istead of classic pipeline-processed one.",
     )
-
-    argparser.add_argument(
+    parser.add_argument(
         "--max-rows",
         type=int,
         required=False,
         default=None,
         help="Limit dataset to first n rows only for testing purposes.",
     )
-
-    argparser.add_argument(
+    parser.add_argument(
         "--intersect-with-processed",
         action="store_true",
         required=False,
         default=False,
-        help="If unprocessed data is used drop any column not present in the processed data.",
+        help="If unprocessed data is used, drop any column not present in the processed data.",
     )
+    
+    return parser
 
-    args = argparser.parse_args()
+if __name__ == "__main__":
+    # argparser = argparse.ArgumentParser(description="EDA Script for ML pipeline.")
+
+    # argparser.add_argument(
+    #     "--subset",
+    #     choices=get_args(SubsetType),
+    #     default="train",
+    #     required=False,
+    #     help="Specify which subset (train, test or validate) to run through the pipeline.",
+    # )
+
+    # argparser.add_argument(
+    #     "--load-etl-df",
+    #     action="store_true",
+    #     required=False,
+    #     default=False,
+    #     help="Loads and uses ETL-processed dataset istead of classic pipeline-processed one.",
+    # )
+
+    # argparser.add_argument(
+    #     "--max-rows",
+    #     type=int,
+    #     required=False,
+    #     default=None,
+    #     help="Limit dataset to first n rows only for testing purposes.",
+    # )
+
+    # argparser.add_argument(
+    #     "--intersect-with-processed",
+    #     action="store_true",
+    #     required=False,
+    #     default=False,
+    #     help="If unprocessed data is used drop any column not present in the processed data.",
+    # )
+    parser = get_parser()
+    args = parser.parse_args()
+
 
     perform_EDA(
         logger=DEF_SCRIPT_LOGGER,
         subset=args.subset,
         load_ETL_processed=args.load_etl_df,
-        experiment_id=4,
+        experiment_id=3,
         max_rows=args.max_rows,
         intersect_with_processed=args.intersect_with_processed,
     )

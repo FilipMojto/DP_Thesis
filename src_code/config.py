@@ -12,7 +12,7 @@ from typing import Literal
 from src_code.versioning import find_newest_version, next_version_path
 
 SubsetType = Literal['train', 'test', 'val']
-SupportedModels = Literal['RF', 'XGB']
+SupportedModel = Literal['RF', 'XGB', 'NN']
 
 
 # 1. Get the directory of the current file (config.py or similar)

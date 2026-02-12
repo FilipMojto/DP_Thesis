@@ -18,7 +18,8 @@ from sklearn.model_selection import HalvingGridSearchCV
 
 from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
-from src_code.config import ENGINEERING_MAPPINGS, LOG_DIR, SupportedModels
+from src_code.config import ENGINEERING_MAPPINGS, LOG_DIR, SupportedModel
+from src_code.ml_pipeline.builders import PipelineBuilder
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
 from src_code.ml_pipeline.data_utils import load_df
 from src_code.ml_pipeline.preprocessing.feature_config import DROP_COLS
@@ -26,6 +27,7 @@ from src_code.ml_pipeline.models import ModelWrapperFactory
 
 # from src_code.ml_pipeline.training.utils import drop_cols
 from src_code.ml_pipeline.preprocessing.transform import build_transformer
+from src_code.ml_pipeline.training.constants import DEF_TOP_K, PipelineModel
 from src_code.ml_pipeline.utils import CoreConfig, get_n_jobs
 
 from src_code.mlops_intstrex.adapters.grid_search import GridSearchAdapter
@@ -91,6 +93,8 @@ class TuningWrapperBase:
         X_train: pd.DataFrame,
         y_train,
         model: BaseEstimator,
+        top_k: int,
+        use_scaling: bool,
         param_grid: dict,
         logger: MyLogger,
         random_state: int = 42,
@@ -98,6 +102,8 @@ class TuningWrapperBase:
         # workers_n: int = os.cpu_count() / 2,
         # reserve_cores: int = 2,
         core_config: CoreConfig = DEF_CORE_CONFIG,
+        resource: str = "n_samples",
+        max_resources: int = None,
     ):
         self.X_train = X_train
         self.y_train = y_train
@@ -109,44 +115,33 @@ class TuningWrapperBase:
         self.reporter = reporter or TqdmReporter()
         # self.grid_search_adapter = GridSearchAdapter()
         self.core_config = core_config
+        self.top_k = top_k
+        self.use_scaling = use_scaling
 
         # self.pipeline = Pipeline(
         #     [
         #         ("prep", build_transformer(self.random_state, logger=self.logger)),
+        #         # ("cast_to_float", FunctionTransformer(to_numeric_df)), # Add this!
+        #         (
+        #             "select",
+        #             SelectKBest(score_func=f_classif, k=top_k),
+        #         ),  # Keep only top 100 features
         #         ("model", self.model),
-        #     ]
+        #     ],
+        #     memory=memory,
         # )
-        # In TuningWrapperBase:
-        self.pipeline = Pipeline(
-            [
-                ("prep", build_transformer(self.random_state, logger=self.logger)),
-                # ("cast_to_float", FunctionTransformer(to_numeric_df)), # Add this!
-                (
-                    "select",
-                    SelectKBest(score_func=f_classif, k=100),
-                ),  # Keep only top 100 features
-                ("model", self.model),
-            ],
+
+        self.pipeline = PipelineBuilder.build(
+            model=self.model,
+            logger=self.logger,
             memory=memory,
+            random_state=self.random_state,
+            top_k=self.top_k,
+            use_scaling=self.use_scaling,
         )
 
         self.mcc_scorer = make_scorer(matthews_corrcoef)
 
-        # 4. Set up Grid Search
-        # self.grid_search = GridSearchCV(
-        #     self.pipeline,
-        #     # estimator=rf,
-        #     param_grid=self.param_grid,
-        #     scoring=self.mcc_scorer,
-        #     cv=5,  # 5-fold cross-validation
-        #     # n_jobs=get_n_jobs(reserve=reserve_cores),  # Use all CPU cores
-        #     # n_jobs=(
-        #     #     workers_n if workers_n <= reserve_cores else workers_n - reserve_cores
-        #     # ),
-        #     n_jobs=workers_n,
-        #     verbose=0,
-        #     error_score="raise",
-        # )
         logger.log_check(
             f"Applying the following core config: {self.core_config.__str__()}"
         )
@@ -154,7 +149,8 @@ class TuningWrapperBase:
             self.pipeline,
             param_grid=self.param_grid,
             factor=3,  # Min candidates to keep in each round
-            resource="n_samples",
+            resource=resource,
+            # max_reso
             scoring=self.mcc_scorer,
             cv=5,
             # n_jobs=get_n_jobs(reserve=reserve_cores),
@@ -165,6 +161,12 @@ class TuningWrapperBase:
     @abstractmethod
     def run_grid_search(self):
         pass
+
+    def get_best_score(self):
+        # best_params = self.grid_search.best_params_
+        # best_score = self.grid_search.best_score_
+
+        return self.grid_search.best_params_, self.grid_search.best_score_
 
 
 class RFTuningWrapper(TuningWrapperBase):
@@ -181,8 +183,10 @@ class RFTuningWrapper(TuningWrapperBase):
         rf: RandomForestClassifier,
         X_train,
         y_train,
-        # workers_n: int,
         logger: MyLogger,
+        top_k: int = DEF_TOP_K,
+        use_scaling: bool = False,
+        # workers_n: int,
         random_state: int = DEF_RANDOM_STATE,
         # reserve_cores: int = 2,
         # reporter: ProgressReporter = TqdmReporter(),
@@ -200,6 +204,8 @@ class RFTuningWrapper(TuningWrapperBase):
             # reserve_cores=reserve_cores,
             # workers_n=workers_n,
             core_config=core_config,
+            use_scaling=use_scaling,
+            top_k=top_k,
         )
         # 1. Define the model
         # rf = RandomForestClassifier(random_state=42, class_weight='balanced')
@@ -218,10 +224,10 @@ class RFTuningWrapper(TuningWrapperBase):
         # fit_with_progress(self.grid_search, self.X_train, self.y_train, self.reporter)
         # end = time.time()
 
-        best_params = self.grid_search.best_params_
-        best_score = self.grid_search.best_score_
+        # best_params = self.grid_search.best_params_
+        # best_score = self.grid_search.best_score_
 
-        return best_params, best_score
+        # return best_params, best_score
 
 
 class XGBTuningWrapper(TuningWrapperBase):
@@ -243,6 +249,8 @@ class XGBTuningWrapper(TuningWrapperBase):
         logger: MyLogger,
         # workers_n: int,
         # reserve_cores: int = 2,
+        top_k: int = DEF_TOP_K,
+        use_scaling: bool = False,
         random_state: int = DEF_RANDOM_STATE,
         # reporter: ProgressReporter = TqdmReporter(),
         reporter: ProgressReporter | None = None,
@@ -265,6 +273,8 @@ class XGBTuningWrapper(TuningWrapperBase):
             # workers_n=workers_n,
             # reserve_cores=reserve_cores
             core_config=core_config,
+            use_scaling=use_scaling,
+            top_k=top_k,
         )
         logger.log_check("Initializing XGBTunning Wrapper object...")
         # self.xgb = xgb
@@ -273,16 +283,53 @@ class XGBTuningWrapper(TuningWrapperBase):
     def run_grid_search(self):
         self.grid_search_adapter.execute(self.reporter, self.X_train, self.y_train)
 
-        best_params = self.grid_search.best_params_
-        best_score = self.grid_search.best_score_
+        # best_params = self.grid_search.best_params_
+        # best_score = self.grid_search.best_score_
 
-        return best_params, best_score
+        # return best_params, best_score
+
+
+class NNTuningWrapper(TuningWrapperBase):
+    PARAM_GRID = {
+        "model__lr": [0.001, 0.0005],
+        "model__max_epochs": [20, 50],
+        "model__module__hidden_units": [64, 128],
+    }
+
+    def __init__(
+        self,
+        X_train,
+        y_train,
+        model,
+        logger,
+        random_state=42,
+        reporter=None,
+        core_config=DEF_CORE_CONFIG,
+        top_k=DEF_TOP_K,
+        use_scaling=True,
+    ):
+        super().__init__(
+            X_train,
+            y_train,
+            model,
+            self.PARAM_GRID,
+            logger,
+            random_state,
+            reporter,
+            core_config,
+            use_scaling=use_scaling,
+            top_k=top_k,
+        )
+
+    @timeit(process_name="NN - Grid Search")
+    def run_grid_search(self):
+        self.grid_search_adapter.execute(self.reporter, self.X_train, self.y_train)
 
 
 class ModelTuningFactory:
     @staticmethod
     def create(
-        model_type: str,
+        model_type: PipelineModel,
         model,
         X_train: pd.DataFrame,
         y_train,
@@ -296,7 +343,7 @@ class ModelTuningFactory:
     ):
         model_type = model_type.upper()
 
-        if model_type == "RF":
+        if model_type == "rf":
             return RFTuningWrapper(
                 rf=model,
                 X_train=X_train,
@@ -305,7 +352,7 @@ class ModelTuningFactory:
                 random_state=random_state,
                 core_config=core_config,
             )
-        elif model_type == "XGB":
+        elif model_type == "xgb":
             return XGBTuningWrapper(
                 xgb=model,
                 X_train=X_train,
@@ -316,6 +363,15 @@ class ModelTuningFactory:
                 random_state=random_state,
                 # workers_n=n_workers,
                 # res
+                core_config=core_config,
+            )
+        elif model_type == "nn":
+            return NNTuningWrapper(
+                model=model,
+                X_train=X_train,
+                y_train=y_train,
+                logger=logger,
+                random_state=random_state,
                 core_config=core_config,
             )
         else:
@@ -330,7 +386,7 @@ if __name__ == "__main__":
         "--model",
         type=str,
         required=True,
-        choices=get_args(SupportedModels),
+        choices=get_args(SupportedModel),
         help="Type of model to tune: 'rf' for Random Forest, 'xgb' for XGBoost",
     )
     script_logger = MyLogger(

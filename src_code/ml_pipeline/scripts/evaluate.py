@@ -11,7 +11,7 @@ from src_code.config import (
     LOG_DIR,
     MODEL_DIR,
     PROCESSED_DATA_DIR,
-    SupportedModels,
+    SupportedModel,
 )
 from src_code.ml_pipeline.config import SUPPORTED_MODELS
 import src_code.ml_pipeline.data_utils as dutls

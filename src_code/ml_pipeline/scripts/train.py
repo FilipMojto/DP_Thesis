@@ -30,6 +30,7 @@ from src_code.ml_pipeline.preprocessing.transform import (
 )
 
 # from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
+from src_code.ml_pipeline.training.constants import DEF_TOP_K, PipelineModel
 from src_code.ml_pipeline.training.training import (
     check_single_infer,
     fit_model,
@@ -57,8 +58,8 @@ from ...config import (
     PROCESSED_DATA_DIR,
     TRANSFORMED_DATA_DIR,
     TUNED_DIR,
-    SupportedModels,
-    SupportedModels,
+    SupportedModel,
+    SupportedModel,
 )
 from argparse import ArgumentParser
 from ..preprocessing import feature_config as ftr_cfg
@@ -81,20 +82,23 @@ DEF_SCRIPT_LOGGER = MyLogger(
 
 @timeit("Training Phase", logger_param="script_logger")
 def train(
-    model_type: str,
+    model_type: SupportedModel,
     logger: MyLogger = DEF_SCRIPT_LOGGER,
     load_tuned: bool = True,
     skip_pfi: bool = False,
+    top_k: int = 100,
     experiment_id: int = None,
 ):
-    logger.start_session(session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID)
+    logger.start_session(
+        session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID
+    )
     log_experiment_id(logger=logger, experiment_id=experiment_id)
     model_output_file = VersionedFileManager(
         MODEL_DIR / f"{model_type.upper()}_model_train.joblib", logger=logger
     )
-    logger.log_result(f"Config: [{model_type=}, {load_tuned=}, {skip_pfi=}, {experiment_id=}]")
-
-
+    logger.log_result(
+        f"Config: [{model_type=}, {load_tuned=}, {skip_pfi=}, {top_k=}, {experiment_id=}]"
+    )
 
     target_df_versioner = VersionedFileManager(
         file_path=ENGINEERED_DATA_DIR / "train_engineered.feather", logger=logger
@@ -152,9 +156,7 @@ def train(
 
     target_df = drop_cols(df=target_df, cols=ftr_cfg.DROP_COLS, logger=logger)
 
-    validate_df = drop_cols(
-        df=validate_df, cols=ftr_cfg.DROP_COLS, logger=logger
-    )
+    validate_df = drop_cols(df=validate_df, cols=ftr_cfg.DROP_COLS, logger=logger)
 
     # script_logger.log_check("Starting training phase...")
 
@@ -180,26 +182,36 @@ def train(
     X_validate = validate_df.drop(columns=[TARGET])
     y_validate = validate_df[TARGET]
 
+    object_cols = X_test.select_dtypes(include=["object"]).columns
+    print(object_cols)
+
     # -----------------------------------------------------------------------------
     # Model & TrainingPipeline Definition
     # -----------------------------------------------------------------------------
 
     # counter = Counter(y_train)
     # scale_pos_weight = counter[0] / counter[1]  # weight = #negatives / #positives
-
-    model_wrapper, step_name = ModelWrapperFactory.create(
+    # transformer = build_transformer(random_state=RANDOM_STATE, logger=logger)
+    # X_test = transformer.fit
+    
+    model_wrapper = ModelWrapperFactory.create(
         model_type=model_type.lower(),
         random_state=RANDOM_STATE,
         logger=logger,
         scale_pos_weight=XGBWrapper.calc_scale_pos_weight(y_train),
+        top_k=top_k,
     )
     model = model_wrapper.get_model()
+    # X_test = model_wrapper.pipeline.transform(X_test)
+
+    object_cols = X_test.select_dtypes(include=["object"]).columns
+    print(object_cols)
 
     if load_tuned:
         # If loading tuned model, we override the current model's parameters
 
         tuned_model_versioner = VersionedFileManager(
-            file_path=TUNED_DIR / f"{step_name}_model_tuned.pkl", logger=logger
+            file_path=TUNED_DIR / f"{model_type}_model_tuned.pkl", logger=logger
         )
         try:
             tuned_model = load_model(
@@ -210,14 +222,12 @@ def train(
             # )
             model_wrapper.set_model(tuned_model)
             model = model_wrapper.get_model()
-            
+
             # model.set_params(**tuned_model.get_params())
         except FileNotFoundError:
             msg = "Tuned model not found. Please run hyperparameter tuning phase before training."
             logger.logger.error(msg)
             raise FileNotFoundError(msg)
-
-
 
     # -----------------------------------------------------------------------------
     # Model Fit
@@ -237,8 +247,8 @@ def train(
     # -----------------------------------------------------------------------------
     # Single inference check
     # -----------------------------------------------------------------------------
-
-    check_single_infer(model=model, X_test=X_test)
+    
+    check_single_infer(model=model_wrapper.pipeline, X_test=X_test)
 
     # -----------------------------------------------------------------------------
     # PFI & Training Subset Refinement
@@ -298,12 +308,14 @@ def train(
 
 
 def get_parser():
-    parser = ArgumentParser(description="Parametric ML pipeline script.", add_help=False)
+    parser = ArgumentParser(
+        description="Parametric ML pipeline script.", add_help=False
+    )
     parser.add_argument(
         "--model",
         type=str,
         required=False,
-        choices=get_args(SupportedModels),
+        choices=get_args(SupportedModel),
         default="RF",
         help="Model type to use in the pipeline.",
     )
@@ -311,8 +323,15 @@ def get_parser():
         "--load-tuned",
         action="store_true",
         required=False,
-        default=True,
+        default=False,
         help="Whether to load a pre-tuned model.",
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=DEF_TOP_K,
+        required=False,
+        help="Keep only top k features for training",
     )
     parser.add_argument(
         "--skip-cv",

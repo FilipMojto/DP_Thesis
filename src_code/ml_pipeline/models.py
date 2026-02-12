@@ -6,10 +6,18 @@ from pyparsing import ABC
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.preprocessing import StandardScaler
+
 from sklearn.pipeline import Pipeline
+import torch
 from xgboost import XGBClassifier
+import torch.nn as nn
+from skorch import NeuralNetClassifier
+from skorch.callbacks import EarlyStopping
+from skorch.dataset import ValidSplit
 
 from notebooks.logging_config import MyLogger
+from src_code.ml_pipeline.builders import PipelineBuilder
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
 from src_code.ml_pipeline.preprocessing.transform import build_transformer
 from src_code.utils.utils import timeit
@@ -21,6 +29,7 @@ DEF_N_JOBS = 1  # 🔴 IMPORTANT – consistent across models
 class ModelWrapperBase(ABC):
     def __init__(
         self,
+        top_k: int,
         random_state: int = DEF_RANDOM_STATE,
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
     ):
@@ -28,40 +37,76 @@ class ModelWrapperBase(ABC):
         self.model: BaseEstimator = None
         self.random_state = random_state
 
+        # 🔵 default behavior
+        self.use_scaling = False
+        self.top_k = top_k
+
     @abstractmethod
     def get_model(self):
         pass
 
     @abstractmethod
-    def fit(self, X_train, y_train):
+    def fit(self, X_train, y_train, **kwargs):
         pass
 
+    # def set_up_pipeline(self, scale: bool = False, top_k: int = 100):
+    #     self.pipeline = Pipeline(
+    #         [
+    #             (
+    #                 "prep",
+    #                 build_transformer(
+    #                     random_state=self.random_state, logger=self.logger
+    #                 ),
+    #             ),
+    #             # ("cast_to_float", FunctionTransformer(to_numeric_df)), # Add this!
+    #             (
+    #                 "select",
+    #                 SelectKBest(score_func=f_classif, k=top_k),
+    #             ),  # Keep only top 100 features
+    #             ("model", self.model),
+    #         ],
+    #         # memory=memory,
+    #     )
     def set_up_pipeline(self):
-        self.pipeline = Pipeline(
-            [
-                (
-                    "prep",
-                    build_transformer(
-                        random_state=self.random_state, logger=self.logger
-                    ),
-                ),
-                # ("cast_to_float", FunctionTransformer(to_numeric_df)), # Add this!
-                (
-                    "select",
-                    SelectKBest(score_func=f_classif, k=100),
-                ),  # Keep only top 100 features
-                ("model", self.model),
-            ],
-            # memory=memory,
+        self.pipeline = PipelineBuilder.build(
+            model=self.model,
+            logger=self.logger,
+            random_state=self.random_state,
+            top_k=self.top_k,
+            use_scaling=self.use_scaling,
         )
+        # steps = [
+        #     (
+        #         "prep",
+        #         build_transformer(random_state=self.random_state, logger=self.logger),
+        #     )
+        # ]
+
+        # if self.use_scaling:
+        #     steps.append(("scale", StandardScaler()))
+
+        # if self.top_k is not None:
+        #     steps.append(("select", SelectKBest(score_func=f_classif, k=self.top_k)))
+
+        # steps.append(("model", self.model))
+
+        # self.pipeline = Pipeline(steps)
 
 
 class RFWrapper(ModelWrapperBase):
 
-    def __init__(self, random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
-        super().__init__(random_state, logger)
+    def __init__(
+        self,
+        random_state: int,
+        logger: MyLogger = DEF_NOTEBOOK_LOGGER,
+        top_k: int = 100,
+    ):
+        super().__init__(random_state=random_state, logger=logger, top_k=top_k)
 
         self.logger.log_check("Defining Random Forest...")
+        self.use_scaling = False
+        # self.top_k = top_k
+
         self.model = RandomForestClassifier(
             n_estimators=300,
             max_depth=20,
@@ -126,10 +171,13 @@ class XGBWrapper(ModelWrapperBase):
         random_state: int,
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         scale_pos_weight=None,
+        top_k: int = 100,
     ):
-        super().__init__(random_state, logger)
+        super().__init__(random_state=random_state, logger=logger, top_k=top_k)
 
         self.logger.log_check("Defining XGBoost...")
+        self.use_scaling = False
+        # self.top_k = top_k
 
         self.model = XGBClassifier(
             n_estimators=self.DEF_N_ESTIMATORS,
@@ -187,20 +235,135 @@ class XGBWrapper(ModelWrapperBase):
         # self.logger.log_result(f"XGBoost fit completed. Time: {end - start:2f}")
 
 
+# class SimpleNN(nn.Module):
+#     def __init__(self, input_dim):
+#         super().__init__()
+#         self.model = nn.Sequential(
+#             nn.Linear(input_dim, 128),
+#             nn.ReLU(),
+#             nn.Dropout(0.3),
+#             nn.Linear(128, 1),  # no sigmoid
+#         )
+
+
+#     def forward(self, X):
+#         return self.model(X)
+class SimpleNN(nn.Module):
+    def __init__(self, input_dim=1):  # dummy default
+        super().__init__()
+        self.hidden = nn.Linear(input_dim, 128)
+        self.output = nn.Linear(128, 1)
+
+    def forward(self, X):
+        X = torch.relu(self.hidden(X))
+        return self.output(X)
+
+from skorch.helper import predefined_split
+from skorch.dataset import Dataset
+
+class NNWrapper(ModelWrapperBase):
+    def __init__(
+        self, random_state=DEF_RANDOM_STATE, logger=DEF_NOTEBOOK_LOGGER, top_k=100
+    ):
+        super().__init__(random_state=random_state, logger=logger, top_k=top_k)
+
+        self.use_scaling = True
+        # self.top_k = top_k
+
+        self.model = NeuralNetClassifier(
+            SimpleNN,
+            module__input_dim=top_k,
+            max_epochs=100,
+            lr=0.001,
+            batch_size=64,
+            optimizer=torch.optim.Adam,
+            criterion=torch.nn.BCEWithLogitsLoss,
+            callbacks=[EarlyStopping(patience=10)],
+            device="cuda" if torch.cuda.is_available() else "cpu",
+            iterator_train__shuffle=True,
+            # dtype=torch.float32,  # 🔥 ADD THIS
+        )
+        self.set_up_pipeline()
+
+    def get_model(self):
+        return self.model
+
+    # @timeit(process_name="NN Fit")
+    # def fit(self, X_train, y_train, X_val, y_val, **kwargs):
+    #     # self.pipeline.fit(X_train, y_train, model__valid_split=0.2, **kwargs)
+    #     # Fit preprocessing first
+    #     # X_train = X_train.astype(np.float32)
+    #     # X_val = X_val.astype(np.float32)
+
+    #     y_train = y_train.to_numpy().astype(np.float32).reshape(-1, 1)
+
+
+    #     if X_val is not None and y_val is not None:
+    #         y_val = y_val.to_numpy().astype(np.float32).reshape(-1, 1)
+    #         X_val_transformed = self.pipeline[:-1].transform(X_val)
+    #         X_val_transformed = X_val_transformed.astype(np.float32)
+    #         valid_ds = Dataset(X_val, y_val)
+    #         self.model.set_params(train_split=predefined_split(valid_ds))
+
+
+    #     X_transformed = self.pipeline[:-1].fit_transform(X_train, y_train)
+
+    #     input_dim = X_transformed.shape[1]
+
+    #     # Reinitialize model with correct input_dim
+    #     self.model.set_params(module__input_dim=input_dim)
+
+    #     # Now fit full pipeline
+    #     # self.pipeline.fit(X_train, y_train, **kwargs)
+    #     self.pipeline.fit(X_train, y_train)
+
+    @timeit(process_name="NN Fit")
+    def fit(self, X_train, y_train, X_val=None, y_val=None, **kwargs):
+
+        # Convert targets
+        y_train = y_train.to_numpy().astype(np.float32).reshape(-1, 1)
+
+        # 1️⃣ Fit preprocessing on training data
+        X_train_transformed = self.pipeline[:-1].fit_transform(X_train, y_train)
+        X_train_transformed = X_train_transformed.astype(np.float32)
+
+        input_dim = X_train_transformed.shape[1]
+        self.model.set_params(module__input_dim=input_dim)
+
+        # 2️⃣ If validation exists
+        if X_val is not None and y_val is not None:
+            y_val = y_val.to_numpy().astype(np.float32).reshape(-1, 1)
+
+            X_val_transformed = self.pipeline[:-1].transform(X_val)
+            X_val_transformed = X_val_transformed.astype(np.float32)
+
+            valid_ds = Dataset(X_val_transformed, y_val)
+
+            self.model.set_params(
+                train_split=predefined_split(valid_ds)
+            )
+
+        # 3️⃣ Fit ONLY the neural net
+        self.model.fit(X_train_transformed, y_train)
+        
+
 class ModelWrapperFactory:
     @staticmethod
     def create(
         model_type: str,
         random_state: int,
+        top_k: int,
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         scale_pos_weight=None,
     ):
         if model_type.lower() == "rf":
-            return RFWrapper(random_state, logger=logger), "rf"
-        if model_type.lower() == "xgb":
-            return (
-                XGBWrapper(
-                    random_state, logger=logger, scale_pos_weight=scale_pos_weight
-                ),
-                "xgb",
+            return RFWrapper(random_state, logger=logger, top_k=top_k)
+        elif model_type.lower() == "xgb":
+            return XGBWrapper(
+                random_state,
+                logger=logger,
+                scale_pos_weight=scale_pos_weight,
+                top_k=top_k,
             )
+        elif model_type.lower() == "nn":
+            return NNWrapper(random_state=random_state, logger=logger, top_k=top_k)

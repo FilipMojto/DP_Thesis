@@ -3,8 +3,10 @@ import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
 
 from notebooks.logging_config import MyLogger
+from src_code.config import SupportedModel
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.models import ModelWrapperBase
 
@@ -102,12 +104,28 @@ def fit_xgb_with_es(
     return model
 
 
-def fit_model(model_type: str, model_wrapper: ModelWrapperBase, X_train, y_train, X_validate=None, y_validate=None):
+def fit_model(
+    model_type: SupportedModel,
+    model_wrapper: ModelWrapperBase,
+    X_train,
+    y_train,
+    X_validate=None,
+    y_validate=None,
+):
     if model_type == "RF":
         model_wrapper.fit(X_train, y_train)
     elif model_type == "XGB":
         # model.fit(X_train, y_train, X_val=X_test, y_val=y_test)
         model_wrapper.fit(X_train, y_train, X_val=X_validate, y_val=y_validate)
+    elif model_type == "NN":
+        model_wrapper.fit(
+            X_train=X_train,
+            y_train=y_train,
+            # model__valid_split=None,
+            X_val=X_validate,
+            y_val=y_validate,
+            # model__eval_set=[(X_validate, y_validate)],
+        )
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -115,7 +133,7 @@ def fit_model(model_type: str, model_wrapper: ModelWrapperBase, X_train, y_train
 
 
 def check_single_infer(
-    model: BaseEstimator,
+    model: Pipeline,
     X_test,
     logger: MyLogger = DEF_NOTEBOOK_LOGGER,
 ):
