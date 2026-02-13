@@ -30,7 +30,7 @@ from src_code.ml_pipeline.preprocessing.transform import (
 )
 
 # from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
-from src_code.ml_pipeline.training.constants import DEF_TOP_K, PipelineModel
+from src_code.ml_pipeline.training.constants import DEF_TOP_K
 from src_code.ml_pipeline.training.training import (
     check_single_infer,
     fit_model,
@@ -86,7 +86,7 @@ def train(
     logger: MyLogger = DEF_SCRIPT_LOGGER,
     load_tuned: bool = True,
     skip_pfi: bool = False,
-    top_k: int = 100,
+    top_k: int = DEF_TOP_K,
     experiment_id: int = None,
 ):
     logger.start_session(
@@ -195,7 +195,7 @@ def train(
     # X_test = transformer.fit
     
     model_wrapper = ModelWrapperFactory.create(
-        model_type=model_type.lower(),
+        model_type=model_type,
         random_state=RANDOM_STATE,
         logger=logger,
         scale_pos_weight=XGBWrapper.calc_scale_pos_weight(y_train),
@@ -214,7 +214,7 @@ def train(
             file_path=TUNED_DIR / f"{model_type}_model_tuned.pkl", logger=logger
         )
         try:
-            tuned_model = load_model(
+            tuned_model, features = load_model(
                 path=tuned_model_versioner.current_newest, logger=logger
             )
             # script_logger.log_result(
@@ -299,7 +299,7 @@ def train(
 
     # save_df(df=target_df, df_fil~e_path=)
     save_model(
-        model=model,
+        model=model_wrapper,
         # path=script_model_path
         path=model_output_file.next_base_output,
     )
@@ -333,13 +333,13 @@ def get_parser():
         required=False,
         help="Keep only top k features for training",
     )
-    parser.add_argument(
-        "--skip-cv",
-        action="store_true",
-        required=False,
-        default=False,
-        help="Cross-validation is skipped in the training phase.",
-    )
+    # parser.add_argument(
+    #     "--skip-cv",
+    #     action="store_true",
+    #     required=False,
+    #     default=False,
+    #     help="Cross-validation is skipped in the training phase.",
+    # )
     # parser.add_argument(
     #     "--skip-tuning",
     #     action="store_true",

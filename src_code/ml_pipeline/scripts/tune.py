@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict
 import joblib
 import pandas as pd
 
+from src_code.ml_pipeline.training.constants import DEF_TOP_K
 from src_code.ml_pipeline.training.tuning import SupportedModel, get_args
 from notebooks.logging_config import MyLogger
 from notebooks.constants import TARGET
@@ -18,7 +19,7 @@ from src_code.config import (
     TUNED_DIR,
 )
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
-from src_code.ml_pipeline.data_utils import load_df, save_model
+from src_code.ml_pipeline.data_utils import PipelineArtifact, load_df, save_artifact, save_model
 from src_code.ml_pipeline.experimenting.types import (
     ARG_RESOLVERS_COLL,
     ARG_VALIDATOR,
@@ -50,7 +51,7 @@ DEF_SCRIPT_LOGGER = MyLogger(
 @timeit("Hyperparameter Tuning Phase", logger_param="logger")
 @logerror("Hyperparameter Tuning Phase", logger_param="logger")
 def tune_hyperparams(
-    model_type: str,
+    model_type: SupportedModel,
     preprocessed_df_path: Path = Path(ENGINEERED_DATA_DIR / "train_engineered.feather"),
     logger: MyLogger = DEF_SCRIPT_LOGGER,
     random_state: int = DEF_RANDOM_STATE,
@@ -59,9 +60,12 @@ def tune_hyperparams(
     core_mode: CoreModeType = "manual",
     n_cores: int = 1,
     reserve_cores: int = 2,
+    top_k: int = DEF_TOP_K,
     # scale_pos_weight: float = 1.0,
 ):
-    logger.start_session(session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID)
+    logger.start_session(
+        session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID
+    )
     # if logger == DEF_SCRIPT_LOGGER:
     #     # If default logger is used, start a new session
     #     logger.start_session()
@@ -92,15 +96,16 @@ def tune_hyperparams(
         preprocessed_df[TARGET],
     )
 
-    model_wrapper, step_name = ModelWrapperFactory.create(
-        model_type=model_type.lower(),
+    model_wrapper = ModelWrapperFactory.create(
+        model_type=model_type,
         random_state=random_state,
         logger=logger,
         scale_pos_weight=(
             XGBWrapper.calc_scale_pos_weight(y_train)
-            if model_type.lower() == "xgb"
+            if model_type == "XGB"
             else None
         ),
+        top_k=top_k,
     )
     model = model_wrapper.get_model()
 
@@ -111,13 +116,14 @@ def tune_hyperparams(
         y_train=y_train,
         random_state=random_state,
         logger=logger,
-        # n_workers=n_workers,
         core_config=CoreConfig(
             reserve_cores=reserve_cores, num_of_cores=n_cores, mode=core_mode
         ),
     )
 
-    best_params, best_score = tuning_wrapper.run_grid_search()
+    tuning_wrapper.run_grid_search()
+    best_params, best_score = tuning_wrapper.get_best_score()
+
     clean_params = {
         key.replace("model__", ""): value for key, value in best_params.items()
     }
@@ -130,7 +136,7 @@ def tune_hyperparams(
     # model.set_params(**clean_params)
 
     model_versioner = VersionedFileManager(
-        file_path=TUNED_DIR / f"{step_name}_model_tuned.pkl", logger=logger
+        file_path=TUNED_DIR / f"{model_type}_model_tuned.pkl", logger=logger
     )
 
     best_fitted_model = tuning_wrapper.grid_search.best_estimator_
@@ -139,9 +145,11 @@ def tune_hyperparams(
     )
 
     # save_model(model=model, path=model_versioner.next_base_output, logger=logger)
-    save_model(
-        model=best_fitted_model, path=model_versioner.next_base_output, logger=logger
-    )
+    # save_model(
+    #     model=best_params, path=model_versioner.next_base_output, logger=logger
+    # )
+    save_artifact(dir=TUNED_DIR, artifact=PipelineArtifact(artifact_type='tuning-hyperparams', hyperparams=best_params), logger=logger)
+    
 
     grid_search_dir = MODEL_DIR / "grid_search"
     grid_search_dir.mkdir(parents=True, exist_ok=True)

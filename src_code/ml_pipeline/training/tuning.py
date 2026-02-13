@@ -15,6 +15,7 @@ from xgboost import XGBClassifier
 from abc import ABC, abstractmethod
 from sklearn.experimental import enable_halving_search_cv  # noqa
 from sklearn.model_selection import HalvingGridSearchCV
+from sklearn.model_selection._search import BaseSearchCV
 
 from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
@@ -24,12 +25,9 @@ from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
 from src_code.ml_pipeline.data_utils import load_df
 from src_code.ml_pipeline.preprocessing.feature_config import DROP_COLS
 from src_code.ml_pipeline.models import ModelWrapperFactory
-
-# from src_code.ml_pipeline.training.utils import drop_cols
 from src_code.ml_pipeline.preprocessing.transform import build_transformer
-from src_code.ml_pipeline.training.constants import DEF_TOP_K, PipelineModel
+from src_code.ml_pipeline.training.constants import DEF_TOP_K
 from src_code.ml_pipeline.utils import CoreConfig, get_n_jobs
-
 from src_code.mlops_intstrex.adapters.grid_search import GridSearchAdapter
 from src_code.mlops_intstrex.reporters.console_reporter import ConsoleReporter
 from src_code.mlops_intstrex.reporters.progress_reporter import ProgressReporter
@@ -80,13 +78,13 @@ def log_selected_features(grid_search, logger: MyLogger, top_n: int = 20):
         logger.log_result(f" - [{index}/{len(selected_features)}] {name}: {score:.4f}")
 
 
-# cachedir = tempfile.mkdtemp()
 cachedir = os.path.join(os.getcwd(), ".pipeline_cache")
 memory = Memory(location=cachedir, verbose=0)
 
 
 # class TuningWrapperBase(ABC):
-class TuningWrapperBase:
+class TuningWrapperBase(ABC):
+    grid_search: GridSearchCV
 
     def __init__(
         self,
@@ -111,25 +109,10 @@ class TuningWrapperBase:
         self.random_state = random_state
         self.model = model
         self.param_grid = param_grid
-        # self.reporter = reporter or ConsoleReporter()
         self.reporter = reporter or TqdmReporter()
-        # self.grid_search_adapter = GridSearchAdapter()
         self.core_config = core_config
         self.top_k = top_k
         self.use_scaling = use_scaling
-
-        # self.pipeline = Pipeline(
-        #     [
-        #         ("prep", build_transformer(self.random_state, logger=self.logger)),
-        #         # ("cast_to_float", FunctionTransformer(to_numeric_df)), # Add this!
-        #         (
-        #             "select",
-        #             SelectKBest(score_func=f_classif, k=top_k),
-        #         ),  # Keep only top 100 features
-        #         ("model", self.model),
-        #     ],
-        #     memory=memory,
-        # )
 
         self.pipeline = PipelineBuilder.build(
             model=self.model,
@@ -329,7 +312,7 @@ class NNTuningWrapper(TuningWrapperBase):
 class ModelTuningFactory:
     @staticmethod
     def create(
-        model_type: PipelineModel,
+        model_type: SupportedModel,
         model,
         X_train: pd.DataFrame,
         y_train,
@@ -343,7 +326,7 @@ class ModelTuningFactory:
     ):
         model_type = model_type.upper()
 
-        if model_type == "rf":
+        if model_type == "RF":
             return RFTuningWrapper(
                 rf=model,
                 X_train=X_train,
@@ -352,7 +335,7 @@ class ModelTuningFactory:
                 random_state=random_state,
                 core_config=core_config,
             )
-        elif model_type == "xgb":
+        elif model_type == "XGB":
             return XGBTuningWrapper(
                 xgb=model,
                 X_train=X_train,
@@ -365,7 +348,7 @@ class ModelTuningFactory:
                 # res
                 core_config=core_config,
             )
-        elif model_type == "nn":
+        elif model_type == "NN":
             return NNTuningWrapper(
                 model=model,
                 X_train=X_train,

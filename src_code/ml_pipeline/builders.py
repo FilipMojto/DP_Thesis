@@ -3,11 +3,11 @@ import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.pipeline import FunctionTransformer, Pipeline
+from sklearn.preprocessing import StandardScaler
+
 from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_RANDOM_STATE
 from src_code.ml_pipeline.preprocessing.transform import build_transformer
-from sklearn.preprocessing import StandardScaler
-
 from src_code.ml_pipeline.training.constants import DEF_TOP_K
 
 
@@ -39,7 +39,8 @@ class PipelineBuilder:
             steps.append(("select", SelectKBest(score_func=f_classif, k=top_k)))
 
 
-        steps.append(("to_float32", FunctionTransformer(lambda X: X.astype(np.float32)))),
+        steps.append(("to_float32", FunctionTransformer(to_float32)),
+),
 
         steps.append(("model", model))
 

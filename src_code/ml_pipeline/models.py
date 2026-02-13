@@ -1,25 +1,22 @@
 from abc import abstractmethod
 from collections import Counter
-import time
 import numpy as np
 from pyparsing import ABC
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import SelectKBest, f_classif
-from sklearn.preprocessing import StandardScaler
 
-from sklearn.pipeline import Pipeline
 import torch
 from xgboost import XGBClassifier
 import torch.nn as nn
 from skorch import NeuralNetClassifier
 from skorch.callbacks import EarlyStopping
-from skorch.dataset import ValidSplit
+from skorch.helper import predefined_split
+from skorch.dataset import Dataset
 
 from notebooks.logging_config import MyLogger
+from src_code.config import SupportedModel
 from src_code.ml_pipeline.builders import PipelineBuilder
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
-from src_code.ml_pipeline.preprocessing.transform import build_transformer
 from src_code.utils.utils import timeit
 
 
@@ -49,24 +46,14 @@ class ModelWrapperBase(ABC):
     def fit(self, X_train, y_train, **kwargs):
         pass
 
-    # def set_up_pipeline(self, scale: bool = False, top_k: int = 100):
-    #     self.pipeline = Pipeline(
-    #         [
-    #             (
-    #                 "prep",
-    #                 build_transformer(
-    #                     random_state=self.random_state, logger=self.logger
-    #                 ),
-    #             ),
-    #             # ("cast_to_float", FunctionTransformer(to_numeric_df)), # Add this!
-    #             (
-    #                 "select",
-    #                 SelectKBest(score_func=f_classif, k=top_k),
-    #             ),  # Keep only top 100 features
-    #             ("model", self.model),
-    #         ],
-    #         # memory=memory,
-    #     )
+    # @abstractmethod
+    # def predict(self, X):
+    #     pass
+    def transform(self, X):
+        # def predict(self, X):
+        return self.pipeline[:-1].transform(X).astype(np.float32)
+        # return self.model.predict(X_trans)
+
     def set_up_pipeline(self):
         self.pipeline = PipelineBuilder.build(
             model=self.model,
@@ -75,22 +62,6 @@ class ModelWrapperBase(ABC):
             top_k=self.top_k,
             use_scaling=self.use_scaling,
         )
-        # steps = [
-        #     (
-        #         "prep",
-        #         build_transformer(random_state=self.random_state, logger=self.logger),
-        #     )
-        # ]
-
-        # if self.use_scaling:
-        #     steps.append(("scale", StandardScaler()))
-
-        # if self.top_k is not None:
-        #     steps.append(("select", SelectKBest(score_func=f_classif, k=self.top_k)))
-
-        # steps.append(("model", self.model))
-
-        # self.pipeline = Pipeline(steps)
 
 
 class RFWrapper(ModelWrapperBase):
@@ -139,6 +110,8 @@ class RFWrapper(ModelWrapperBase):
                 print(f"Column '{col}' contains sequences, not scalars!")
 
         self.pipeline.fit(X_train, y_train)
+        self.model.feature_names_ = list(X_train.columns)
+
         # self.model.fit(X_train, y_train)
         # end = time.time()
         # self.logger.log_result(f"RF fit completed. Time: {end - start:2f}")
@@ -205,32 +178,26 @@ class XGBWrapper(ModelWrapperBase):
 
     @timeit(process_name="XGB Fit")
     def fit(self, X_train, y_train, X_val, y_val):
-        # self.logger.log_check("Starting XGBoost fit...")
-        # start = time.time()
 
-        # 1. We need to manually transform the validation set
-        # so it matches what the model expects after 'prep' and 'select'
-        # We use the pipeline's internal steps to do this
-        X_val_transformed = self.pipeline[:-1].fit_transform(
-            X_train, y_train
-        )  # Fit on train
-        X_val_ready = self.pipeline[:-1].transform(X_val)  # Transform validation
+        # 1️⃣ Fit preprocessing
+        X_train_ready = self.pipeline[:-1].fit_transform(X_train, y_train)
+        X_val_ready = self.pipeline[:-1].transform(X_val)
 
-        # self.pipeline.fit(
-        #     X_train,
-        #     y_train,
-        #     eval_set=[(X_val, y_val)],
-        #     # early_stopping_rounds=20,
-        #     verbose=False,
-        # )
-        # 2. Pass the parameters with the model__ prefix
-        self.pipeline.fit(
-            X_train,
+        # 2️⃣ Fit model directly (NOT pipeline)
+        self.model.fit(
+            X_train_ready,
             y_train,
-            # model__eval_set=[(X_val_ready, y_val)],
-            model__eval_set=[(X_val_ready, y_val)],
-            model__verbose=False,
+            eval_set=[(X_val_ready, y_val)],
+            verbose=False,
         )
+
+        # 3️⃣ Save selected feature names properly
+        if hasattr(self.pipeline.named_steps["select"], "get_support"):
+            mask = self.pipeline.named_steps["select"].get_support()
+            self.feature_names_ = X_train.columns[mask].tolist()
+        else:
+            self.feature_names_ = list(X_train.columns)
+
         # end = time.time()
         # self.logger.log_result(f"XGBoost fit completed. Time: {end - start:2f}")
 
@@ -248,18 +215,29 @@ class XGBWrapper(ModelWrapperBase):
 
 #     def forward(self, X):
 #         return self.model(X)
+# class SimpleNN(nn.Module):
+#     def __init__(self, input_dim=1):  # dummy default
+#         super().__init__()
+#         self.hidden = nn.Linear(input_dim, 128)
+#         self.output = nn.Linear(128, 1)
+
+
+#     def forward(self, X):
+#         X = torch.relu(self.hidden(X))
+#         return self.output(X)
 class SimpleNN(nn.Module):
-    def __init__(self, input_dim=1):  # dummy default
+    def __init__(self, input_dim):
         super().__init__()
-        self.hidden = nn.Linear(input_dim, 128)
-        self.output = nn.Linear(128, 1)
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(128, 1),
+        )
 
     def forward(self, X):
-        X = torch.relu(self.hidden(X))
-        return self.output(X)
+        return self.model(X).squeeze(1)  # 👈 IMPORTANT
 
-from skorch.helper import predefined_split
-from skorch.dataset import Dataset
 
 class NNWrapper(ModelWrapperBase):
     def __init__(
@@ -297,14 +275,12 @@ class NNWrapper(ModelWrapperBase):
 
     #     y_train = y_train.to_numpy().astype(np.float32).reshape(-1, 1)
 
-
     #     if X_val is not None and y_val is not None:
     #         y_val = y_val.to_numpy().astype(np.float32).reshape(-1, 1)
     #         X_val_transformed = self.pipeline[:-1].transform(X_val)
     #         X_val_transformed = X_val_transformed.astype(np.float32)
     #         valid_ds = Dataset(X_val, y_val)
     #         self.model.set_params(train_split=predefined_split(valid_ds))
-
 
     #     X_transformed = self.pipeline[:-1].fit_transform(X_train, y_train)
 
@@ -317,53 +293,92 @@ class NNWrapper(ModelWrapperBase):
     #     # self.pipeline.fit(X_train, y_train, **kwargs)
     #     self.pipeline.fit(X_train, y_train)
 
+    # @timeit(process_name="NN Fit")
+    # def fit(self, X_train, y_train, X_val=None, y_val=None, **kwargs):
+
+    #     # Convert targets
+    #     # y_train = y_train.to_numpy().astype(np.float32).reshape(-1, 1)
+
+    #     # # 1️⃣ Fit preprocessing on training data
+    #     # X_train_transformed = self.pipeline[:-1].fit_transform(X_train, y_train)
+    #     # X_train_transformed = X_train_transformed.astype(np.float32)
+    #     y_train_np = y_train.to_numpy().astype(np.float32)
+
+    #     X_train_transformed = self.pipeline[:-1].fit_transform(X_train, y_train_np)
+    #     X_train_transformed = X_train_transformed.astype(np.float32)
+
+    #     input_dim = X_train_transformed.shape[1]
+    #     self.model.set_params(module__input_dim=input_dim)
+
+    #     # 2️⃣ If validation exists
+    #     # if X_val is not None and y_val is not None:
+    #     #     y_val = y_val.to_numpy().astype(np.float32).reshape(-1, 1)
+    #     if X_val is not None and y_val is not None:
+    #         y_val_np = y_val.to_numpy().astype(np.float32)
+    #         X_val_transformed = self.pipeline[:-1].transform(X_val)
+    #         X_val_transformed = X_val_transformed.astype(np.float32)
+
+    #         # valid_ds = Dataset(X_val_transformed, y_val)
+    #         valid_ds = Dataset(X_val_transformed, y_val_np)
+
+    #         self.model.set_params(
+    #             train_split=predefined_split(valid_ds)
+    #         )
+
+    #     # 3️⃣ Fit ONLY the neural net
+    #     # self.model.fit(X_train_transformed, y_train)
+    #     self.model.fit(X_train_transformed, y_train_np)
+    # class NNWrapper(ModelWrapperBase):
     @timeit(process_name="NN Fit")
     def fit(self, X_train, y_train, X_val=None, y_val=None, **kwargs):
+        # Convert target to numpy
+        y_train_np = y_train.to_numpy().astype(np.float32)
 
-        # Convert targets
-        y_train = y_train.to_numpy().astype(np.float32).reshape(-1, 1)
-
-        # 1️⃣ Fit preprocessing on training data
-        X_train_transformed = self.pipeline[:-1].fit_transform(X_train, y_train)
+        # 1️⃣ Fit preprocessing on training data (all steps except NN)
+        X_train_transformed = self.pipeline[:-1].fit_transform(X_train, y_train_np)
         X_train_transformed = X_train_transformed.astype(np.float32)
 
+        # Save only the top_k feature names after preprocessing
+        # Use the shape of transformed X to get top-k
+        top_k_used = X_train_transformed.shape[1]
+        self.feature_names_ = X_train.columns.tolist()[:top_k_used]
+
+        # 2️⃣ Update input_dim for NN
         input_dim = X_train_transformed.shape[1]
         self.model.set_params(module__input_dim=input_dim)
 
-        # 2️⃣ If validation exists
+        # 3️⃣ Handle validation if provided
         if X_val is not None and y_val is not None:
-            y_val = y_val.to_numpy().astype(np.float32).reshape(-1, 1)
-
+            y_val_np = y_val.to_numpy().astype(np.float32)
             X_val_transformed = self.pipeline[:-1].transform(X_val)
             X_val_transformed = X_val_transformed.astype(np.float32)
 
-            valid_ds = Dataset(X_val_transformed, y_val)
+            valid_ds = Dataset(X_val_transformed, y_val_np)
+            self.model.set_params(train_split=predefined_split(valid_ds))
 
-            self.model.set_params(
-                train_split=predefined_split(valid_ds)
-            )
+        # 4️⃣ Fit ONLY the neural net
+        self.model.fit(X_train_transformed, y_train_np)
 
-        # 3️⃣ Fit ONLY the neural net
-        self.model.fit(X_train_transformed, y_train)
-        
 
 class ModelWrapperFactory:
     @staticmethod
     def create(
-        model_type: str,
+        model_type: SupportedModel,
         random_state: int,
         top_k: int,
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         scale_pos_weight=None,
-    ):
-        if model_type.lower() == "rf":
+    ) -> ModelWrapperBase:
+        if model_type == "RF":
             return RFWrapper(random_state, logger=logger, top_k=top_k)
-        elif model_type.lower() == "xgb":
+        elif model_type == "XGB":
             return XGBWrapper(
                 random_state,
                 logger=logger,
                 scale_pos_weight=scale_pos_weight,
                 top_k=top_k,
             )
-        elif model_type.lower() == "nn":
+        elif model_type == "NN":
             return NNWrapper(random_state=random_state, logger=logger, top_k=top_k)
+        else:
+            raise ValueError()

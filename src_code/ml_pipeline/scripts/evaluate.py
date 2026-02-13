@@ -1,7 +1,9 @@
 import argparse
 from typing import get_args
 
+import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+from skorch import NeuralNetClassifier
 from xgboost import XGBClassifier
 from notebooks.logging_config import MyLogger
 from src_code.config import (
@@ -19,6 +21,7 @@ from src_code.ml_pipeline.experimenting.utils import (
     get_experiment_dir,
     log_experiment_id,
 )
+from src_code.ml_pipeline.models import ModelWrapperBase
 from src_code.ml_pipeline.preprocessing.feature_config import DROP_COLS
 from src_code.ml_pipeline.preprocessing.preprocessing import drop_cols
 import src_code.ml_pipeline.testing.testing as test_utils
@@ -78,16 +81,18 @@ def evaluate(
     # # Model Loading
     # # -----------------------------------------------------------------------------
 
-    for name, verioner in loaded_models.items():
+    for name, versioner in loaded_models.items():
         # script_logger.log_check(f"Evaluating model: {name}")
         logger.start_section(section_name=f"Evaluating model: {name}")
-        model = dutls.load_model(verioner.current_newest, logger)
-        model_features = model.feature_names_in_
-
-        if isinstance(model, RandomForestClassifier):
+        model_wrapper, model_features = dutls.load_model(versioner.current_newest, logger)
+        # model_features = model.feature_names_
+        
+        if isinstance(model_wrapper, RandomForestClassifier):
             logger.log_result("Loaded model is a Random Forest.")
-        elif isinstance(model, XGBClassifier):
+        elif isinstance(model_wrapper, XGBClassifier):
             logger.log_result("Loaded model is an XGBoost Classifier.")
+        elif isinstance(model_wrapper, NeuralNetClassifier):
+            logger.log_result("Loaded model is an Neural Net Classifier.")
         else:
             logger.log_result("Loaded model is of an unknown type.")
 
@@ -97,21 +102,25 @@ def evaluate(
 
         X_test = test_df[model_features]
 
+
+
         # -----------------------------------------------------------------------------
         # Inference
         # -----------------------------------------------------------------------------
 
         y_true = test_df["label"] if "label" in test_df.columns else None
 
-        predictions, probabilities = test_utils.infer(
-            X_test=X_test, model=model, logger=logger
-        )
+        # predictions, probabilities = test_utils.infer(
+        #     X_test=X_test, model=model_wrapper.model, logger=logger
+        # )
+
+        X_trans = model_wrapper.pipeline[:-1].transform(X_test).astype(np.float32)
 
         results.append(
             test_utils.evaluate_model(
                 model_name=name,
-                model=model,
-                X_test=X_test,
+                model=model_wrapper.model,
+                X_test=X_trans,
                 y_true=y_true,
                 logger=logger,
             )
@@ -154,4 +163,4 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
 
-    evaluate(logger=logger, loaded_models=args.models, experiment_id=None)
+    evaluate(logger=logger, models=args.models, experiment_id=None)

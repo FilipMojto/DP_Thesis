@@ -1,9 +1,11 @@
+from typing import get_args
+
 from notebooks.logging_config import MyLogger
-from src_code.config import LOG_DIR
+from src_code.config import LOG_DIR, SupportedModel
 
 DEF_LOG_FILE = LOG_DIR / "logs_default.log"
 DEF_NOTEBOOK_LOGGER = MyLogger(label="DEF LOGGER", section_name=DEF_LOG_FILE)
 
 DEF_RANDOM_STATE = 42 
 
-SUPPORTED_MODELS = ["RF", "XGB"]
+SUPPORTED_MODELS = get_args(SupportedModel)

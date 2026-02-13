@@ -1,9 +1,10 @@
 import re
 
 import pandas as pd
+import time
+from functools import wraps
 
 from notebooks.constants import ENGINEERED_FEATURES
-from notebooks.logging_config import MyLogger
 
 def is_embedding_column(col_name: str) -> bool:
     """
@@ -39,10 +40,6 @@ def is_engineered(col_name: str) -> bool:
 def is_binary(df: pd.DataFrame, col_name: str) -> bool:
     values = df[col_name].dropna().unique()
     return len(values) == 2
-
-
-import time
-from functools import wraps
 
 
 def timeit(process_name: str = None, logger_param: str = None):
@@ -109,13 +106,3 @@ def logerror(process_name: str = None, logger_param: str = None):
                 raise e
         return wrapper
     return decorator
-
-
-# class MyDataFrame():
-#     def __init__(self, df: pd.DataFrame, logger: MyLogger):
-#         self.logger = logger
-#         self.df = df
-#         self.feature_sets = NumFeatureSets.extract_features(df=df, logger=self.logger)
-
-#     def data(self):
-#         return self.df

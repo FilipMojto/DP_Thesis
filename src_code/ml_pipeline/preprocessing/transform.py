@@ -11,7 +11,7 @@ from sklearn.pipeline import FunctionTransformer, Pipeline
 
 from notebooks.constants import ENGINEERED_FEATURES, LINE_TOKEN_FEATURES, NUMERIC_FEATURES
 from notebooks.logging_config import MyLogger
-from notebooks.transformers import EmbeddingExpander, FeatureInteractionTransformer, NamingPCA, WinsorizerIQR
+from notebooks.transformers import EmbeddingExpander, NamingPCA, WinsorizerIQR
 from src_code.config import FITTED_TRANSFORMER, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.preprocessing.vectorizers import sklearn_tfidf_vectorizer
