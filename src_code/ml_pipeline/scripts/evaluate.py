@@ -1,5 +1,5 @@
 import argparse
-from typing import get_args
+from typing import Iterable, get_args
 
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -8,7 +8,7 @@ from xgboost import XGBClassifier
 from notebooks.logging_config import MyLogger
 from src_code.config import (
     ENGINEERED_DATA_DIR,
-    ENGINEERING_MAPPINGS,
+    # ENGINEERING_MAPPINGS,
     EVALUATION_DIR,
     LOG_DIR,
     MODEL_DIR,
@@ -39,14 +39,16 @@ DEF_SCRIPT_LOGGER = MyLogger(
 @timeit("Evaluation Phase", logger_param="logger")
 def evaluate(
     logger: MyLogger = DEF_SCRIPT_LOGGER,
-    models: list = SUPPORTED_MODELS,
+    models: Iterable[SupportedModel] = SUPPORTED_MODELS,
     experiment_id: int = None,
 ):
     # MODELS = {
     #     "Random Forest": VersionedFileManager(file_path=MODEL_DIR / "RF_model_train.joblib", logger=logger),
     #     "XGBoost": VersionedFileManager(file_path=MODEL_DIR / "XGB_model_train.joblib", logger=logger),
     # }
-    logger.start_session(session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID)
+    logger.start_session(
+        session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID
+    )
     log_experiment_id(logger=logger, experiment_id=experiment_id)
     exp_dir = (
         get_experiment_dir(experiment_id, target_dir=EVALUATION_DIR)
@@ -54,10 +56,19 @@ def evaluate(
         else None
     )
 
+    # loaded_models = {
+    #     model_type: VersionedFileManager(
+    #         file_path=MODEL_DIR / f"{model_type}_model_train.joblib",
+    #         logger=logger,
+    #     )
+    #     for model_type in models
+    # }
     loaded_models = {
-        model_type: VersionedFileManager(
-            file_path=MODEL_DIR / f"{model_type}_model_train.joblib",
+        model_type: dutls.load_artifact(
+            dir=MODEL_DIR,
+            artifact_type="trained_model",
             logger=logger,
+            label=model_type,
         )
         for model_type in models
     }
@@ -70,7 +81,8 @@ def evaluate(
 
     test_df_versioner = VersionedFileManager(
         # file_path=PROCESSED_DATA_DIR / "test_transformed.feather", logger=logger
-        file_path=ENGINEERED_DATA_DIR / "test_engineered.feather" , logger=logger
+        file_path=ENGINEERED_DATA_DIR / "test_engineered.feather",
+        logger=logger,
     )
     test_df = dutls.load_df(
         df_file_path=test_df_versioner.current_newest, logger=logger
@@ -81,12 +93,19 @@ def evaluate(
     # # Model Loading
     # # -----------------------------------------------------------------------------
 
-    for name, versioner in loaded_models.items():
+    for name, artifact in loaded_models.items():
         # script_logger.log_check(f"Evaluating model: {name}")
         logger.start_section(section_name=f"Evaluating model: {name}")
-        model_wrapper, model_features = dutls.load_model(versioner.current_newest, logger)
+        # model_wrapper, model_features = dutls.load_model(
+        #     artifact.current_newest, logger
+        # )
+        model_wrapper = artifact.model_wrapper
         # model_features = model.feature_names_
-        
+        model_features = artifact.extract_features()
+
+        if model_wrapper == None or model_features == None:
+            raise ValueError(f"Unexpected None value for params: {model_wrapper=}, {model_features=}")
+
         if isinstance(model_wrapper, RandomForestClassifier):
             logger.log_result("Loaded model is a Random Forest.")
         elif isinstance(model_wrapper, XGBClassifier):
@@ -100,9 +119,9 @@ def evaluate(
         # Column Filtering
         # -----------------------------------------------------------------------------
 
-        X_test = test_df[model_features]
-
-
+        # X_test = test_df[model_features]
+        X_trans = model_wrapper.transform(test_df)
+        # X_trans = X_trans[model_features]
 
         # -----------------------------------------------------------------------------
         # Inference
@@ -114,7 +133,7 @@ def evaluate(
         #     X_test=X_test, model=model_wrapper.model, logger=logger
         # )
 
-        X_trans = model_wrapper.pipeline[:-1].transform(X_test).astype(np.float32)
+        # X_trans = model_wrapper.pipeline[:-1].transform(X_test).astype(np.float32)
 
         results.append(
             test_utils.evaluate_model(

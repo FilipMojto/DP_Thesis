@@ -49,10 +49,17 @@ from src_code.mlops_intstrex.reporters.tqdm_reporter import TqdmReporter
 from src_code.utils.utils import timeit
 from src_code.versioning import VersionedFileManager
 from ..preprocessing.preprocessing import drop_cols, drop_invalid_rows
-from ..data_utils import load_df, load_model, save_model
+from ..data_utils import (
+    PipelineArtifact,
+    load_artifact,
+    load_df,
+    load_model,
+    save_artifact,
+    save_model,
+)
 from ...config import (
     ENGINEERED_DATA_DIR,
-    ENGINEERING_MAPPINGS,
+    # ENGINEERING_MAPPINGS,
     LOG_DIR,
     MODEL_DIR,
     PROCESSED_DATA_DIR,
@@ -123,17 +130,7 @@ def train(
 
     # SELECTED_SUBSETS = ["STATISTICAL_METRICS", "STRUCTURAL_METRICS"]
     SELECTED_SUBSETS = []
-
-    # Only keep restricted features + target
-    # selected_features = RESTRICTED_COLS_NAMES + [TARGET]
     selected_features = []
-
-    # for subset in SELECTED_SUBSETS:
-    #     selected_features.extend(subset)
-
-    # if selected_features:
-    #     script_logger.log_result(f"Restricting features to {len(selected_features)} features!")
-    #     script_logger.log_result(f"First 5 features: {selected_features[:5]}")
 
     for subset_name in SELECTED_SUBSETS:
         subset = FEATURE_SUBSETS[subset_name]
@@ -155,16 +152,11 @@ def train(
     # -----------------------------------------------------------------------------
 
     target_df = drop_cols(df=target_df, cols=ftr_cfg.DROP_COLS, logger=logger)
-
     validate_df = drop_cols(df=validate_df, cols=ftr_cfg.DROP_COLS, logger=logger)
-
-    # script_logger.log_check("Starting training phase...")
 
     # -----------------------------------------------------------------------------
     # Dropping cols
     # -----------------------------------------------------------------------------
-
-    # target_df = drop_cols(df=target_df, cols=ftr_cfg.DROP_COLS)
 
     # -----------------------------------------------------------------------------
     # analyzigin features
@@ -184,50 +176,51 @@ def train(
 
     object_cols = X_test.select_dtypes(include=["object"]).columns
     print(object_cols)
+    tuned_hyperparams = None
+
+    if load_tuned:
+        # If loading tuned model, we override the current model's parameters
+
+        # tuned_model_versioner = VersionedFileManager(
+        #     file_path=TUNED_DIR / f"{model_type}_model_tuned.pkl", logger=logger
+        # )
+
+        try:
+            tuned_hyperparams = load_artifact(
+                dir=TUNED_DIR,
+                artifact_type="tuning-hyperparams",
+                logger=logger,
+                label=model_type,
+            )
+            # tuned_model, features = load_model(
+            #     path=tuned_model_versioner.current_newest, logger=logger
+            # )
+            # artifact = load_artifact()
+            # model_wrapper.set_model(tuned_model)
+            logger.log_check(
+                f"Configuring model with new hyperparams ({len(tuned_hyperparams.hyperparams)})"
+            )
+            # model_wrapper.configure(tuned_hyperparams.strip_prefix(prefix="model"))
+        except FileNotFoundError:
+            msg = "Tuned model not found. Please run hyperparameter tuning phase before training."
+            logger.logger.error(msg)
+            raise FileNotFoundError(msg)
 
     # -----------------------------------------------------------------------------
     # Model & TrainingPipeline Definition
     # -----------------------------------------------------------------------------
 
-    # counter = Counter(y_train)
-    # scale_pos_weight = counter[0] / counter[1]  # weight = #negatives / #positives
-    # transformer = build_transformer(random_state=RANDOM_STATE, logger=logger)
-    # X_test = transformer.fit
-    
     model_wrapper = ModelWrapperFactory.create(
         model_type=model_type,
         random_state=RANDOM_STATE,
         logger=logger,
         scale_pos_weight=XGBWrapper.calc_scale_pos_weight(y_train),
         top_k=top_k,
+        tuned_hyperparams=tuned_hyperparams.extract_features() if tuned_hyperparams else None,
     )
-    model = model_wrapper.get_model()
-    # X_test = model_wrapper.pipeline.transform(X_test)
 
     object_cols = X_test.select_dtypes(include=["object"]).columns
-    print(object_cols)
-
-    if load_tuned:
-        # If loading tuned model, we override the current model's parameters
-
-        tuned_model_versioner = VersionedFileManager(
-            file_path=TUNED_DIR / f"{model_type}_model_tuned.pkl", logger=logger
-        )
-        try:
-            tuned_model, features = load_model(
-                path=tuned_model_versioner.current_newest, logger=logger
-            )
-            # script_logger.log_result(
-            #     f"Tuning model with new params - {tuned_model.get_params()}"
-            # )
-            model_wrapper.set_model(tuned_model)
-            model = model_wrapper.get_model()
-
-            # model.set_params(**tuned_model.get_params())
-        except FileNotFoundError:
-            msg = "Tuned model not found. Please run hyperparameter tuning phase before training."
-            logger.logger.error(msg)
-            raise FileNotFoundError(msg)
+    # print(object_cols)
 
     # -----------------------------------------------------------------------------
     # Model Fit
@@ -247,7 +240,7 @@ def train(
     # -----------------------------------------------------------------------------
     # Single inference check
     # -----------------------------------------------------------------------------
-    
+
     check_single_infer(model=model_wrapper.pipeline, X_test=X_test)
 
     # -----------------------------------------------------------------------------
@@ -255,22 +248,16 @@ def train(
     # -----------------------------------------------------------------------------
 
     if not skip_pfi:
-        # pfi_wrapper = PFIWrapper(
-        #     model=model, X_test=X_test, y_test=y_test, random_state=RANDOM_STATE
-        # )
         pfi_wrapper = PFIWrapper(
             model=model_wrapper.pipeline,
             random_state=RANDOM_STATE,
             logger=logger,
             reporter_cls=ConsoleReporter,
         )
-        # importances = pfi_wrapper.run_PFI(X_test=X_test, y_test=y_test, top_k=TOP_K_IMPORTANCES)
+
         importances = pfi_wrapper.run_PFI(
             X_test=X_validate, y_test=y_validate, top_k=TOP_K_IMPORTANCES
         )
-
-        # pfi_wrapper.calc_importances()
-        # importances = pfi_wrapper.get_importances(top_k=TOP_K_IMPORTANCES)
 
         X_train, X_test, X_validate = pfi_wrapper.refine_features(
             X_train=X_train,
@@ -298,12 +285,11 @@ def train(
     logger.log_result("Training phase finished.")
 
     # save_df(df=target_df, df_fil~e_path=)
-    save_model(
-        model=model_wrapper,
-        # path=script_model_path
-        path=model_output_file.next_base_output,
+    wrapper_artifact = PipelineArtifact(
+        artifact_type="trained_model", label=model_type, model_wrapper=model_wrapper
     )
 
+    save_artifact(dir=MODEL_DIR, artifact=wrapper_artifact, logger=logger)
     return model_output_file.next_base_output
 
 

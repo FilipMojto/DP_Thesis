@@ -28,6 +28,7 @@ MODEL_DIR = PROJECT_ROOT / "models"
 TUNED_DIR = MODEL_DIR / "tuned_models"
 LOG_DIR = PROJECT_ROOT / "logs"
 SRC_DIR = PROJECT_ROOT / "src_code"
+TESTING_DIR = PROJECT_ROOT / "testing"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
 ML_PIPELINE_DIR = SRC_DIR / "ml_pipeline"
@@ -106,45 +107,45 @@ ETL_PATH_MAPPINGS = {
 # for mapping in EXTRACTION_MAPPINGS.values():
 #     mapping['copy'] = get_copy(mapping['output'])
 
-for mapping in ETL_PATH_MAPPINGS.values():
-    base_output = mapping["base_output"]
+# for mapping in ETL_PATH_MAPPINGS.values():
+#     base_output = mapping["base_output"]
 
-    newest_path, newest_version = find_newest_version(base_output)
-    next_path = next_version_path(base_output)
+#     newest_path, newest_version = find_newest_version(base_output)
+#     next_path = next_version_path(base_output)
 
-    # mapping["base_output"] = base_output              # stable logical name
-    mapping["current_newest"] = newest_path           # Path | None
-    mapping["current_newest_version"] = newest_version
-    mapping["next_output"] = next_path                # where to write next
+#     # mapping["base_output"] = base_output              # stable logical name
+#     mapping["current_newest"] = newest_path           # Path | None
+#     mapping["current_newest_version"] = newest_version
+#     mapping["next_output"] = next_path                # where to write next
 
 
-PREPROCESSING_MAPPINGS = {
-    "train": {
-        "input": ETL_PATH_MAPPINGS['train']['current_newest'],
-        "output": PREPROCESSED_TRAIN_DF_FILE
-    },
-    "test": {
-        "input": ETL_PATH_MAPPINGS['test']['current_newest'],
-        "output": PREPROCESSED_TEST_DF_FILE
-    },
-    "val": {
-        "input": ETL_PATH_MAPPINGS['validate']['current_newest'],
-        "output": PROCESSED_DATA_DIR / "validate_preprocessed.feather"
-    }
-}
+# PREPROCESSING_MAPPINGS = {
+#     "train": {
+#         "input": ETL_PATH_MAPPINGS['train']['current_newest'],
+#         "output": PREPROCESSED_TRAIN_DF_FILE
+#     },
+#     "test": {
+#         "input": ETL_PATH_MAPPINGS['test']['current_newest'],
+#         "output": PREPROCESSED_TEST_DF_FILE
+#     },
+#     "val": {
+#         "input": ETL_PATH_MAPPINGS['validate']['current_newest'],
+#         "output": PROCESSED_DATA_DIR / "validate_preprocessed.feather"
+#     }
+# }
 
-ENGINEERING_MAPPINGS = {
-    "train": {
-        "input": PREPROCESSING_MAPPINGS['train']['output'],
-        "output": ENGINEERED_TRAIN_DF_FILE
-    },
-    "test": {
-        "input": PREPROCESSING_MAPPINGS["test"]['output'],
-        "output": ENGINEERED_TEST_DF_FILE
-    },
-    "val": {
-        "input": PREPROCESSING_MAPPINGS["val"]['output'],
-        # "output": PROCESSED_DATA_DIR / "validate_engineered.feather"
-        "output": ENGINEERED_VAL_DF_FILE
-    }
-}
+# ENGINEERING_MAPPINGS = {
+#     "train": {
+#         "input": PREPROCESSING_MAPPINGS['train']['output'],
+#         "output": ENGINEERED_TRAIN_DF_FILE
+#     },
+#     "test": {
+#         "input": PREPROCESSING_MAPPINGS["test"]['output'],
+#         "output": ENGINEERED_TEST_DF_FILE
+#     },
+#     "val": {
+#         "input": PREPROCESSING_MAPPINGS["val"]['output'],
+#         # "output": PROCESSED_DATA_DIR / "validate_engineered.feather"
+#         "output": ENGINEERED_VAL_DF_FILE
+#     }
+# }

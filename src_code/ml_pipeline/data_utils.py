@@ -209,23 +209,62 @@ ArtifactType = Literal["trained_model", "tuning-hyperparams"]
 @dataclass
 class PipelineArtifact:
     artifact_type: ArtifactType  # "tuning" | "trained_model"
+    label: str = None
     model_wrapper: Optional[ModelWrapperBase] = None
     hyperparams: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
+
+    def strip_prefix(self, prefix: str) -> dict:
+        prefix_with_sep = prefix + "__"
+        return {
+            (
+                key[len(prefix_with_sep) :] if key.startswith(prefix_with_sep) else key
+            ): value
+            for key, value in self.hyperparams.items()
+        }
+
+    def extract_features(self):
+        wrapper = self.model_wrapper
+        features = None
+
+        if wrapper == None:
+            return None
+
+        # if hasattr(wrapper, "feature_names_in_"):
+        #     features = wrapper.feature_names_in_
+        if hasattr(wrapper, "feature_names_"):
+            features = wrapper.feature_names_
+
+        return features
 
 
 # type PipelineArtifact = Dict | ModelWrapperBase
 
 
-def load_artifact(path: Path, logger: MyLogger) -> PipelineArtifact:
+def __build_file_name(artifact_type: ArtifactType, label: str = None):
+    return f"{label + "_" if label else ""}{artifact_type}.joblib"
+
+
+# def load_artifact(path: Path, logger: MyLogger) -> PipelineArtifact:
+def load_artifact(
+    dir: Path, artifact_type: ArtifactType, logger: MyLogger, label: str = None
+) -> PipelineArtifact:
     logger.log_check("Loading stored artifact...")
 
-    artifact: PipelineArtifact = joblib.load(path)
+    versioner = VersionedFileManager(
+        file_path=dir / __build_file_name(artifact_type=artifact_type, label=label),
+        logger=logger,
+        throw_not_found_err=True,
+    )
+    artifact: PipelineArtifact = joblib.load(versioner.current_newest)
 
     if not isinstance(artifact, PipelineArtifact):
         raise TypeError(
             f"Invalid artifact type: {type(artifact)}. " "Expected PipelineArtifact."
         )
+
+    if artifact.artifact_type != artifact_type:
+        raise ValueError("Incosistent artifact type!")
 
     logger.log_result(f"Loaded artifact type: {artifact.artifact_type}")
     return artifact
@@ -233,9 +272,11 @@ def load_artifact(path: Path, logger: MyLogger) -> PipelineArtifact:
 
 def save_artifact(dir: Path, artifact: PipelineArtifact, logger: MyLogger):
     versioner = VersionedFileManager(
-        file_path=dir / f"{artifact.artifact_type}.joblib", logger=logger
+        file_path=dir
+        / __build_file_name(artifact_type=artifact.artifact_type, label=artifact.label),
+        logger=logger,
     )
-    path = versioner.current_newest
+    path = versioner.next_base_output
 
     logger.log_check(f"Saving artifact {artifact.artifact_type} to: {path}")
     joblib.dump(artifact, path)

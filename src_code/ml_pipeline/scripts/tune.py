@@ -13,7 +13,7 @@ from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
 from src_code.config import (
     ENGINEERED_DATA_DIR,
-    ENGINEERING_MAPPINGS,
+    # ENGINEERING_MAPPINGS,
     MODEL_DIR,
     PROCESSED_DATA_DIR,
     TUNED_DIR,
@@ -148,7 +148,7 @@ def tune_hyperparams(
     # save_model(
     #     model=best_params, path=model_versioner.next_base_output, logger=logger
     # )
-    save_artifact(dir=TUNED_DIR, artifact=PipelineArtifact(artifact_type='tuning-hyperparams', hyperparams=best_params), logger=logger)
+    save_artifact(dir=TUNED_DIR, artifact=PipelineArtifact(label=f"{model_type}", artifact_type='tuning-hyperparams', hyperparams=best_params), logger=logger)
     
 
     grid_search_dir = MODEL_DIR / "grid_search"

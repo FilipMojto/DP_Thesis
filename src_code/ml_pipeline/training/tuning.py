@@ -19,7 +19,7 @@ from sklearn.model_selection._search import BaseSearchCV
 
 from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
-from src_code.config import ENGINEERING_MAPPINGS, LOG_DIR, SupportedModel
+from src_code.config import LOG_DIR, SupportedModel
 from src_code.ml_pipeline.builders import PipelineBuilder
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
 from src_code.ml_pipeline.data_utils import load_df
@@ -364,42 +364,44 @@ class ModelTuningFactory:
 import argparse
 
 if __name__ == "__main__":
-    args = argparse.ArgumentParser(description="Model Tuning")
-    args.add_argument(
-        "--model",
-        type=str,
-        required=True,
-        choices=get_args(SupportedModel),
-        help="Type of model to tune: 'rf' for Random Forest, 'xgb' for XGBoost",
-    )
-    script_logger = MyLogger(
-        label="TUNING",
-        section_name="TUNING LOGGER SCRIPT",
-        file_log_path=LOG_DIR / "tuning_log.log",
-    )
-    script_logger.start_session(session_id=random.randint(1000, 9999))
-    parsed_args = args.parse_args()
+    # args = argparse.ArgumentParser(description="Model Tuning")
+    # args.add_argument(
+    #     "--model",
+    #     type=str,
+    #     required=True,
+    #     choices=get_args(SupportedModel),
+    #     help="Type of model to tune: 'rf' for Random Forest, 'xgb' for XGBoost",
+    # )
+    # script_logger = MyLogger(
+    #     label="TUNING",
+    #     section_name="TUNING LOGGER SCRIPT",
+    #     file_log_path=LOG_DIR / "tuning_log.log",
+    # )
+    # script_logger.start_session(session_id=random.randint(1000, 9999))
+    # parsed_args = args.parse_args()
 
-    dataset: pd.DataFrame = load_df(
-        df_file_path=ENGINEERING_MAPPINGS["train"]["output"]
-    )
-    X_train = dataset.drop(columns=[TARGET])
-    y_train = dataset[TARGET]
+    # dataset: pd.DataFrame = load_df(
+    #     df_file_path=ENGINEERING_MAPPINGS["train"]["output"]
+    # )
+    # X_train = dataset.drop(columns=[TARGET])
+    # y_train = dataset[TARGET]
 
-    # X_train = drop_cols(df=X_train, cols=DROP_COLS, logger=script_logger)
+    # # X_train = drop_cols(df=X_train, cols=DROP_COLS, logger=script_logger)
 
-    model_type = parsed_args.model.lower()
+    # model_type = parsed_args.model.lower()
 
-    model_wrapper = ModelWrapperFactory.create(model_type=model_type, random_state=42)[
-        0
-    ]
-    model = model_wrapper.get_model()
+    # model_wrapper = ModelWrapperFactory.create(model_type=model_type, random_state=42)[
+    #     0
+    # ]
+    # model = model_wrapper.get_model()
 
-    tuner = ModelTuningFactory.create(
-        model_type=model_type, model=model, X_train=X_train, y_train=y_train
-    )
+    # tuner = ModelTuningFactory.create(
+    #     model_type=model_type, model=model, X_train=X_train, y_train=y_train
+    # )
 
-    best_params, best_score = tuner.run_grid_search()
-    script_logger.log_result(
-        f"Tuning completed for {model_type.upper()}. Best Params: {best_params}, Best Score: {best_score}"
-    )
+    # best_params, best_score = tuner.run_grid_search()
+    # script_logger.log_result(
+    #     f"Tuning completed for {model_type.upper()}. Best Params: {best_params}, Best Score: {best_score}"
+    # )
+
+    pass

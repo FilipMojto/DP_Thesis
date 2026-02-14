@@ -37,6 +37,7 @@ class ModelWrapperBase(ABC):
         # 🔵 default behavior
         self.use_scaling = False
         self.top_k = top_k
+        self.hyperparams: dict = None
 
     @abstractmethod
     def get_model(self):
@@ -45,6 +46,10 @@ class ModelWrapperBase(ABC):
     @abstractmethod
     def fit(self, X_train, y_train, **kwargs):
         pass
+
+    # @abstractmethod
+    # def configure(self, hyperparams: dict):
+    #     pass
 
     # @abstractmethod
     # def predict(self, X):
@@ -71,6 +76,7 @@ class RFWrapper(ModelWrapperBase):
         random_state: int,
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         top_k: int = 100,
+        tuned_params=None,
     ):
         super().__init__(random_state=random_state, logger=logger, top_k=top_k)
 
@@ -78,16 +84,19 @@ class RFWrapper(ModelWrapperBase):
         self.use_scaling = False
         # self.top_k = top_k
 
-        self.model = RandomForestClassifier(
-            n_estimators=300,
-            max_depth=20,
-            # min_samples_leaf=2,
-            random_state=random_state,
-            max_features="log2",
-            min_samples_split=2,
-            # class_weight=CLASS_WEIGHT,
-            n_jobs=DEF_N_JOBS,  # 🔴 IMPORTANT
-        )
+        if tuned_params:
+            self.model = RandomForestClassifier(**tuned_params)
+        else:
+            self.model = RandomForestClassifier(
+                n_estimators=300,
+                max_depth=20,
+                # min_samples_leaf=2,
+                random_state=random_state,
+                max_features="log2",
+                min_samples_split=2,
+                # class_weight=CLASS_WEIGHT,
+                n_jobs=DEF_N_JOBS,  # 🔴 IMPORTANT
+            )
 
         self.set_up_pipeline()
 
@@ -100,21 +109,47 @@ class RFWrapper(ModelWrapperBase):
     def set_model(self, rf: RandomForestClassifier):
         self.model = rf
 
+    # @timeit(process_name="RF Fit")
+    # def fit(self, X_train, y_train):
+    #     # self.logger.log_check("Starting RF fit...")
+    #     # start = time.time()
+    #     # for col in X_train.columns:
+    #     #     sample_val = X_train[col].iloc[0]
+    #     #     if isinstance(sample_val, (list, np.ndarray, tuple)):
+    #     #         self.logger.(f"Column '{col}' contains sequences, not scalars!")
+
+    #     self.pipeline.fit(X_train, y_train)
+    #     self.feature_names_ = list(X_train.columns)
     @timeit(process_name="RF Fit")
     def fit(self, X_train, y_train):
-        # self.logger.log_check("Starting RF fit...")
-        # start = time.time()
-        for col in X_train.columns:
-            sample_val = X_train[col].iloc[0]
-            if isinstance(sample_val, (list, np.ndarray, tuple)):
-                print(f"Column '{col}' contains sequences, not scalars!")
+        # 1️⃣ Fit the entire pipeline
+        # (RF doesn't need an eval_set, so we can do this in one shot)
+        # self.pipeline.fit(X_train, y_train)
+        X_train_ready = self.pipeline[:-1].fit_transform(X_train, y_train)
 
-        self.pipeline.fit(X_train, y_train)
-        self.model.feature_names_ = list(X_train.columns)
+        self.model.fit(X_train_ready, y_train)
+        self.pipeline.steps[-1] = ("model", self.model)
 
-        # self.model.fit(X_train, y_train)
-        # end = time.time()
-        # self.logger.log_result(f"RF fit completed. Time: {end - start:2f}")
+        # 2️⃣ Sync the internal model reference
+        # This ensures self.model is the fitted version from the pipeline
+        # self.model = self.pipeline.named_steps["model"]
+
+        # 3️⃣ Save the CORRECT processed feature names
+        try:
+            # This pulls names from the pipeline steps (encoding, selection, etc.)
+            self.feature_names_ = self.pipeline[:-1].get_feature_names_out().tolist()
+        except Exception as e:
+            # Fallback if preprocessing doesn't support get_feature_names_out
+            num_features = self.model.n_features_in_
+            self.feature_names_ = [f"feature_{i}" for i in range(num_features)]
+
+    # def configure(self, hyperparams):
+    #     self.hyperparams = hyperparams
+    #     self.model = RandomForestClassifier(
+    #         **self.hyperparams
+    #     )
+
+    # return super().configure(hyperparams)
 
 
 class XGBWrapper(ModelWrapperBase):
@@ -145,6 +180,7 @@ class XGBWrapper(ModelWrapperBase):
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         scale_pos_weight=None,
         top_k: int = 100,
+        tuned_params=None,
     ):
         super().__init__(random_state=random_state, logger=logger, top_k=top_k)
 
@@ -152,26 +188,29 @@ class XGBWrapper(ModelWrapperBase):
         self.use_scaling = False
         # self.top_k = top_k
 
-        self.model = XGBClassifier(
-            n_estimators=self.DEF_N_ESTIMATORS,
-            max_depth=6,
-            learning_rate=self.DEF_LEARNING_RATE,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            objective="binary:logistic",
-            eval_metric="logloss",
-            random_state=random_state,
-            n_jobs=DEF_N_JOBS,
-            tree_method="hist",
-            # early_stopping_rounds=20,
-            scale_pos_weight=scale_pos_weight,
-        )
-        self.set_up_pipeline()
+        if tuned_params:
+            self.model = XGBClassifier(**tuned_params)
+        else:
+            self.model = XGBClassifier(
+                n_estimators=self.DEF_N_ESTIMATORS,
+                max_depth=6,
+                learning_rate=self.DEF_LEARNING_RATE,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                objective="binary:logistic",
+                eval_metric="logloss",
+                random_state=random_state,
+                n_jobs=DEF_N_JOBS,
+                tree_method="hist",
+                # early_stopping_rounds=20,
+                scale_pos_weight=scale_pos_weight,
+            )
 
+        self.set_up_pipeline()
         self.logger.log_result("XGBoost definition done.")
 
     def get_model(self):
-        return self.model
+        return self.pipeline.named_steps["model"]
 
     def set_model(self, model: XGBClassifier):
         self.model = model
@@ -179,52 +218,46 @@ class XGBWrapper(ModelWrapperBase):
     @timeit(process_name="XGB Fit")
     def fit(self, X_train, y_train, X_val, y_val):
 
-        # 1️⃣ Fit preprocessing
+        # 1️⃣ Fit preprocessing & transform both sets
+        # This gives us the 273 columns (or top_k columns)
         X_train_ready = self.pipeline[:-1].fit_transform(X_train, y_train)
         X_val_ready = self.pipeline[:-1].transform(X_val)
 
-        # 2️⃣ Fit model directly (NOT pipeline)
+        # 2️⃣ Access the model step directly and fit it
+        # We use named_steps["model"] to call the XGBoost .fit() specifically
         self.model.fit(
             X_train_ready,
             y_train,
             eval_set=[(X_val_ready, y_val)],
             verbose=False,
         )
+        self.pipeline.steps[-1] = ("model", self.model)
 
-        # 3️⃣ Save selected feature names properly
-        if hasattr(self.pipeline.named_steps["select"], "get_support"):
-            mask = self.pipeline.named_steps["select"].get_support()
-            self.feature_names_ = X_train.columns[mask].tolist()
-        else:
-            self.feature_names_ = list(X_train.columns)
+        # self.model = self.pipeline.named_steps["model"]
 
-        # end = time.time()
-        # self.logger.log_result(f"XGBoost fit completed. Time: {end - start:2f}")
+        # 3️⃣ Save feature names (now that Step 1 is done, these are available)
+        try:
+            self.feature_names_ = self.pipeline[:-1].get_feature_names_out().tolist()
+        except Exception as e:
+            self.feature_names_ = [
+                f"feature_{i}" for i in range(X_train_ready.shape[1])
+            ]
 
+    # def configure(self, hyperparams):
+    #     """
+    #     Update the model with tuned hyperparameters and refresh the pipeline.
+    #     """
+    #     self.hyperparams = hyperparams
 
-# class SimpleNN(nn.Module):
-#     def __init__(self, input_dim):
-#         super().__init__()
-#         self.model = nn.Sequential(
-#             nn.Linear(input_dim, 128),
-#             nn.ReLU(),
-#             nn.Dropout(0.3),
-#             nn.Linear(128, 1),  # no sigmoid
-#         )
+    #     # 1. Re-instantiate the model with new params
+    #     self.model = XGBClassifier(**self.hyperparams)
 
+    #     # 2. Re-build the pipeline so 'named_steps["model"]' points to the new instance
+    #     self.set_up_pipeline()
 
-#     def forward(self, X):
-#         return self.model(X)
-# class SimpleNN(nn.Module):
-#     def __init__(self, input_dim=1):  # dummy default
-#         super().__init__()
-#         self.hidden = nn.Linear(input_dim, 128)
-#         self.output = nn.Linear(128, 1)
+    #     self.logger.log_result(f"Model re-configured with: {self.hyperparams}")
 
 
-#     def forward(self, X):
-#         X = torch.relu(self.hidden(X))
-#         return self.output(X)
 class SimpleNN(nn.Module):
     def __init__(self, input_dim):
         super().__init__()
@@ -241,94 +274,38 @@ class SimpleNN(nn.Module):
 
 class NNWrapper(ModelWrapperBase):
     def __init__(
-        self, random_state=DEF_RANDOM_STATE, logger=DEF_NOTEBOOK_LOGGER, top_k=100
+        self,
+        random_state=DEF_RANDOM_STATE,
+        logger=DEF_NOTEBOOK_LOGGER,
+        top_k=100,
+        tuned_params=None,
     ):
         super().__init__(random_state=random_state, logger=logger, top_k=top_k)
 
         self.use_scaling = True
-        # self.top_k = top_k
 
-        self.model = NeuralNetClassifier(
-            SimpleNN,
-            module__input_dim=top_k,
-            max_epochs=100,
-            lr=0.001,
-            batch_size=64,
-            optimizer=torch.optim.Adam,
-            criterion=torch.nn.BCEWithLogitsLoss,
-            callbacks=[EarlyStopping(patience=10)],
-            device="cuda" if torch.cuda.is_available() else "cpu",
-            iterator_train__shuffle=True,
-            # dtype=torch.float32,  # 🔥 ADD THIS
-        )
+        if tuned_params:
+            self.model = NeuralNetClassifier(**tuned_params)
+        else:
+            self.model = NeuralNetClassifier(
+                SimpleNN,
+                module__input_dim=top_k,
+                max_epochs=100,
+                lr=0.001,
+                batch_size=64,
+                optimizer=torch.optim.Adam,
+                criterion=torch.nn.BCEWithLogitsLoss,
+                callbacks=[EarlyStopping(patience=10)],
+                device="cuda" if torch.cuda.is_available() else "cpu",
+                iterator_train__shuffle=True,
+                # dtype=torch.float32,  # 🔥 ADD THIS
+            )
+
         self.set_up_pipeline()
 
     def get_model(self):
         return self.model
 
-    # @timeit(process_name="NN Fit")
-    # def fit(self, X_train, y_train, X_val, y_val, **kwargs):
-    #     # self.pipeline.fit(X_train, y_train, model__valid_split=0.2, **kwargs)
-    #     # Fit preprocessing first
-    #     # X_train = X_train.astype(np.float32)
-    #     # X_val = X_val.astype(np.float32)
-
-    #     y_train = y_train.to_numpy().astype(np.float32).reshape(-1, 1)
-
-    #     if X_val is not None and y_val is not None:
-    #         y_val = y_val.to_numpy().astype(np.float32).reshape(-1, 1)
-    #         X_val_transformed = self.pipeline[:-1].transform(X_val)
-    #         X_val_transformed = X_val_transformed.astype(np.float32)
-    #         valid_ds = Dataset(X_val, y_val)
-    #         self.model.set_params(train_split=predefined_split(valid_ds))
-
-    #     X_transformed = self.pipeline[:-1].fit_transform(X_train, y_train)
-
-    #     input_dim = X_transformed.shape[1]
-
-    #     # Reinitialize model with correct input_dim
-    #     self.model.set_params(module__input_dim=input_dim)
-
-    #     # Now fit full pipeline
-    #     # self.pipeline.fit(X_train, y_train, **kwargs)
-    #     self.pipeline.fit(X_train, y_train)
-
-    # @timeit(process_name="NN Fit")
-    # def fit(self, X_train, y_train, X_val=None, y_val=None, **kwargs):
-
-    #     # Convert targets
-    #     # y_train = y_train.to_numpy().astype(np.float32).reshape(-1, 1)
-
-    #     # # 1️⃣ Fit preprocessing on training data
-    #     # X_train_transformed = self.pipeline[:-1].fit_transform(X_train, y_train)
-    #     # X_train_transformed = X_train_transformed.astype(np.float32)
-    #     y_train_np = y_train.to_numpy().astype(np.float32)
-
-    #     X_train_transformed = self.pipeline[:-1].fit_transform(X_train, y_train_np)
-    #     X_train_transformed = X_train_transformed.astype(np.float32)
-
-    #     input_dim = X_train_transformed.shape[1]
-    #     self.model.set_params(module__input_dim=input_dim)
-
-    #     # 2️⃣ If validation exists
-    #     # if X_val is not None and y_val is not None:
-    #     #     y_val = y_val.to_numpy().astype(np.float32).reshape(-1, 1)
-    #     if X_val is not None and y_val is not None:
-    #         y_val_np = y_val.to_numpy().astype(np.float32)
-    #         X_val_transformed = self.pipeline[:-1].transform(X_val)
-    #         X_val_transformed = X_val_transformed.astype(np.float32)
-
-    #         # valid_ds = Dataset(X_val_transformed, y_val)
-    #         valid_ds = Dataset(X_val_transformed, y_val_np)
-
-    #         self.model.set_params(
-    #             train_split=predefined_split(valid_ds)
-    #         )
-
-    #     # 3️⃣ Fit ONLY the neural net
-    #     # self.model.fit(X_train_transformed, y_train)
-    #     self.model.fit(X_train_transformed, y_train_np)
-    # class NNWrapper(ModelWrapperBase):
     @timeit(process_name="NN Fit")
     def fit(self, X_train, y_train, X_val=None, y_val=None, **kwargs):
         # Convert target to numpy
@@ -358,6 +335,11 @@ class NNWrapper(ModelWrapperBase):
 
         # 4️⃣ Fit ONLY the neural net
         self.model.fit(X_train_transformed, y_train_np)
+        self.pipeline.steps[-1] = ("model", self.model)
+
+    # def configure(self, hyperparams):
+    #     self.hyperparams = hyperparams
+    #     self.model = NeuralNetClassifier(**self.hyperparams)
 
 
 class ModelWrapperFactory:
@@ -368,17 +350,26 @@ class ModelWrapperFactory:
         top_k: int,
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         scale_pos_weight=None,
+        tuned_hyperparams: dict = None,
     ) -> ModelWrapperBase:
         if model_type == "RF":
-            return RFWrapper(random_state, logger=logger, top_k=top_k)
+            return RFWrapper(
+                random_state, logger=logger, top_k=top_k, tuned_params=tuned_hyperparams
+            )
         elif model_type == "XGB":
             return XGBWrapper(
                 random_state,
                 logger=logger,
                 scale_pos_weight=scale_pos_weight,
                 top_k=top_k,
+                tuned_params=tuned_hyperparams,
             )
         elif model_type == "NN":
-            return NNWrapper(random_state=random_state, logger=logger, top_k=top_k)
+            return NNWrapper(
+                random_state=random_state,
+                logger=logger,
+                top_k=top_k,
+                tuned_params=tuned_hyperparams,
+            )
         else:
-            raise ValueError()
+            raise ValueError(f"Unexpected value: {model_type=}")

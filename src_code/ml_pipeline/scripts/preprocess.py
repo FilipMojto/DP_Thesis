@@ -9,11 +9,11 @@ from notebooks.constants import INTERACTION_FEATURES, LINE_TOKEN_FEATURES
 from notebooks.logging_config import MyLogger
 from src_code.config import (
     ENGINEERED_DATA_DIR,
-    ENGINEERING_MAPPINGS,
+    # ENGINEERING_MAPPINGS,
     EXTENDED_DATA_DIR,
     INTERIM_DATA_DIR,
     LOG_DIR,
-    PREPROCESSING_MAPPINGS,
+    # PREPROCESSING_MAPPINGS,
     PROCESSED_DATA_DIR,
     TRANSFORMED_DATA_DIR,
     SubsetType,

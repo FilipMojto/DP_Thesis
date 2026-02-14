@@ -42,9 +42,9 @@ def find_newest_version(
             newest_version = v
             newest_path = p
 
-    if newest_path is None:
-        newest_path = Path(f"{base_stem}_v1{extension}")
-        newest_version = 1
+    # if newest_path is None:
+    #     newest_path = Path(f"{base_stem}_v1{extension}")
+    #     newest_version = 1
 
     # print(f"Newest version for {base_output} is v{newest_version} at {newest_path}")
     return newest_path, newest_version
@@ -73,7 +73,7 @@ class VersionedFileManager:
     """
 
     # def __init__(self, src_dir: Path, file_name: str, extension: str):
-    def __init__(self, file_path: Path, logger: MyLogger):
+    def __init__(self, file_path: Path, logger: MyLogger, throw_not_found_err: bool = False):
         # self.src_dir = src_dir
         # self.file_name = file_name
         self.file_path = file_path
@@ -85,8 +85,11 @@ class VersionedFileManager:
         # self.current_newest, self.current_newest_version = find_newest_version(self.base_output)
         self.update()
 
-        self.logger.log_result(f"Current newest version: {self.current_newest.absolute()}")
-
+        self.logger.log_result(f"Current newest version: {self.current_newest.absolute() if self.current_newest else self.current_newest}")
+        # self.logger.logg
+        if throw_not_found_err and self.current_newest == None:
+            raise FileNotFoundError("File not found!")
+        
     def update(self):
         """
         Refreshes the current newest version and path.

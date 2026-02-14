@@ -37,7 +37,9 @@
             "type": "debugpy",
             "request": "launch",
             "module": "src_code.ml_pipeline.scripts.evaluate",
-            "args": [],
+            // "args": [],
+            "args": ["--models", "RF", "XGB"],
+
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,
@@ -119,6 +121,24 @@
             // "args": ["tune", "--model", "RF", "--max-rows", "4000"],
             // "args": ["preprocess", "--subset", "train", "--max-rows", "4000"],
             "args": ["engineer", "--subset", "all", "--max-rows", "4000"],
+
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
+        },
+        {
+            "name": "Debug versioning main script",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "testing.versioning.main",
+            // "args": ["--skip-tuning", "--model", "XGB"],
+            // "args": ["--model", "RF"],
+            // "args": ["tune", "--model", "RF", "--max-rows", "4000"],
+            // "args": ["preprocess", "--subset", "train", "--max-rows", "4000"],
+            // "args": ["engineer", "--subset", "all", "--max-rows", "4000"],
 
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

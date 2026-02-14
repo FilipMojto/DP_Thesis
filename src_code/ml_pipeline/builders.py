@@ -14,6 +14,7 @@ from src_code.ml_pipeline.training.constants import DEF_TOP_K
 def to_float32(X):
     return X.astype(np.float32)
 
+
 class PipelineBuilder:
 
     @staticmethod
@@ -38,9 +39,10 @@ class PipelineBuilder:
         if top_k is not None:
             steps.append(("select", SelectKBest(score_func=f_classif, k=top_k)))
 
-
-        steps.append(("to_float32", FunctionTransformer(to_float32)),
-),
+        # steps.append(
+        #     ("to_float32", FunctionTransformer(to_float32)),
+        # ),
+        steps.append(("to_float32", FunctionTransformer(to_float32, feature_names_out="one-to-one")))
 
         steps.append(("model", model))
 

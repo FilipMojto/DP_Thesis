@@ -168,6 +168,7 @@ reports/**/*.pdf
 reports/**/*.txt
 
 models/**/*.pkl
+models/**/*.joblib
 
 docs/**/*.docx
 
