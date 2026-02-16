@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestClassifier
 import torch
 from xgboost import XGBClassifier
 import torch.nn as nn
-from skorch import NeuralNetBinaryClassifier, NeuralNetClassifier
+from skorch import NeuralNetBinaryClassifier
 from skorch.callbacks import EarlyStopping
 from skorch.helper import predefined_split
 from skorch.dataset import Dataset
@@ -47,17 +47,8 @@ class ModelWrapperBase(ABC):
     def fit(self, X_train, y_train, **kwargs):
         pass
 
-    # @abstractmethod
-    # def configure(self, hyperparams: dict):
-    #     pass
-
-    # @abstractmethod
-    # def predict(self, X):
-    #     pass
     def transform(self, X):
-        # def predict(self, X):
         return self.pipeline[:-1].transform(X).astype(np.float32)
-        # return self.model.predict(X_trans)
 
     def set_up_pipeline(self):
         self.pipeline = PipelineBuilder.build(
@@ -96,6 +87,7 @@ class RFWrapper(ModelWrapperBase):
                 min_samples_split=2,
                 # class_weight=CLASS_WEIGHT,
                 n_jobs=DEF_N_JOBS,  # 🔴 IMPORTANT
+                class_weight='balanced',  # <-- ADD THIS
             )
 
         self.set_up_pipeline()
@@ -109,17 +101,7 @@ class RFWrapper(ModelWrapperBase):
     def set_model(self, rf: RandomForestClassifier):
         self.model = rf
 
-    # @timeit(process_name="RF Fit")
-    # def fit(self, X_train, y_train):
-    #     # self.logger.log_check("Starting RF fit...")
-    #     # start = time.time()
-    #     # for col in X_train.columns:
-    #     #     sample_val = X_train[col].iloc[0]
-    #     #     if isinstance(sample_val, (list, np.ndarray, tuple)):
-    #     #         self.logger.(f"Column '{col}' contains sequences, not scalars!")
 
-    #     self.pipeline.fit(X_train, y_train)
-    #     self.feature_names_ = list(X_train.columns)
     @timeit(process_name="RF Fit")
     def fit(self, X_train, y_train):
         # 1️⃣ Fit the entire pipeline
@@ -130,9 +112,7 @@ class RFWrapper(ModelWrapperBase):
         self.model.fit(X_train_ready, y_train)
         self.pipeline.steps[-1] = ("model", self.model)
 
-        # 2️⃣ Sync the internal model reference
-        # This ensures self.model is the fitted version from the pipeline
-        # self.model = self.pipeline.named_steps["model"]
+        # 2️⃣ Sync the internal model referenc
 
         # 3️⃣ Save the CORRECT processed feature names
         try:
@@ -142,14 +122,6 @@ class RFWrapper(ModelWrapperBase):
             # Fallback if preprocessing doesn't support get_feature_names_out
             num_features = self.model.n_features_in_
             self.feature_names_ = [f"feature_{i}" for i in range(num_features)]
-
-    # def configure(self, hyperparams):
-    #     self.hyperparams = hyperparams
-    #     self.model = RandomForestClassifier(
-    #         **self.hyperparams
-    #     )
-
-    # return super().configure(hyperparams)
 
 
 class XGBWrapper(ModelWrapperBase):
@@ -243,19 +215,7 @@ class XGBWrapper(ModelWrapperBase):
                 f"feature_{i}" for i in range(X_train_ready.shape[1])
             ]
 
-    # def configure(self, hyperparams):
-    #     """
-    #     Update the model with tuned hyperparameters and refresh the pipeline.
-    #     """
-    #     self.hyperparams = hyperparams
 
-    #     # 1. Re-instantiate the model with new params
-    #     self.model = XGBClassifier(**self.hyperparams)
-
-    #     # 2. Re-build the pipeline so 'named_steps["model"]' points to the new instance
-    #     self.set_up_pipeline()
-
-    #     self.logger.log_result(f"Model re-configured with: {self.hyperparams}")
 def init_weights(m):
     if isinstance(m, nn.Linear):
         nn.init.kaiming_uniform_(m.weight, nonlinearity="relu")
@@ -293,10 +253,9 @@ class NNWrapper(ModelWrapperBase):
         if tuned_params:
             self.model = NeuralNetBinaryClassifier(**tuned_params)
         else:
-    
             self.model = NeuralNetBinaryClassifier(
                 SimpleNN,
-                module__input_dim=top_k,
+                module__input_dim=self.top_k,
                 module__hidden_units=128,
                 max_epochs=100,
                 lr=0.002,
@@ -307,18 +266,29 @@ class NNWrapper(ModelWrapperBase):
                 device="cuda" if torch.cuda.is_available() else "cpu",
                 iterator_train__shuffle=True,
                 # dtype=torch.float32,   # 🔥 THIS FIXES IT
-
             )
 
         self.set_up_pipeline()
 
     def get_model(self):
         return self.model
+    
 
     @timeit(process_name="NN Fit")
     def fit(self, X_train, y_train, X_val=None, y_val=None, **kwargs):
         # Convert target to numpy
         y_train_np = y_train.to_numpy().astype(np.float32)
+
+        # pos_weight = torch.tensor([y_train_np.shape[0] / (2 * y_train_np.sum())], dtype=torch.float32)
+        # criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        # self.model.set_params(criterion=criterion)
+        # Calculate your weight
+        pos_weight = torch.tensor([y_train_np.shape[0] / (2 * y_train_np.sum())], dtype=torch.float32)
+        self.logger.log_result(f"Calculated pos_weight: {pos_weight}")
+
+        # Set the parameter, not the object. 
+        # Note: This might still trigger an initialization error if the net is already "warm"
+        self.model.set_params(criterion__pos_weight=pos_weight)
 
         # 1️⃣ Fit preprocessing on training data (all steps except NN)
         X_train_transformed = self.pipeline[:-1].fit_transform(X_train, y_train_np)
@@ -341,14 +311,11 @@ class NNWrapper(ModelWrapperBase):
 
             valid_ds = Dataset(X_val_transformed, y_val_np)
             self.model.set_params(train_split=predefined_split(valid_ds))
-
+        
+        
         # 4️⃣ Fit ONLY the neural net
         self.model.fit(X_train_transformed, y_train_np)
         self.pipeline.steps[-1] = ("model", self.model)
-
-    # def configure(self, hyperparams):
-    #     self.hyperparams = hyperparams
-    #     self.model = NeuralNetClassifier(**self.hyperparams)
 
 
 class ModelWrapperFactory:
