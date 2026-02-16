@@ -85,7 +85,7 @@
             "module": "src_code.ml_pipeline.scripts.tune",
             // "args": ["--skip-tuning", "--model", "XGB"],
             // "args": ["--model", "RF", "--max-rows", "5000", "--workers", "-1"],
-            "args": ["--model", "RF", "--core-mode", "all", "--core-mode", "all", "--reserve-cores", "6", "--max-rows", "4000"],
+            "args": ["--model", "NN", "--core-mode", "all", "--reserve-cores", "6", "--max-rows", "4000"],
 
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

@@ -1,13 +1,13 @@
 from pathlib import Path
 import argparse
 import random
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, get_args
 
 import joblib
 import pandas as pd
 
 from src_code.ml_pipeline.training.constants import DEF_TOP_K
-from src_code.ml_pipeline.training.tuning import SupportedModel, get_args
+from src_code.ml_pipeline.training.tuning import SupportedModel
 from notebooks.logging_config import MyLogger
 from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger

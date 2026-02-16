@@ -1,35 +1,22 @@
 import os
-import random
-import tempfile
-import time
-from typing import get_args
 from joblib import Memory
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.metrics import make_scorer, matthews_corrcoef
 from sklearn.model_selection import GridSearchCV
-from sklearn.pipeline import FunctionTransformer, Pipeline
 from xgboost import XGBClassifier
 from abc import ABC, abstractmethod
-from sklearn.experimental import enable_halving_search_cv  # noqa
+from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import HalvingGridSearchCV
-from sklearn.model_selection._search import BaseSearchCV
 
-from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
-from src_code.config import LOG_DIR, SupportedModel
+from src_code.config import SupportedModel
 from src_code.ml_pipeline.builders import PipelineBuilder
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
-from src_code.ml_pipeline.data_utils import load_df
-from src_code.ml_pipeline.preprocessing.feature_config import DROP_COLS
-from src_code.ml_pipeline.models import ModelWrapperFactory
-from src_code.ml_pipeline.preprocessing.transform import build_transformer
 from src_code.ml_pipeline.training.constants import DEF_TOP_K
-from src_code.ml_pipeline.utils import CoreConfig, get_n_jobs
+from src_code.ml_pipeline.utils import CoreConfig
 from src_code.mlops_intstrex.adapters.grid_search import GridSearchAdapter
-from src_code.mlops_intstrex.reporters.console_reporter import ConsoleReporter
 from src_code.mlops_intstrex.reporters.progress_reporter import ProgressReporter
 from src_code.mlops_intstrex.reporters.tqdm_reporter import TqdmReporter
 from src_code.utils.utils import timeit
@@ -82,7 +69,6 @@ cachedir = os.path.join(os.getcwd(), ".pipeline_cache")
 memory = Memory(location=cachedir, verbose=0)
 
 
-# class TuningWrapperBase(ABC):
 class TuningWrapperBase(ABC):
     grid_search: GridSearchCV
 
@@ -97,8 +83,6 @@ class TuningWrapperBase(ABC):
         logger: MyLogger,
         random_state: int = 42,
         reporter: ProgressReporter = None,
-        # workers_n: int = os.cpu_count() / 2,
-        # reserve_cores: int = 2,
         core_config: CoreConfig = DEF_CORE_CONFIG,
         resource: str = "n_samples",
         max_resources: int = None,
@@ -133,10 +117,8 @@ class TuningWrapperBase(ABC):
             param_grid=self.param_grid,
             factor=3,  # Min candidates to keep in each round
             resource=resource,
-            # max_reso
             scoring=self.mcc_scorer,
             cv=5,
-            # n_jobs=get_n_jobs(reserve=reserve_cores),
             n_jobs=self.core_config.n_jobs,
         )
         self.grid_search_adapter = GridSearchAdapter(self.grid_search)
@@ -146,9 +128,6 @@ class TuningWrapperBase(ABC):
         pass
 
     def get_best_score(self):
-        # best_params = self.grid_search.best_params_
-        # best_score = self.grid_search.best_score_
-
         return self.grid_search.best_params_, self.grid_search.best_score_
 
 
@@ -169,10 +148,7 @@ class RFTuningWrapper(TuningWrapperBase):
         logger: MyLogger,
         top_k: int = DEF_TOP_K,
         use_scaling: bool = False,
-        # workers_n: int,
         random_state: int = DEF_RANDOM_STATE,
-        # reserve_cores: int = 2,
-        # reporter: ProgressReporter = TqdmReporter(),
         reporter: ProgressReporter | None = None,
         core_config: CoreConfig = DEF_RANDOM_STATE,
     ):
@@ -184,33 +160,17 @@ class RFTuningWrapper(TuningWrapperBase):
             logger=logger,
             random_state=random_state,
             reporter=reporter,
-            # reserve_cores=reserve_cores,
-            # workers_n=workers_n,
             core_config=core_config,
             use_scaling=use_scaling,
             top_k=top_k,
         )
-        # 1. Define the model
-        # rf = RandomForestClassifier(random_state=42, class_weight='balanced')
-        logger.log_check("Initializing RFTunning Wrapper object...")
 
+        logger.log_check("Initializing RFTunning Wrapper object...")
         self.logger.log_result("Initialization completed.")
 
     @timeit(process_name="RF - Grid Search")
     def run_grid_search(self):
-        # 5. Run the search
-        # self.logger.log_check("Running grid search...")
-
-        # start = time.time()
-        # self.grid_search.fit(self.X_train, self.y_train)
         self.grid_search_adapter.execute(self.reporter, self.X_train, self.y_train)
-        # fit_with_progress(self.grid_search, self.X_train, self.y_train, self.reporter)
-        # end = time.time()
-
-        # best_params = self.grid_search.best_params_
-        # best_score = self.grid_search.best_score_
-
-        # return best_params, best_score
 
 
 class XGBTuningWrapper(TuningWrapperBase):
@@ -227,19 +187,11 @@ class XGBTuningWrapper(TuningWrapperBase):
         xgb: XGBClassifier,
         X_train: pd.DataFrame,
         y_train: pd.Series,
-        # X_val: pd.DataFrame,
-        # y_val: pd.Series,
         logger: MyLogger,
-        # workers_n: int,
-        # reserve_cores: int = 2,
         top_k: int = DEF_TOP_K,
         use_scaling: bool = False,
         random_state: int = DEF_RANDOM_STATE,
-        # reporter: ProgressReporter = TqdmReporter(),
         reporter: ProgressReporter | None = None,
-        # workers_n: int = os.cpu_count() / 2,
-        # *args,
-        # **kwargs,
         core_config: CoreConfig = DEF_CORE_CONFIG,
     ):
         # super().__init__(X_train, y_train, xgb, logger, random_state, reporter)
@@ -253,29 +205,21 @@ class XGBTuningWrapper(TuningWrapperBase):
             logger=logger,
             random_state=random_state,
             reporter=reporter,
-            # workers_n=workers_n,
-            # reserve_cores=reserve_cores
             core_config=core_config,
             use_scaling=use_scaling,
             top_k=top_k,
         )
         logger.log_check("Initializing XGBTunning Wrapper object...")
-        # self.xgb = xgb
 
     @timeit(process_name="XGB - Grid Search")
     def run_grid_search(self):
         self.grid_search_adapter.execute(self.reporter, self.X_train, self.y_train)
 
-        # best_params = self.grid_search.best_params_
-        # best_score = self.grid_search.best_score_
-
-        # return best_params, best_score
-
 
 class NNTuningWrapper(TuningWrapperBase):
     PARAM_GRID = {
-        "model__lr": [0.001, 0.0005],
-        "model__max_epochs": [20, 50],
+        "model__lr": [0.002, 0.0005],
+        # "model__max_epochs": [20, 50],
         "model__module__hidden_units": [64, 128],
     }
 
@@ -292,17 +236,19 @@ class NNTuningWrapper(TuningWrapperBase):
         use_scaling=True,
     ):
         super().__init__(
-            X_train,
-            y_train,
-            model,
-            self.PARAM_GRID,
-            logger,
-            random_state,
-            reporter,
-            core_config,
+            X_train=X_train,
+            y_train=y_train,
+            model=model,
+            param_grid=self.PARAM_GRID,
+            logger=logger,
+            random_state=random_state,
+            reporter=reporter,
+            core_config=core_config,
             use_scaling=use_scaling,
             top_k=top_k,
         )
+        self.y_train = self.y_train.astype("float32")
+
 
     @timeit(process_name="NN - Grid Search")
     def run_grid_search(self):
@@ -361,9 +307,10 @@ class ModelTuningFactory:
             raise ValueError(f"Invalid model_type argumnent: {model_type}")
 
 
-import argparse
+# import argparse
 
 if __name__ == "__main__":
+    ...
     # args = argparse.ArgumentParser(description="Model Tuning")
     # args.add_argument(
     #     "--model",
@@ -404,4 +351,3 @@ if __name__ == "__main__":
     #     f"Tuning completed for {model_type.upper()}. Best Params: {best_params}, Best Score: {best_score}"
     # )
 
-    pass

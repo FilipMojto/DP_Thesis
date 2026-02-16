@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestClassifier
 import torch
 from xgboost import XGBClassifier
 import torch.nn as nn
-from skorch import NeuralNetClassifier
+from skorch import NeuralNetBinaryClassifier, NeuralNetClassifier
 from skorch.callbacks import EarlyStopping
 from skorch.helper import predefined_split
 from skorch.dataset import Dataset
@@ -256,20 +256,26 @@ class XGBWrapper(ModelWrapperBase):
     #     self.set_up_pipeline()
 
     #     self.logger.log_result(f"Model re-configured with: {self.hyperparams}")
-
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        nn.init.kaiming_uniform_(m.weight, nonlinearity="relu")
+        nn.init.zeros_(m.bias)
 
 class SimpleNN(nn.Module):
-    def __init__(self, input_dim):
+    def __init__(self, input_dim, hidden_units=128):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Linear(input_dim, 128),
+            nn.Linear(input_dim, hidden_units),
+            nn.BatchNorm1d(hidden_units),  # <-- added BatchNorm
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(128, 1),
+            nn.Linear(hidden_units, 1),
         )
 
+        self.model.apply(init_weights)
+
     def forward(self, X):
-        return self.model(X).squeeze(1)  # 👈 IMPORTANT
+        return self.model(X).squeeze(1)
 
 
 class NNWrapper(ModelWrapperBase):
@@ -285,20 +291,23 @@ class NNWrapper(ModelWrapperBase):
         self.use_scaling = True
 
         if tuned_params:
-            self.model = NeuralNetClassifier(**tuned_params)
+            self.model = NeuralNetBinaryClassifier(**tuned_params)
         else:
-            self.model = NeuralNetClassifier(
+    
+            self.model = NeuralNetBinaryClassifier(
                 SimpleNN,
                 module__input_dim=top_k,
+                module__hidden_units=128,
                 max_epochs=100,
-                lr=0.001,
+                lr=0.002,
                 batch_size=64,
                 optimizer=torch.optim.Adam,
                 criterion=torch.nn.BCEWithLogitsLoss,
                 callbacks=[EarlyStopping(patience=10)],
                 device="cuda" if torch.cuda.is_available() else "cpu",
                 iterator_train__shuffle=True,
-                # dtype=torch.float32,  # 🔥 ADD THIS
+                # dtype=torch.float32,   # 🔥 THIS FIXES IT
+
             )
 
         self.set_up_pipeline()
