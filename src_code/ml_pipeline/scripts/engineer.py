@@ -3,7 +3,7 @@ from typing import Dict, List, get_args
 from notebooks.logging_config import MyLogger
 from src_code.config import ENGINEERED_DATA_DIR, EXTENDED_DATA_DIR, LOG_DIR, PROCESSED_DATA_DIR, SubsetType
 from src_code.ml_pipeline.data_utils import load_df, save_df
-from src_code.ml_pipeline.experimenting.types import SubsetArg
+from src_code.ml_pipeline.experimenting.types import MyDataset, PreprocessingResults, SubsetArg
 from src_code.ml_pipeline.experimenting.utils import log_experiment_id
 from src_code.ml_pipeline.preprocessing.preprocessing import drop_invalid_rows, engineer_cols
 from src_code.ml_pipeline.scripts.preprocess import load_dataframes
@@ -63,10 +63,15 @@ def early_preprocess(
     #     else "No Experiment ID provided."
     # )
     log_experiment_id(logger=logger, experiment_id=experiment_id)
-    logger.log_check(f"Subset: {subset}")
+    logger.log_check(f"Config: {subset=}, {max_rows=}, {experiment_id=}")
+    results = PreprocessingResults()
     # target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
     input_dfs = load_dataframes(subset_arg=subset, mode='engineer', logger=logger)
     output_dfs_paths: Dict[str, VersionedFileManager] = {}
+
+    for label, df in input_dfs.items():
+        nrows, ncols = df.shape
+        results.loaded_datasets.append(MyDataset(type=label, rows=nrows, cols=ncols, src_path=df.get_path()))
     
     for df_label in input_dfs.keys():
         output_dfs_paths[df_label] = VersionedFileManager(
@@ -86,7 +91,7 @@ def early_preprocess(
     # )
 
     # target_df_path = TARGET_DF_FILE = PREPROCESSING_MAPPINGS[subset]["input"]
-    for df_label, target_df in input_dfs.items():
+    for df_label, curr_df in input_dfs.items():
         # target_df_path = input_df_file.current_newest
         # target_df = load_df(target_df_path)
 
@@ -94,7 +99,7 @@ def early_preprocess(
         #     f"Initial dataframe shape: {target_df.shape}", print_to_console=True
         # )
         describe_dataframe(
-            df=target_df, logger=logger, name=f"{subset} initial dataframe"
+            df=curr_df, logger=logger, name=f"{subset} initial dataframe"
         )
 
         # if max_rows is not None:
@@ -106,8 +111,8 @@ def early_preprocess(
         #     )
 
         if max_rows:
-            target_df = limit_dataframe_rows(
-                df=target_df, script_logger=logger, max_rows=max_rows
+            curr_df = limit_dataframe_rows(
+                df=curr_df, script_logger=logger, max_rows=max_rows
             )
 
         # # -----------------------------------------------------------------------------
@@ -122,8 +127,8 @@ def early_preprocess(
         # Dropping invalid rows
         # -----------------------------------------------------------------------------
 
-        target_df = drop_invalid_rows(
-            df=target_df,
+        curr_df = drop_invalid_rows(
+            df=curr_df,
             # numeric_features=NUMERIC_FEATURES,
             # row_filters={"time_since_last_change": target_df["time_since_last_change"] < 0},
             row_filters={"time_since_last_change": lambda s: s >= 0},
@@ -161,12 +166,12 @@ def early_preprocess(
 
         # script_logger.log_result("Data engineering subphase finished.")
         # if engineer:
-        before_engineer_cols = set(target_df.columns)
+        before_engineer_cols = set(curr_df.columns)
 
         logger.log_check("Starting data engineering subphase...")
-        target_df = engineer_cols(target_df=target_df, logger=logger)
+        curr_df = engineer_cols(target_df=curr_df, logger=logger)
         # SCRIPT_LOGGER.log_result(f"Engineered features: {ENGINEERED_FEATURES}", print_to_console=True)
-        after_engineer_cols = set(target_df.columns)
+        after_engineer_cols = set(curr_df.columns)
         logger.log_result(
             f"Engineered features: {after_engineer_cols - before_engineer_cols}",
             print_to_console=True,
@@ -208,17 +213,28 @@ def early_preprocess(
         # end = time.time()
         # script_logger.log_result(f"Preprocessing time: {end - start:.2f} seconds.")
         logger.log_result(
-            f"Final dataframe shape: {target_df.shape}", print_to_console=True
+            f"Final dataframe shape: {curr_df.shape}", print_to_console=True
         )
+
+        output_path = output_dfs_paths[df_label].next_base_output
+
+        nrows, ncols = curr_df.shape
+        results.preprocessed_datasets.append(MyDataset(type=label, rows=nrows, cols=ncols, src_path=output_path))
+    
 
         # dutls.save_df(df=target_df, df_file_path=ENGINEERING_MAPPINGS[subset]["output"])
         # save_df(df=target_df, df_file_path=output_df_file.next_base_output)
-        save_df(df=target_df, df_file_path=output_dfs_paths[df_label].next_base_output)
+        save_df(df=curr_df, df_file_path=output_path)
 
 
-        logger.log_result(f"Column data types: {target_df.dtypes.to_dict()}")
+        logger.log_result(f"Column data types: {curr_df.dtypes.to_dict()}")
+
+    # for label, df in input_dfs.items():
+    #     nrows, ncols = df.shape
+    #     results.preprocessed_datasets.append(MyDataset(type=label, rows=nrows, cols=ncols, src_path=df.get_path()))
     
-    return [output_df_file.next_base_output for output_df_file in output_dfs_paths.values()]
+    # return [output_df_file.next_base_output for output_df_file in output_dfs_paths.values()]
+    return results
 
 
 if __name__ == "__main__":

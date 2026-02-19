@@ -1,5 +1,5 @@
 import argparse
-from typing import Iterable, get_args
+from typing import Iterable, List, get_args
 
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -17,6 +17,7 @@ from src_code.config import (
 )
 from src_code.ml_pipeline.config import SUPPORTED_MODELS
 import src_code.ml_pipeline.data_utils as dutls
+from src_code.ml_pipeline.experimenting.types import EvalResults
 from src_code.ml_pipeline.experimenting.utils import (
     get_experiment_dir,
     log_experiment_id,
@@ -74,6 +75,7 @@ def evaluate(
     }
 
     results = []
+    results_v2: List[EvalResults] = []
 
     # =============================================================================
     # FINAL EVALUATION
@@ -104,7 +106,9 @@ def evaluate(
         model_features = artifact.extract_features()
 
         if model_wrapper == None or model_features == None:
-            raise ValueError(f"Unexpected None value for params: {model_wrapper=}, {model_features=}")
+            raise ValueError(
+                f"Unexpected None value for params: {model_wrapper=}, {model_features=}"
+            )
 
         if isinstance(model_wrapper, RandomForestClassifier):
             logger.log_result("Loaded model is a Random Forest.")
@@ -134,14 +138,22 @@ def evaluate(
         # )
 
         # X_trans = model_wrapper.pipeline[:-1].transform(X_test).astype(np.float32)
+        results_local = test_utils.evaluate_model(
+            model_name=name,
+            model=model_wrapper.model,
+            X_test=X_trans,
+            y_true=y_true,
+            logger=logger,
+        )
 
-        results.append(
-            test_utils.evaluate_model(
-                model_name=name,
-                model=model_wrapper.model,
-                X_test=X_trans,
-                y_true=y_true,
-                logger=logger,
+        results.append(results_local)
+        results_v2.append(
+            EvalResults(
+                model=name,
+                best_thresh_f2=results_local.best_threshold,
+                best_f2_score=results_local.best_score,
+                roc_auc=results_local.roc_auc,
+                auprc=results_local.auprc,
             )
         )
 
@@ -156,6 +168,8 @@ def evaluate(
 
     test_utils.plot_pr_grid(results=results, experiment_path=exp_dir)
     test_utils.plot_roc_grid(results=results, experiment_path=exp_dir)
+
+    return results_v2
 
 
 def get_parser():

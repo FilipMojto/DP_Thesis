@@ -111,7 +111,7 @@ def train(
         file_path=ENGINEERED_DATA_DIR / "train_engineered.feather", logger=logger
     )
     # target_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['train']["output"]
-    target_df = load_df(target_df_versioner.current_newest)
+    train_df = load_df(target_df_versioner.current_newest)
 
     validate_df_versioner = VersionedFileManager(
         file_path=ENGINEERED_DATA_DIR / "val_engineered.feather", logger=logger
@@ -129,10 +129,10 @@ def train(
     }
 
     # SELECTED_SUBSETS = ["STATISTICAL_METRICS", "STRUCTURAL_METRICS"]
-    SELECTED_SUBSETS = []
+    selected_subsets = []
     selected_features = []
 
-    for subset_name in SELECTED_SUBSETS:
+    for subset_name in selected_subsets:
         subset = FEATURE_SUBSETS[subset_name]
         selected_features.extend(subset)
         logger.log_result(
@@ -144,14 +144,14 @@ def train(
         logger.log_result(f"Total selected features: {len(selected_features)}")
         logger.log_result(f"First 5 features: {selected_features[:5]}")
 
-        target_df = target_df[selected_features]
+        train_df = train_df[selected_features]
         validate_df = validate_df[selected_features]
 
     # -----------------------------------------------------------------------------
     # Dropping invalid cols
     # -----------------------------------------------------------------------------
 
-    target_df = drop_cols(df=target_df, cols=ftr_cfg.DROP_COLS, logger=logger)
+    train_df = drop_cols(df=train_df, cols=ftr_cfg.DROP_COLS, logger=logger)
     validate_df = drop_cols(df=validate_df, cols=ftr_cfg.DROP_COLS, logger=logger)
 
     # -----------------------------------------------------------------------------
@@ -159,32 +159,24 @@ def train(
     # -----------------------------------------------------------------------------
 
     # -----------------------------------------------------------------------------
-    # analyzigin features
+    # analyzing features
     # -----------------------------------------------------------------------------
 
-    analyze_features(df=target_df, target=TARGET)
+    analyze_features(df=train_df, target=TARGET)
 
     # -----------------------------------------------------------------------------
     # Traing&Test Split
     # -----------------------------------------------------------------------------
 
     X_train, X_test, y_train, y_test = split_train_test(
-        df=target_df, target=TARGET, random_state=RANDOM_STATE, test_size=TEST_SPLIT
+        df=train_df, target=TARGET, random_state=RANDOM_STATE, test_size=TEST_SPLIT
     )
     X_validate = validate_df.drop(columns=[TARGET])
     y_validate = validate_df[TARGET]
 
-    object_cols = X_test.select_dtypes(include=["object"]).columns
-    print(object_cols)
     tuned_hyperparams = None
 
     if load_tuned:
-        # If loading tuned model, we override the current model's parameters
-
-        # tuned_model_versioner = VersionedFileManager(
-        #     file_path=TUNED_DIR / f"{model_type}_model_tuned.pkl", logger=logger
-        # )
-
         try:
             tuned_hyperparams = load_artifact(
                 dir=TUNED_DIR,
@@ -192,15 +184,10 @@ def train(
                 logger=logger,
                 label=model_type,
             )
-            # tuned_model, features = load_model(
-            #     path=tuned_model_versioner.current_newest, logger=logger
-            # )
-            # artifact = load_artifact()
-            # model_wrapper.set_model(tuned_model)
+
             logger.log_check(
                 f"Configuring model with new hyperparams ({len(tuned_hyperparams.hyperparams)})"
             )
-            # model_wrapper.configure(tuned_hyperparams.strip_prefix(prefix="model"))
         except FileNotFoundError:
             msg = "Tuned model not found. Please run hyperparameter tuning phase before training."
             logger.logger.error(msg)
@@ -219,7 +206,7 @@ def train(
         tuned_hyperparams=tuned_hyperparams.extract_features() if tuned_hyperparams else None,
     )
 
-    object_cols = X_test.select_dtypes(include=["object"]).columns
+    # object_cols = X_test.select_dtypes(include=["object"]).columns
     # print(object_cols)
 
     # -----------------------------------------------------------------------------

@@ -24,6 +24,7 @@ from src_code.ml_pipeline.experimenting.types import (
     ARG_RESOLVERS_COLL,
     ARG_VALIDATOR,
     ARG_VALIDATORS_COLL,
+    TuningResults,
 )
 from src_code.ml_pipeline.experimenting.utils import MyParser, log_experiment_id
 from src_code.ml_pipeline.models import ModelWrapperFactory, XGBWrapper
@@ -75,6 +76,8 @@ def tune_hyperparams(
     logger.log_result(
         f"Config: [{model_type=}, {random_state=}, {experiment_id=}, {max_rows=}, {n_cores=}]"
     )
+
+    results = TuningResults()
 
     preprocessed_df_versioner = VersionedFileManager(
         file_path=preprocessed_df_path, logger=logger
@@ -135,27 +138,29 @@ def tune_hyperparams(
     )
     # model.set_params(**clean_params)
 
-    model_versioner = VersionedFileManager(
-        file_path=TUNED_DIR / f"{model_type}_model_tuned.pkl", logger=logger
-    )
+    # model_versioner = VersionedFileManager(
+    #     file_path=TUNED_DIR / f"{model_type}_model_tuned.pkl", logger=logger
+    # )
 
     best_fitted_model = tuning_wrapper.grid_search.best_estimator_
+    trained_features = best_fitted_model.feature_names_in_
     logger.log_result(
-        f"The model was trained on {best_fitted_model.feature_names_in_} features:"
+        f"The model was trained on features: {trained_features}"
     )
+    results.features_trained_on = len(trained_features)
 
     # save_model(model=model, path=model_versioner.next_base_output, logger=logger)
     # save_model(
     #     model=best_params, path=model_versioner.next_base_output, logger=logger
     # )
-    save_artifact(dir=TUNED_DIR, artifact=PipelineArtifact(label=f"{model_type}", artifact_type='tuning-hyperparams', hyperparams=best_params), logger=logger)
-    
+    results.param_artifact = save_artifact(dir=TUNED_DIR, artifact=PipelineArtifact(label=f"{model_type}", artifact_type='tuning-hyperparams', hyperparams=best_params), logger=logger)
+    # results.param_artifact = artifact_path
 
     grid_search_dir = MODEL_DIR / "grid_search"
     grid_search_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(tuning_wrapper.grid_search, grid_search_dir / "grid_search.pkl")
 
-    return model_versioner.next_base_output
+    return results
 
 
 RANDOM_STATE = DEF_RANDOM_STATE

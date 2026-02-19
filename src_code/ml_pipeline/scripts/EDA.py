@@ -23,6 +23,7 @@ from src_code.ml_pipeline.EDA.plots import (
 )
 from src_code.ml_pipeline.EDA.utils import NumFeatureSets
 from src_code.ml_pipeline.data_utils import load_df, load_input_dfs, load_input_dfs_eda
+from src_code.ml_pipeline.experimenting.types import EdaResults, MyDataset
 from src_code.ml_pipeline.experimenting.utils import get_experiment_dir, log_experiment_id
 from src_code.ml_pipeline.utils import describe_dataframe
 from src_code.versioning import VersionedFileManager
@@ -71,10 +72,15 @@ def perform_EDA(
     #     )
     #     df_versioner = VersionedFileManager(file_path=df_path, logger=logger)
     #     dfs[df_label] = load_df(df_file_path=df_versioner.current_newest, logger=logger)
+    results = EdaResults()
 
     dfs = load_input_dfs_eda(
         mode="etl" if load_ETL_processed else "preprocessed", logger=logger
     )
+
+    for label, df in dfs.items():
+        nrows, ncols = df.shape
+        results.loaded_datasets.append(MyDataset(type=label, rows=nrows, cols=ncols))
 
     if load_ETL_processed and intersect_with_processed:
         logger.log_check("Dropping cols not present in the processed data...")
@@ -95,6 +101,10 @@ def perform_EDA(
                 logger.log_result(
                     f"Dropped {len(cols_to_drop)} columns from {df_label}"
                 )
+
+    for label, df in dfs.items():
+        nrows, ncols = df.shape
+        results.EDA_ready_datasets.append(MyDataset(type=label, rows=nrows, cols=ncols))
 
     input_df = dfs[subset]
 
@@ -257,6 +267,8 @@ def perform_EDA(
         experiment_dir=exp_dir / "correlations",
         top_features=3
     )
+
+    return results
 
     # -----------------------------------------------------------------------------
     # Outliers

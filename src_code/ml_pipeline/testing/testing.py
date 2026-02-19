@@ -4,7 +4,14 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
-from sklearn.metrics import average_precision_score, classification_report, matthews_corrcoef, precision_recall_curve, roc_auc_score, roc_curve
+from sklearn.metrics import (
+    average_precision_score,
+    classification_report,
+    matthews_corrcoef,
+    precision_recall_curve,
+    roc_auc_score,
+    roc_curve,
+)
 from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.testing.objects import EvaluationResult
@@ -13,7 +20,9 @@ from src_code.ml_pipeline.testing.objects import EvaluationResult
 def infer(model: BaseEstimator, X_test, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     logger.log_check("Performing final model inference...")
     predictions = model.predict(X_test)
-    probabilities = model.predict_proba(X_test)[:, 1]  # Probability of the positive class
+    probabilities = model.predict_proba(X_test)[
+        :, 1
+    ]  # Probability of the positive class
     logger.log_result("Inference complete.")
     return predictions, probabilities
 
@@ -29,6 +38,7 @@ def infer(model: BaseEstimator, X_test, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
 #     logger.log_result(f"ROC-AUC Score: {roc_auc_score(y_true, probabilities):.4f}")
 
 #     logger.log_result("Evaluation complete.")
+
 
 def classification_report_table(results):
     tables = []
@@ -59,16 +69,15 @@ def evaluate_model(
 
     # Metrics
     roc_auc = roc_auc_score(y_true, probs)
-    
-    best_thresh, best_f2 = find_optimal_threshold_F2(precision, recall, pr_thresholds, logger)
-    
-    preds_thresh = (probs >= best_thresh).astype(int)
 
-    report = classification_report(
-        y_true, preds_thresh, output_dict=True
+    best_thresh, best_f2_score = find_optimal_threshold_F2(
+        precision, recall, pr_thresholds, logger
     )
 
-    
+    preds_thresh = (probs >= best_thresh).astype(int)
+
+    report = classification_report(y_true, preds_thresh, output_dict=True)
+
     logger.log_result(f"ROC-AUC: {roc_auc:.4f}")
 
     auprc = average_precision_score(y_true, probs)
@@ -83,13 +92,16 @@ def evaluate_model(
         pr_curve=(precision, recall, pr_thresholds),
         roc_curve=(fpr, tpr),
         roc_auc=roc_auc,
-        mcc_threshold=best_thresh,
+        auprc=auprc,
+        best_threshold=best_thresh,
+        best_score=best_f2_score,
         classification_report=report,
     )
 
+
 # def prec_recall_curve(y_true, probs, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
 #     logger.log_check("Plotting precision recall curve...")
-    
+
 #     precision, recall, thresholds = precision_recall_curve(y_true, probs)
 
 #     plt.plot(thresholds, precision[:-1], label="Precision")
@@ -103,9 +115,10 @@ def evaluate_model(
 
 #     return precision, recall, thresholds
 
+
 def plot_pr_grid(results, experiment_path: Path = None, cols=2):
     rows = math.ceil(len(results) / cols)
-    fig, axes = plt.subplots(rows, cols, figsize=(6*cols, 5*rows))
+    fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 5 * rows))
     axes = np.array(axes).reshape(-1)
 
     for ax, res in zip(axes, results):
@@ -125,7 +138,9 @@ def plot_pr_grid(results, experiment_path: Path = None, cols=2):
     plt.show()
 
 
-def find_best_threshold(precision, recall, thresholds, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
+def find_best_threshold(
+    precision, recall, thresholds, logger: MyLogger = DEF_NOTEBOOK_LOGGER
+):
     # Calculate F1 for every threshold produced by the PR curve
     f1_scores = 2 * (precision * recall) / (precision + recall + 1e-10)
     best_idx = np.argmax(f1_scores)
@@ -151,7 +166,9 @@ def find_optimal_threshold_MCC(y_true, probs, logger: MyLogger = DEF_NOTEBOOK_LO
     return best_threshold, best_mcc
 
 
-def find_optimal_threshold_F2(precision, recall, pr_thresholds, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
+def find_optimal_threshold_F2(
+    precision, recall, pr_thresholds, logger: MyLogger = DEF_NOTEBOOK_LOGGER
+):
     beta = 2
     f2 = (1 + beta**2) * (precision * recall) / (beta**2 * precision + recall + 1e-10)
 
@@ -178,9 +195,10 @@ def find_optimal_threshold_F2(precision, recall, pr_thresholds, logger: MyLogger
 
 #     logger.log_result("Displayed successfully.")
 
+
 def plot_roc_grid(results, experiment_path: Path = None, cols=2):
     rows = math.ceil(len(results) / cols)
-    fig, axes = plt.subplots(rows, cols, figsize=(6*cols, 5*rows))
+    fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 5 * rows))
     axes = np.array(axes).reshape(-1)
 
     if experiment_path:
@@ -200,5 +218,3 @@ def plot_roc_grid(results, experiment_path: Path = None, cols=2):
 
     plt.tight_layout()
     plt.show()
-
-

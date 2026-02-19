@@ -16,6 +16,7 @@ transformers = "*"
 torch = "*"
 xgboost = "*"
 skorch = "*"
+pydantic = "*"
 
 [dev-packages]
 

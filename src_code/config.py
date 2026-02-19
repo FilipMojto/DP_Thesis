@@ -27,6 +27,7 @@ PROJECT_ROOT = CONFIG_FILE_DIR.parent.parent
 MODEL_DIR = PROJECT_ROOT / "models"
 TUNED_DIR = MODEL_DIR / "tuned_models"
 LOG_DIR = PROJECT_ROOT / "logs"
+EXPERIMENT_DIR = LOG_DIR / "experiments"
 SRC_DIR = PROJECT_ROOT / "src_code"
 TESTING_DIR = PROJECT_ROOT / "testing"
 REPORTS_DIR = PROJECT_ROOT / "reports"

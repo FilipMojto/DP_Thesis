@@ -24,6 +24,38 @@ from src_code.ml_pipeline.preprocessing.config import PreprocessMode
 from src_code.versioning import VersionedFileManager
 
 
+# class MyDataframe:
+#     def __init__(self, dataframe: pd.DataFrame, src_path: Path):
+#         self.dataframe = dataframe
+#         self.src_path = src_path.absolute()
+    
+#     def data(self):
+#         return self.dataframe
+# class MyDataframe:
+#     def __init__(self, dataframe: pd.DataFrame, src_path: Path):
+#         self.df = dataframe
+#         self.src_path = src_path.absolute()
+
+#     def __getattr__(self, name):
+#         # Redirect all unknown calls (like .shape, .head(), .iloc) to the pandas df
+#         return getattr(self.df, name)
+
+#     def __repr__(self):
+#         return f"MyDataframe(src='{self.src_path}', rows={len(self.df)})"
+@pd.api.extensions.register_dataframe_accessor("src")
+class SourceAccessor:
+    def __init__(self, pandas_obj):
+        self._obj = pandas_obj
+        self._path = None
+
+    def set_path(self, path: Path):
+        self._path = path.absolute()
+    
+    def get_path(self):
+        return self._path
+    
+
+
 def load_df(df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
     logger.log_check(
         f"Loading the dataset from {df_file_path.absolute()}...", print_to_console=True
@@ -35,6 +67,7 @@ def load_df(df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
         print_to_console=True,
     )
 
+    df.set_path(df_file_path)
     return df
 
 
@@ -72,7 +105,7 @@ EDAMode = Literal["etl", "preprocessed"]
 def load_input_dfs_eda(
     mode: EDAMode, logger: MyLogger, df_labels: Iterable[str] = get_args(SubsetType)
 ):
-    dfs: Dict[str, pd.DataFrame] = {}
+    dfs: Dict[SubsetType, pd.DataFrame] = {}
 
     for df_label in df_labels:
         # target_dir = EXTENDED_DATA_DIR if mode == 'engineer' else ENGINEERED_DATA_DIR
@@ -280,3 +313,5 @@ def save_artifact(dir: Path, artifact: PipelineArtifact, logger: MyLogger):
 
     logger.log_check(f"Saving artifact {artifact.artifact_type} to: {path}")
     joblib.dump(artifact, path)
+
+    return path

@@ -12,5 +12,7 @@ class EvaluationResult:
     pr_curve: tuple  # (precision, recall, thresholds)
     roc_curve: tuple # (fpr, tpr)
     roc_auc: float
-    mcc_threshold: float
+    auprc: float
+    best_threshold: float
+    best_score: float
     classification_report: dict
