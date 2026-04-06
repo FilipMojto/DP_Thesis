@@ -126,6 +126,16 @@ def fit_model(
             y_val=y_validate,
             # model__eval_set=[(X_validate, y_validate)],
         )
+    elif model_type == "LR":
+        model_wrapper.fit(X_train, y_train)
+    elif model_type == "DUMMY_STRATIFIED":
+        model_wrapper.fit(X_train, y_train)
+    elif model_type == "DUMMY_MOST_FREQUENT":
+        model_wrapper.fit(X_train, y_train)
+    elif model_type == "ENSEMBLE_VOTING":
+        model_wrapper.fit(X_train, y_train, X_val=X_validate, y_val=y_validate)
+    elif model_type == "ENSEMBLE_STACKING":
+        model_wrapper.fit(X_train, y_train, X_val=X_validate, y_val=y_validate)
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 

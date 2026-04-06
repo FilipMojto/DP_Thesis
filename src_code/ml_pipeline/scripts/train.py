@@ -2,6 +2,8 @@ from collections import Counter
 from typing import List, get_args
 
 from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.metrics import fbeta_score, make_scorer
+from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
 from notebooks.constants import (
     ENGINEERED_FEATURES,
@@ -13,8 +15,10 @@ from notebooks.constants import (
 )
 from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
+from src_code.ml_pipeline.experimenting.types import TrainingResults
 from src_code.ml_pipeline.experimenting.utils import log_experiment_id
-from src_code.ml_pipeline.feature_importance import PFIWrapper
+
+# from src_code.ml_pipeline.feature_importance import PFIWrapper
 from src_code.ml_pipeline.models import ModelWrapperFactory, RFWrapper, XGBWrapper
 
 from src_code.ml_pipeline.preprocessing.data_engineering import (
@@ -31,6 +35,7 @@ from src_code.ml_pipeline.preprocessing.transform import (
 
 # from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
 from src_code.ml_pipeline.training.constants import DEF_TOP_K
+from src_code.ml_pipeline.training.ensemble import load_ensemble_supported_models
 from src_code.ml_pipeline.training.training import (
     check_single_infer,
     fit_model,
@@ -95,17 +100,20 @@ def train(
     skip_pfi: bool = False,
     top_k: int = DEF_TOP_K,
     experiment_id: int = None,
+    perform_cv: bool = False,
 ):
     logger.start_session(
         session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID
     )
     log_experiment_id(logger=logger, experiment_id=experiment_id)
-    model_output_file = VersionedFileManager(
-        MODEL_DIR / f"{model_type.upper()}_model_train.joblib", logger=logger
-    )
+    # model_output_file = VersionedFileManager(
+    #     MODEL_DIR / f"{model_type.upper()}_model_train.joblib", logger=logger
+    # )
     logger.log_result(
         f"Config: [{model_type=}, {load_tuned=}, {skip_pfi=}, {top_k=}, {experiment_id=}]"
     )
+
+    results = TrainingResults()
 
     target_df_versioner = VersionedFileManager(
         file_path=ENGINEERED_DATA_DIR / "train_engineered.feather", logger=logger
@@ -185,8 +193,10 @@ def train(
                 label=model_type,
             )
 
+            results.tuning_params = tuned_hyperparams.src_path
+
             logger.log_check(
-                f"Configuring model with new hyperparams ({len(tuned_hyperparams.hyperparams)})"
+                f"Configuring model with new hyperparams (tuned_hyperparams.hyperparams))"
             )
         except FileNotFoundError:
             msg = "Tuned model not found. Please run hyperparameter tuning phase before training."
@@ -203,7 +213,14 @@ def train(
         logger=logger,
         scale_pos_weight=XGBWrapper.calc_scale_pos_weight(y_train),
         top_k=top_k,
-        tuned_hyperparams=tuned_hyperparams.extract_features() if tuned_hyperparams else None,
+        tuned_hyperparams=(
+            tuned_hyperparams.extract_features() if tuned_hyperparams else None
+        ),
+        base_wrappers=(
+            load_ensemble_supported_models(logger)
+            if (model_type == "ENSEMBLE_VOTING" or model_type == "ENSEMBLE_STACKING")
+            else None
+        ),
     )
 
     # object_cols = X_test.select_dtypes(include=["object"]).columns
@@ -225,49 +242,34 @@ def train(
     )
 
     # -----------------------------------------------------------------------------
+    # Optional - Cross Validation
+    # -----------------------------------------------------------------------------
+    
+    if perform_cv:
+        logger.log_check("Running post-training cross-validation...")
+
+        f2_scorer = make_scorer(fbeta_score, beta=2)
+
+        cv_scores = cross_val_score(
+            model_wrapper.pipeline,
+            X_train,
+            y_train,
+            cv=5,
+            scoring=f2_scorer,
+            n_jobs=-1,
+        )
+
+        logger.log_result(f"CV F2 scores: {cv_scores}")
+        logger.log_result(f"Mean CV F2: {cv_scores.mean():.4f}")
+        logger.log_result(f"Std CV F2: {cv_scores.std():.4f}")
+
+        results.cv_scores = cv_scores
+
+    # -----------------------------------------------------------------------------
     # Single inference check
     # -----------------------------------------------------------------------------
 
     check_single_infer(model=model_wrapper.pipeline, X_test=X_test)
-
-    # -----------------------------------------------------------------------------
-    # PFI & Training Subset Refinement
-    # -----------------------------------------------------------------------------
-
-    if not skip_pfi:
-        pfi_wrapper = PFIWrapper(
-            model=model_wrapper.pipeline,
-            random_state=RANDOM_STATE,
-            logger=logger,
-            reporter_cls=ConsoleReporter,
-        )
-
-        importances = pfi_wrapper.run_PFI(
-            X_test=X_validate, y_test=y_validate, top_k=TOP_K_IMPORTANCES
-        )
-
-        X_train, X_test, X_validate = pfi_wrapper.refine_features(
-            X_train=X_train,
-            X_test=X_test,
-            X_val=X_validate,
-            threshold=REFINEMENT_THRESHOLD,
-        )
-
-        # -----------------------------------------------------------------------------
-        # Model retraining
-        # -----------------------------------------------------------------------------
-
-        model_wrapper = fit_model(
-            model_type=model_type.upper(),
-            model_wrapper=model_wrapper,
-            X_train=X_train,
-            y_train=y_train,
-            X_validate=X_validate,
-            y_validate=y_validate,
-        )
-
-    else:
-        logger.log_result("Skipping PFI process...")
 
     logger.log_result("Training phase finished.")
 
@@ -277,12 +279,15 @@ def train(
     )
 
     save_artifact(dir=MODEL_DIR, artifact=wrapper_artifact, logger=logger)
-    return model_output_file.next_base_output
+    # return model_output_file.next_base_output
+
+    results.trained_model = wrapper_artifact.src_path
+    return results
 
 
-def get_parser():
+def get_parser(add_help: bool = False) -> ArgumentParser:
     parser = ArgumentParser(
-        description="Parametric ML pipeline script.", add_help=False
+        description="Parametric ML pipeline script.", add_help=add_help
     )
     parser.add_argument(
         "--model",
@@ -327,6 +332,13 @@ def get_parser():
         default=False,
         help="PFI is skipped in training phase.",
     )
+    parser.add_argument(
+        "--perform-cv",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Whether to perform cross-validation after training.",
+        )
 
     return parser
 
@@ -335,7 +347,7 @@ if __name__ == "__main__":
     script_logger = DEF_SCRIPT_LOGGER
     # script_logger.start_session()
 
-    parser = get_parser()
+    parser = get_parser(add_help=True)
 
     args = parser.parse_args()
     # filtered_phases: List[str] = args.phases
@@ -347,4 +359,6 @@ if __name__ == "__main__":
         load_tuned=args.load_tuned,
         skip_pfi=args.skip_pfi,
         experiment_id=None,
+        top_k=args.top_k,
+        perform_cv=args.perform_cv,
     )

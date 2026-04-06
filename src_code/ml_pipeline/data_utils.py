@@ -67,7 +67,7 @@ def load_df(df_file_path: Path, logger: MyLogger = DEF_NOTEBOOK_LOGGER):
         print_to_console=True,
     )
 
-    df.set_path(df_file_path)
+    # df.set_path(df_file_path)
     return df
 
 
@@ -246,6 +246,7 @@ class PipelineArtifact:
     model_wrapper: Optional[ModelWrapperBase] = None
     hyperparams: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
+    src_path: Optional[Path] = None
 
     def strip_prefix(self, prefix: str) -> dict:
         prefix_with_sep = prefix + "__"
@@ -310,6 +311,7 @@ def save_artifact(dir: Path, artifact: PipelineArtifact, logger: MyLogger):
         logger=logger,
     )
     path = versioner.next_base_output
+    artifact.src_path = path
 
     logger.log_check(f"Saving artifact {artifact.artifact_type} to: {path}")
     joblib.dump(artifact, path)

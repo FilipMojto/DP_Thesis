@@ -124,9 +124,6 @@ def transform(
     pandas_output: bool = False,
 ):
     logger.log_check("Performing df transformation...")
-    # set_config(transform_output="pandas")
-    # log_transformer = FunctionTransformer(np.log1p, validate=False)
-
     transformed_array = None
 
     if subset == "train":
@@ -139,32 +136,11 @@ def transform(
         # 3. FIT and TRANSFORM
         transformer = build_transformer(random_state=random_state)
 
-     
         transformer.fit(df)
-        # df = transformer.transform(df)
         transformed_array = transformer.transform(df)
-
-        # if pandas_output:
-        #     # transformer.set_output(transform="pandas") # <--- Force this specific instance
-        #     # 2. Get the feature names
-        #     # This works because your PrefixedTfidf implements get_feature_names_out
-        #     feature_names = transformer.get_feature_names_out()
-
-        #     # 3. Reconstruct the DataFrame
-        #     df = pd.DataFrame(
-        #         transformed_array, 
-        #         columns=feature_names, 
-        #         index=df.index  # Crucial to keep your original index!
-        #     )
-        # else:
-        #     df = transformed_array
 
 
         log_dropped_features(transformer=transformer, numeric_features_list=NUMERIC_FEATURES + ENGINEERED_FEATURES, logger=logger)
-
-        # feature_names = transformer.get_feature_names_out()
-        # print([name for name in transformer.get_feature_names_out() if 'ratio' in name])
-
 
         # 4. SAVE
         joblib.dump(transformer, fitted_transformer)

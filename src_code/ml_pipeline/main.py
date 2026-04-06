@@ -15,7 +15,7 @@ from src_code.config import (
 from src_code.ml_pipeline.experimenting.types import ARG_RESOLVERS_COLL, ARG_VALIDATORS_COLL
 from src_code.ml_pipeline.experimenting.utils import MyParser
 from src_code.ml_pipeline.scripts.evaluate import evaluate
-from src_code.ml_pipeline.scripts.preprocess import early_preprocess
+from src_code.ml_pipeline.scripts.engineer import early_preprocess
 from src_code.ml_pipeline.scripts.train import train
 from src_code.ml_pipeline.scripts.tune import tune_hyperparams
 

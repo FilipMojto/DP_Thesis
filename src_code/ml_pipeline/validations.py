@@ -6,7 +6,7 @@ from xgboost import XGBClassifier
 
 from notebooks.logging_config import MyLogger
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
-from src_code.ml_pipeline.utils import get_n_jobs
+from src_code.ml_pipeline.resources import get_n_jobs
 
 
 class CVWrapper:

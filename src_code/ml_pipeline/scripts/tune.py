@@ -6,6 +6,13 @@ from typing import Any, Callable, Dict, get_args
 import joblib
 import pandas as pd
 
+from src_code.ml_pipeline.resources import (
+    DEF_CORE_MODE_TYPE,
+    DEF_NUM_OF_CORES,
+    DEF_RESERVE_CORES,
+    CoreConfig,
+    CoreModeType,
+)
 from src_code.ml_pipeline.training.constants import DEF_TOP_K
 from src_code.ml_pipeline.training.tuning import SupportedModel
 from notebooks.logging_config import MyLogger
@@ -19,7 +26,12 @@ from src_code.config import (
     TUNED_DIR,
 )
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
-from src_code.ml_pipeline.data_utils import PipelineArtifact, load_df, save_artifact, save_model
+from src_code.ml_pipeline.data_utils import (
+    PipelineArtifact,
+    load_df,
+    save_artifact,
+    save_model,
+)
 from src_code.ml_pipeline.experimenting.types import (
     ARG_RESOLVERS_COLL,
     ARG_VALIDATOR,
@@ -38,7 +50,7 @@ from src_code.ml_pipeline.training.tuning import (
     ModelTuningFactory,
     log_selected_features,
 )
-from src_code.ml_pipeline.utils import CoreConfig, CoreModeType, get_n_jobs
+
 from src_code.utils.utils import logerror, timeit
 from src_code.versioning import VersionedFileManager
 
@@ -58,9 +70,9 @@ def tune_hyperparams(
     random_state: int = DEF_RANDOM_STATE,
     experiment_id: int = None,
     max_rows: int = None,
-    core_mode: CoreModeType = "manual",
-    n_cores: int = 1,
-    reserve_cores: int = 2,
+    core_mode: CoreModeType = DEF_CORE_MODE_TYPE,
+    n_cores: int = DEF_NUM_OF_CORES,
+    reserve_cores: int = DEF_RESERVE_CORES,
     top_k: int = DEF_TOP_K,
     # scale_pos_weight: float = 1.0,
 ):
@@ -104,9 +116,7 @@ def tune_hyperparams(
         random_state=random_state,
         logger=logger,
         scale_pos_weight=(
-            XGBWrapper.calc_scale_pos_weight(y_train)
-            if model_type == "XGB"
-            else None
+            XGBWrapper.calc_scale_pos_weight(y_train) if model_type == "XGB" else None
         ),
         top_k=top_k,
     )
@@ -144,16 +154,22 @@ def tune_hyperparams(
 
     best_fitted_model = tuning_wrapper.grid_search.best_estimator_
     trained_features = best_fitted_model.feature_names_in_
-    logger.log_result(
-        f"The model was trained on features: {trained_features}"
-    )
+    logger.log_result(f"The model was trained on features: {trained_features}")
     results.features_trained_on = len(trained_features)
 
     # save_model(model=model, path=model_versioner.next_base_output, logger=logger)
     # save_model(
     #     model=best_params, path=model_versioner.next_base_output, logger=logger
     # )
-    results.param_artifact = save_artifact(dir=TUNED_DIR, artifact=PipelineArtifact(label=f"{model_type}", artifact_type='tuning-hyperparams', hyperparams=best_params), logger=logger)
+    results.param_artifact = save_artifact(
+        dir=TUNED_DIR,
+        artifact=PipelineArtifact(
+            label=f"{model_type}",
+            artifact_type="tuning-hyperparams",
+            hyperparams=best_params,
+        ),
+        logger=logger,
+    )
     # results.param_artifact = artifact_path
 
     grid_search_dir = MODEL_DIR / "grid_search"
@@ -204,8 +220,8 @@ def build_kwargs(args):
     return {name: resolver(args) for name, resolver in ARG_RESOLVERS.items()}
 
 
-def get_parser():
-    parser = argparse.ArgumentParser(add_help=False, description="Model Tuning")
+def get_parser(add_help: bool = False) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(add_help=add_help, description="Model Tuning")
     parser.add_argument(
         "--model",
         type=str,
@@ -226,23 +242,26 @@ def get_parser():
         "--reserve-cores",
         type=int,
         required=False,
-        default=2,
-        help="Reserve cores when using workers for parallel processing",
+        default=DEF_RESERVE_CORES,
+        help=f"Reserve cores when using workers for parallel processing. Defaults to {DEF_RESERVE_CORES}.",
     )
 
     parser.add_argument(
         "--workers",
         type=int,
         required=False,
-        default=1,
-        help="Use mutliple cores for parallel processing",
+        default=DEF_NUM_OF_CORES,
+        help=f"Use multiple cores for parallel processing. Defaults to {DEF_NUM_OF_CORES}.",
     )
 
     parser.add_argument(
         "--core-mode",
         type=str,
+        required=False,
+        default=DEF_CORE_MODE_TYPE,
         choices=get_args(CoreModeType),
-        help="Use manual for manual specification of cores used in the process, use max for utilizing the maximum amount of cores.",
+        help=f"""Use 'manual' for manual specification of cores used in the process, use 'all' for utilizing the maximum amount of cores.
+          Defaults to '{DEF_CORE_MODE_TYPE}'.""",
     )
 
     return parser
@@ -288,7 +307,7 @@ if __name__ == "__main__":
     #     section_name="TUNING LOGGER SCRIPT",
     #     file_log_path=LOG_DIR / "tuning_log.log",
     # )
-    parser = get_parser()
+    parser = get_parser(add_help=True)
 
     logger = DEF_SCRIPT_LOGGER
     # logger.start_session(session_id=random.randint(1000, 9999))

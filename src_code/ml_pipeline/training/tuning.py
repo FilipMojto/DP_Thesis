@@ -3,7 +3,8 @@ from joblib import Memory
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import make_scorer, matthews_corrcoef
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import fbeta_score, make_scorer, matthews_corrcoef
 from sklearn.model_selection import GridSearchCV
 from xgboost import XGBClassifier
 from abc import ABC, abstractmethod
@@ -14,8 +15,9 @@ from notebooks.logging_config import MyLogger
 from src_code.config import SupportedModel
 from src_code.ml_pipeline.builders import PipelineBuilder
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
+from src_code.ml_pipeline.resources import CoreConfig
 from src_code.ml_pipeline.training.constants import DEF_TOP_K
-from src_code.ml_pipeline.utils import CoreConfig
+
 from src_code.mlops_intstrex.adapters.grid_search import GridSearchAdapter
 from src_code.mlops_intstrex.reporters.progress_reporter import ProgressReporter
 from src_code.mlops_intstrex.reporters.tqdm_reporter import TqdmReporter
@@ -107,7 +109,8 @@ class TuningWrapperBase(ABC):
             use_scaling=self.use_scaling,
         )
 
-        self.mcc_scorer = make_scorer(matthews_corrcoef)
+        # self.mcc_scorer = make_scorer(matthews_corrcoef)
+        self.f2_scorer = make_scorer(fbeta_score, beta=2)
 
         logger.log_check(
             f"Applying the following core config: {self.core_config.__str__()}"
@@ -117,7 +120,7 @@ class TuningWrapperBase(ABC):
             param_grid=self.param_grid,
             factor=3,  # Min candidates to keep in each round
             resource=resource,
-            scoring=self.mcc_scorer,
+            scoring=self.f2_scorer,
             cv=5,
             n_jobs=self.core_config.n_jobs,
         )
@@ -255,6 +258,56 @@ class NNTuningWrapper(TuningWrapperBase):
         self.grid_search_adapter.execute(self.reporter, self.X_train, self.y_train)
 
 
+class LRTuningWrapper(TuningWrapperBase):
+    # PARAM_GRID = {
+    #     "model__C": [0.01, 0.1, 1.0, 10.0],  # Regularization strength
+    #     "model__penalty": ["l1", "l2"],
+    #     "model__solver": ["liblinear", "saga"],  # compatible with l1/l2
+    #     "model__max_iter": [500, 1000],
+    # }
+    # PARAM_GRID = {
+    #     "model__C": [0.01, 0.1, 1.0, 10.0],
+    #     "model__solver": ["saga"],  # saga supports all types
+    #     "model__l1_ratio": [None, 0.0, 0.5, 1.0],  # None for pure l2
+    #     "model__max_iter": [500, 1000]
+    # }
+    PARAM_GRID = {
+        "model__C": [0.01, 0.1, 1.0, 10.0, 100.0],
+        "model__max_iter": [500, 1000],
+    }
+
+    def __init__(
+        self,
+        lr: LogisticRegression,
+        X_train,
+        y_train,
+        logger: MyLogger,
+        top_k: int = DEF_TOP_K,
+        use_scaling: bool = True,  # LR benefits from scaling
+        random_state: int = DEF_RANDOM_STATE,
+        reporter=None,
+        core_config=None,
+    ):
+        super().__init__(
+            X_train=X_train,
+            y_train=y_train,
+            model=lr,
+            param_grid=self.PARAM_GRID,
+            logger=logger,
+            random_state=random_state,
+            reporter=reporter,
+            core_config=core_config or DEF_RANDOM_STATE,
+            use_scaling=use_scaling,
+            top_k=top_k,
+        )
+
+        logger.log_check("Initializing Logistic Regression Tuning Wrapper...")
+        self.logger.log_result("Initialization completed.")
+
+    @timeit(process_name="LR - Grid Search")
+    def run_grid_search(self):
+        self.grid_search_adapter.execute(self.reporter, self.X_train, self.y_train)
+
 class ModelTuningFactory:
     @staticmethod
     def create(
@@ -297,6 +350,15 @@ class ModelTuningFactory:
         elif model_type == "NN":
             return NNTuningWrapper(
                 model=model,
+                X_train=X_train,
+                y_train=y_train,
+                logger=logger,
+                random_state=random_state,
+                core_config=core_config,
+            )
+        elif model_type == "LR":
+            return LRTuningWrapper(
+                lr=model,
                 X_train=X_train,
                 y_train=y_train,
                 logger=logger,

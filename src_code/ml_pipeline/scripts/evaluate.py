@@ -8,11 +8,9 @@ from xgboost import XGBClassifier
 from notebooks.logging_config import MyLogger
 from src_code.config import (
     ENGINEERED_DATA_DIR,
-    # ENGINEERING_MAPPINGS,
     EVALUATION_DIR,
     LOG_DIR,
     MODEL_DIR,
-    PROCESSED_DATA_DIR,
     SupportedModel,
 )
 from src_code.ml_pipeline.config import SUPPORTED_MODELS
@@ -22,7 +20,6 @@ from src_code.ml_pipeline.experimenting.utils import (
     get_experiment_dir,
     log_experiment_id,
 )
-from src_code.ml_pipeline.models import ModelWrapperBase
 from src_code.ml_pipeline.preprocessing.feature_config import DROP_COLS
 from src_code.ml_pipeline.preprocessing.preprocessing import drop_cols
 import src_code.ml_pipeline.testing.testing as test_utils
@@ -43,10 +40,6 @@ def evaluate(
     models: Iterable[SupportedModel] = SUPPORTED_MODELS,
     experiment_id: int = None,
 ):
-    # MODELS = {
-    #     "Random Forest": VersionedFileManager(file_path=MODEL_DIR / "RF_model_train.joblib", logger=logger),
-    #     "XGBoost": VersionedFileManager(file_path=MODEL_DIR / "XGB_model_train.joblib", logger=logger),
-    # }
     logger.start_session(
         session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID
     )
@@ -57,13 +50,6 @@ def evaluate(
         else None
     )
 
-    # loaded_models = {
-    #     model_type: VersionedFileManager(
-    #         file_path=MODEL_DIR / f"{model_type}_model_train.joblib",
-    #         logger=logger,
-    #     )
-    #     for model_type in models
-    # }
     loaded_models = {
         model_type: dutls.load_artifact(
             dir=MODEL_DIR,
@@ -95,19 +81,18 @@ def evaluate(
     # # Model Loading
     # # -----------------------------------------------------------------------------
 
-    for name, artifact in loaded_models.items():
-        # script_logger.log_check(f"Evaluating model: {name}")
-        logger.start_section(section_name=f"Evaluating model: {name}")
-        # model_wrapper, model_features = dutls.load_model(
-        #     artifact.current_newest, logger
-        # )
-        model_wrapper = artifact.model_wrapper
-        # model_features = model.feature_names_
-        model_features = artifact.extract_features()
+    
 
-        if model_wrapper == None or model_features == None:
+    for name, artifact in loaded_models.items():
+        logger.start_section(section_name=f"Evaluating model: {name}")
+        model_wrapper = artifact.model_wrapper
+     
+        model_features = artifact.extract_features()
+        logger.log_result(f"Model was trained on features: {len(model_features)}" if model_features is not None else "Model features not found in artifact.")
+
+        if model_wrapper == None and model_features == None:
             raise ValueError(
-                f"Unexpected None value for params: {model_wrapper=}, {model_features=}"
+                f"Model wrapper or features not found for model '{name}'. Cannot proceed with evaluation."
             )
 
         if isinstance(model_wrapper, RandomForestClassifier):
@@ -123,21 +108,13 @@ def evaluate(
         # Column Filtering
         # -----------------------------------------------------------------------------
 
-        # X_test = test_df[model_features]
         X_trans = model_wrapper.transform(test_df)
-        # X_trans = X_trans[model_features]
 
         # -----------------------------------------------------------------------------
         # Inference
         # -----------------------------------------------------------------------------
 
         y_true = test_df["label"] if "label" in test_df.columns else None
-
-        # predictions, probabilities = test_utils.infer(
-        #     X_test=X_test, model=model_wrapper.model, logger=logger
-        # )
-
-        # X_trans = model_wrapper.pipeline[:-1].transform(X_test).astype(np.float32)
         results_local = test_utils.evaluate_model(
             model_name=name,
             model=model_wrapper.model,
@@ -172,9 +149,9 @@ def evaluate(
     return results_v2
 
 
-def get_parser():
+def get_parser(add_help: bool = False) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Evaluation script for ML & DL models.", add_help=False
+        description="Evaluation script for ML & DL models.", add_help=add_help
     )
 
     parser.add_argument(
@@ -191,9 +168,8 @@ def get_parser():
 
 if __name__ == "__main__":
     logger = DEF_SCRIPT_LOGGER
-    # logger.start_session()
 
-    parser = get_parser()
+    parser = get_parser(add_help=True)
     args = parser.parse_args()
 
     evaluate(logger=logger, models=args.models, experiment_id=None)

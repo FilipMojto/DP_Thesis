@@ -37,12 +37,12 @@ from src_code.config import EVALUATION_DIR, REPORTS_DIR
 #     return is_negative.any()
 
 
-def get_n_jobs(reserve: int = 2) -> int:
-    """
-    Return number of cores to use, reserving some for system responsiveness.
-    """
-    total_cores = (os.cpu_count() / 2) or 1
-    return max(1, total_cores - reserve)
+# def get_n_jobs(reserve: int = 2) -> int:
+#     """
+#     Return number of cores to use, reserving some for system responsiveness.
+#     """
+#     total_cores = (os.cpu_count() / 2) or 1
+#     return max(1, total_cores - reserve)
 
 
 def limit_dataframe_rows(df: pd.DataFrame, script_logger: MyLogger, max_rows: int = None) -> pd.DataFrame:
@@ -90,60 +90,60 @@ def describe_dataframe(df: pd.DataFrame, logger: MyLogger, name: str = "DataFram
 #         for validator in validators:
 #             validator(args)
 
-import os
-import psutil
-from dataclasses import dataclass, field
-from typing import Literal
+# import os
+# import psutil
+# from dataclasses import dataclass, field
+# from typing import Literal
 
-CoreModeType = Literal['manual', 'all']
+# CoreModeType = Literal['manual', 'all']
 
-@dataclass
-class CoreConfig:
-    reserve_cores: int = 2
-    num_of_cores: int = 1
-    mode: CoreModeType = 'manual'
+# @dataclass
+# class CoreConfig:
+#     reserve_cores: int = 2
+#     num_of_cores: int = 1
+#     mode: CoreModeType = 'manual'
     
-    # Internal field to store the actual calculated value
-    _final_n_jobs: int = field(init=False, repr=False)
+#     # Internal field to store the actual calculated value
+#     _final_n_jobs: int = field(init=False, repr=False)
 
-    def __post_init__(self):
-        self._calculate_cores()
+#     def __post_init__(self):
+#         self._calculate_cores()
 
-    def _calculate_cores(self):
-        # 1. Determine total physical availability
-        # We use logical=False if you want physical cores, 
-        # but for Grid Search, logical cores (Hyperthreading) are usually fine.
-        total_available = os.cpu_count() or 1
+#     def _calculate_cores(self):
+#         # 1. Determine total physical availability
+#         # We use logical=False if you want physical cores, 
+#         # but for Grid Search, logical cores (Hyperthreading) are usually fine.
+#         total_available = os.cpu_count() or 1
         
-        # Rule (a): Reserve cores must be complied with
-        # We ensure we don't try to reserve more cores than exist
-        actual_reserves = min(self.reserve_cores, total_available - 1)
-        max_allowed = max(1, total_available - actual_reserves)
+#         # Rule (a): Reserve cores must be complied with
+#         # We ensure we don't try to reserve more cores than exist
+#         actual_reserves = min(self.reserve_cores, total_available - 1)
+#         max_allowed = max(1, total_available - actual_reserves)
 
-        if self.mode == 'all':
-            # Rule (c) variant: If 'all', use everything except reserves
-            self._final_n_jobs = max_allowed
-        else:
-            # Rule (b): Manual mode
-            # Comply with manual setting only if it doesn't exceed the (Total - Reserved) limit
-            if self.num_of_cores > max_allowed:
-                self._final_n_jobs = max_allowed
-            else:
-                self._final_n_jobs = max(1, self.num_of_cores)
+#         if self.mode == 'all':
+#             # Rule (c) variant: If 'all', use everything except reserves
+#             self._final_n_jobs = max_allowed
+#         else:
+#             # Rule (b): Manual mode
+#             # Comply with manual setting only if it doesn't exceed the (Total - Reserved) limit
+#             if self.num_of_cores > max_allowed:
+#                 self._final_n_jobs = max_allowed
+#             else:
+#                 self._final_n_jobs = max(1, self.num_of_cores)
 
-    @property
-    def n_jobs(self) -> int:
-        """This is what you pass to GridSearchCV(n_jobs=...)"""
-        return self._final_n_jobs
+#     @property
+#     def n_jobs(self) -> int:
+#         """This is what you pass to GridSearchCV(n_jobs=...)"""
+#         return self._final_n_jobs
 
-    def __str__(self) -> str:
-        total = os.cpu_count()
-        return (
-            f"--- Core Allocation Report ---\n"
-            f"Mode:            {self.mode.upper()}\n"
-            f"System Total:    {total} cores\n"
-            f"Reserved:        {self.reserve_cores} cores\n"
-            f"Target Manual:   {self.num_of_cores if self.mode == 'manual' else 'N/A'}\n"
-            f"Final Allocated: {self._final_n_jobs} cores\n"
-            f"------------------------------"
-        )
+#     def __str__(self) -> str:
+#         total = os.cpu_count()
+#         return (
+#             f"--- Core Allocation Report ---\n"
+#             f"Mode:            {self.mode.upper()}\n"
+#             f"System Total:    {total} cores\n"
+#             f"Reserved:        {self.reserve_cores} cores\n"
+#             f"Target Manual:   {self.num_of_cores if self.mode == 'manual' else 'N/A'}\n"
+#             f"Final Allocated: {self._final_n_jobs} cores\n"
+#             f"------------------------------"
+#         )

@@ -56,7 +56,7 @@ def load_experiments(file_path: Path):
 
     return experiments
 
-def get_or_create_experiment(experiments: List[Experiment], **new_exp_kwargs) -> Experiment:
+def get_or_create_experiment(experiments: List[Experiment], logger: MyLogger, **new_exp_kwargs) -> Experiment:
     # experiments: List[Experiment] = []
 
     # # 1. Try to load existing experiments
@@ -73,13 +73,13 @@ def get_or_create_experiment(experiments: List[Experiment], **new_exp_kwargs) ->
     # 2. Search for the first unfinished experiment
     for exp in experiments:
         if not exp.is_finished:
-            print(f"📋 Resuming unfinished experiment: {exp.experiment_id}")
+            logger.log_result(f"📋 Resuming unfinished experiment: {exp.experiment_id}")
             return exp
 
     # 3. Create new if none found or file didn't exist
-    print("🚀 No unfinished experiments found. Creating a new one...")
+    logger.log_result("🚀 No unfinished experiments found. Creating a new one...")
     new_exp = Experiment(
-        experiment_id=Experiment.generate_id(),
+        # experiment_id=Experiment.generate_id(),
         **new_exp_kwargs
     )
     
@@ -121,17 +121,17 @@ if __name__ == "__main__":
     experiment_id = random.randint(1, 1000)
     # experiments: List[Experiment] = []
     experiments = load_experiments(file_path=EXPERIMENT_FILE)
-    curr_experiment = get_or_create_experiment(experiments=experiments)
+    curr_experiment = get_or_create_experiment(experiments=experiments, logger=logger)
 
     if args.phase == "eda":
-        results = perform_EDA(
+        curr_experiment.eda_results = perform_EDA(
             subset=args.subset,
             experiment_id=experiment_id,
             max_rows=args.max_rows,
             intersect_with_processed=args.intersect_with_processed,
         )
 
-        curr_experiment.eda_results = results
+        # curr_experiment.eda_results = results
     if args.phase == "engineer":
         curr_experiment.preprocessing_results = early_preprocess(
             subset=args.subset,
@@ -157,25 +157,27 @@ if __name__ == "__main__":
             reserve_cores=args.reserve_cores,
         )
         # curr_experiment.tuning_results = results
-    elif args.phase == "preprocess":
-        transform_df(
-            subset=args.subset,
-            max_rows=args.max_rows,
-            # script_logger=logger,
-            experiment_id=experiment_id,
-        )
+    # elif args.phase == "preprocess":
+    #     transform_df(
+    #         subset=args.subset,
+    #         max_rows=args.max_rows,
+    #         # script_logger=logger,
+    #         experiment_id=experiment_id,
+    #     )
     elif args.phase == "train":
-        train(
+        curr_experiment.training_results.append(train(
             model_type=args.model,
             load_tuned=args.load_tuned,
             skip_pfi=args.skip_pfi,
             top_k=args.top_k,
             experiment_id=experiment_id,
-        )
+        ))
     elif args.phase == "eval":
-        eval_results = evaluate(models=args.models, experiment_id=experiment_id)
-
+        curr_experiment.eval_results = evaluate(models=args.models, experiment_id=experiment_id)
+    else:
+        raise ValueError(f"Invalid value: {args.phase=}")
         # for 
-        
+    
+    save_experiments(file_path=EXPERIMENT_FILE, experiments=experiments)
     
     

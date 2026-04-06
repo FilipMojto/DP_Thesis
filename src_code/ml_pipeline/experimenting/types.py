@@ -18,6 +18,10 @@ ARG_VALIDATORS_COLL: TypeAlias = List[ARG_VALIDATOR]
 
 SubsetArg = Literal['train', 'test', 'val', 'all']
 
+
+class Artifact(BaseModel):
+    ...
+
 class MyDataset(BaseModel):
     type: SubsetType
     
@@ -26,7 +30,6 @@ class MyDataset(BaseModel):
     src_path: Optional[Path] = None
     # rows_after: Optional[int] = None
     # cols_after: Optional[int] = None
-
 
 
 class EdaResults(BaseModel):
@@ -53,7 +56,9 @@ class TransformationResults(BaseModel):
     pass
 
 class TrainingResults(BaseModel):
-    pass
+    tuning_params: Optional[Path] = None
+    cv_scores: Optional[Dict[str, float]] = None
+    trained_model: Optional[Path] = None
 
 
 class EvalResults(BaseModel):
@@ -72,16 +77,16 @@ class Experiment(BaseModel):
 
     # --- General Info ---
     experiment_id: str = Field(default_factory=lambda: f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-    date: datetime = Field(default_factory=datetime.now())
+    date: datetime = Field(default_factory=datetime.now)
     # models: List[SupportedModel] = field(default_factory=list)
-    model: SupportedModel
-    notes: str
+    models: Optional[List[SupportedModel]] = None
+    notes: Optional[str] = None
     is_finished: bool = Field(default=False)
 
     # --- Data Info ---
-    training_subset: Path
-    testing_subset: Path
-    validation_subset: Path
+    training_subset: Optional[Path] = None
+    testing_subset: Optional[Path] = None
+    validation_subset: Optional[Path] = None
 
     # --- Phase Results ---
     # eval_results: List[EvalResults] = Field(default_factory=list)
@@ -91,8 +96,8 @@ class Experiment(BaseModel):
     tuning_results: TuningResults = Field(default_factory=TuningResults)
     preprocessing_results: PreprocessingResults = Field(default_factory=PreprocessingResults)
     transformation_results: TransformationResults = Field(default_factory=TransformationResults)
-    training_results: TrainingResults = Field(default_factory=TrainingResults)
-    eval_results: EvalResults
+    training_results: List[TrainingResults] = Field(default_factory=list)
+    eval_results: List[EvalResults] = Field(default_factory=list)
 
 
 # if __name__ == "__main__":

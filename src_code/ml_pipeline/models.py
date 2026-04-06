@@ -1,10 +1,13 @@
 from abc import abstractmethod
 from collections import Counter
+from typing import Dict
 import numpy as np
 from pyparsing import ABC
 from sklearn.base import BaseEstimator
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 
+from sklearn.linear_model import LogisticRegression
 import torch
 from xgboost import XGBClassifier
 import torch.nn as nn
@@ -318,6 +321,200 @@ class NNWrapper(ModelWrapperBase):
         self.pipeline.steps[-1] = ("model", self.model)
 
 
+class LRWrapper(ModelWrapperBase):
+    """
+    Wrapper for LogisticRegression to integrate into the ML pipeline.
+    """
+
+    def __init__(
+        self,
+        random_state: int = DEF_RANDOM_STATE,
+        logger: MyLogger = DEF_NOTEBOOK_LOGGER,
+        top_k: int = 100,
+        tuned_params: dict = None,
+    ):
+        super().__init__(top_k=top_k, random_state=random_state, logger=logger)
+
+        self.logger.log_check("Defining Logistic Regression model...")
+        self.use_scaling = True  # LR benefits from feature scaling
+
+        # Initialize model
+        if tuned_params:
+            self.model = LogisticRegression(**tuned_params)
+        else:
+            # self.model = LogisticRegression(
+            #     penalty="l2",
+            #     solver="liblinear",  # good default for small-medium datasets
+            #     C=1.0,
+            #     random_state=random_state,
+            #     class_weight="balanced",
+            #     max_iter=1000,
+            # )
+            self.model = LogisticRegression(
+                solver="lbfgs",
+                C=1.0,
+                random_state=random_state,
+                class_weight="balanced",
+                max_iter=1000,
+            )
+
+        # Build pipeline
+        self.set_up_pipeline()
+        logger.log_result("Logistic Regression wrapper initialized.")
+
+    def get_model(self):
+        return self.model
+
+    def set_model(self, lr: LogisticRegression):
+        self.model = lr
+
+    @timeit(process_name="LR Fit")
+    def fit(self, X_train, y_train):
+        """
+        Fit the preprocessing pipeline + logistic regression model.
+        """
+        # Fit preprocessing steps first
+        X_train_ready = self.pipeline[:-1].fit_transform(X_train, y_train)
+
+        # Fit LR on transformed features
+        self.model.fit(X_train_ready, y_train)
+        self.pipeline.steps[-1] = ("model", self.model)
+
+        # Store feature names
+        try:
+            self.feature_names_ = self.pipeline[:-1].get_feature_names_out().tolist()
+        except Exception:
+            num_features = self.model.n_features_in_
+            self.feature_names_ = [f"feature_{i}" for i in range(num_features)]
+
+class DummyWrapper(ModelWrapperBase):
+
+    def __init__(
+        self,
+        strategy: str = "stratified",  # or "most_frequent"
+        random_state: int = DEF_RANDOM_STATE,
+        logger: MyLogger = DEF_NOTEBOOK_LOGGER,
+        top_k: int = None,  # not needed
+    ):
+        super().__init__(random_state=random_state, logger=logger, top_k=top_k)
+
+        self.logger.log_check(f"Defining Dummy model: {strategy}")
+
+        self.use_scaling = False
+
+        self.model = DummyClassifier(
+            strategy=strategy,
+            random_state=random_state
+        )
+
+        self.set_up_pipeline()
+
+        logger.log_result("Dummy model definition done.")
+
+    def get_model(self):
+        return self.model
+
+    @timeit(process_name="Dummy Fit")
+    def fit(self, X_train, y_train):
+        # Same pattern as RF
+        X_ready = self.pipeline[:-1].fit_transform(X_train, y_train)
+
+        self.model.fit(X_ready, y_train)
+        self.pipeline.steps[-1] = ("model", self.model)
+
+        # Feature names (optional)
+        try:
+            self.feature_names_ = self.pipeline[:-1].get_feature_names_out().tolist()
+        except:
+            self.feature_names_ = [f"feature_{i}" for i in range(self.model.n_features_in_)]
+
+
+class VotingWrapper(ModelWrapperBase):
+
+    def __init__(
+        self,
+        base_wrappers: Dict[str, ModelWrapperBase],  # {"rf": RFWrapper, "xgb": XGBWrapper, ...}
+        random_state: int,
+        logger,
+        top_k: int = 100,
+    ):
+        super().__init__(top_k=top_k, random_state=random_state, logger=logger)
+
+        self.logger.log_check("Defining Voting Ensemble...")
+
+        # Extract trained models
+        estimators = [
+            (name, wrapper.model)
+            for name, wrapper in base_wrappers.items()
+        ]
+
+        self.model = VotingClassifier(
+            estimators=estimators,
+            voting="soft",  # IMPORTANT
+            n_jobs=-1
+        )
+
+        self.use_scaling = False  # depends on base models
+        self.set_up_pipeline()
+
+        self.logger.log_result("Voting ensemble initialized.")
+
+    def get_model(self):
+        return self.model
+
+    def fit(self, X_train, y_train, X_val=None, y_val=None):
+        # For voting ensemble, we fit the ensemble on the outputs of base models.
+        X_ready = self.pipeline[:-1].fit_transform(X_train, y_train)
+        self.model.fit(X_ready, y_train)
+        self.pipeline.steps[-1] = ("model", self.model)
+
+
+from sklearn.ensemble import StackingClassifier
+from sklearn.linear_model import LogisticRegression
+
+class StackingWrapper(ModelWrapperBase):
+
+    def __init__(
+        self,
+        base_wrappers: dict,
+        random_state: int,
+        logger,
+        top_k: int = 100,
+    ):
+        super().__init__(top_k=top_k, random_state=random_state, logger=logger)
+
+        self.logger.log_check("Defining Stacking Ensemble...")
+
+        estimators = [
+            (name, wrapper.model)
+            for name, wrapper in base_wrappers.items()
+        ]
+
+        self.model = StackingClassifier(
+            estimators=estimators,
+            final_estimator=LogisticRegression(
+                class_weight="balanced",
+                max_iter=1000,
+                random_state=random_state
+            ),
+            stack_method="predict_proba",  # important for your use-case
+            n_jobs=-1
+        )
+
+        self.use_scaling = False
+        self.set_up_pipeline()
+
+        self.logger.log_result("Stacking ensemble initialized.")
+
+    def get_model(self):
+        return self.model
+
+    def fit(self, X_train, y_train, X_val=None, y_val=None):
+        X_ready = self.pipeline[:-1].fit_transform(X_train, y_train)
+        self.model.fit(X_ready, y_train)
+        self.pipeline.steps[-1] = ("model", self.model)
+
+
 class ModelWrapperFactory:
     @staticmethod
     def create(
@@ -327,6 +524,7 @@ class ModelWrapperFactory:
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         scale_pos_weight=None,
         tuned_hyperparams: dict = None,
+        base_wrappers: Dict[str, ModelWrapperBase] = None,  # for ensemble
     ) -> ModelWrapperBase:
         if model_type == "RF":
             return RFWrapper(
@@ -346,6 +544,39 @@ class ModelWrapperFactory:
                 logger=logger,
                 top_k=top_k,
                 tuned_params=tuned_hyperparams,
+            )
+        elif model_type == "LR":
+            return LRWrapper(
+                random_state=random_state,
+                logger=logger,
+                top_k=top_k,
+                tuned_params=tuned_hyperparams,
+            )
+        elif model_type == "ENSEMBLE_VOTING":
+            return VotingWrapper(
+                base_wrappers=base_wrappers,
+                random_state=random_state,
+                logger=logger,
+                top_k=top_k,
+            )
+        elif model_type == "DUMMY_STRATIFIED":
+            return DummyWrapper(
+                strategy="stratified",
+                random_state=random_state,
+                logger=logger,
+            )
+        elif model_type == "DUMMY_MOST_FREQUENT":
+            return DummyWrapper(
+                strategy="most_frequent",
+                random_state=random_state,
+                logger=logger,
+            )
+        elif model_type == "ENSEMBLE_STACKING":
+            return StackingWrapper(
+                base_wrappers=base_wrappers,
+                random_state=random_state,
+                logger=logger,
+                top_k=top_k,
             )
         else:
             raise ValueError(f"Unexpected value: {model_type=}")

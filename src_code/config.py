@@ -12,8 +12,9 @@ from typing import Literal
 from src_code.versioning import find_newest_version, next_version_path
 
 SubsetType = Literal['train', 'test', 'val']
-SupportedModel = Literal['RF', 'XGB', 'NN']
-
+SupportedModel = Literal['RF', 'XGB', 'NN', "LR", "DUMMY_STRATIFIED", "DUMMY_MOST_FREQUENT", "ENSEMBLE_VOTING", "ENSEMBLE_STACKING"]
+# here I need to list the model types that are supported by ensemble wrapper, which may be a subset of all supported models. For example, if ensemble only supports RF and XGB, then I would list those here.
+# ENSEMBLE_SUPPORTED_MODELS = Literal['RF', 'XGB', 'LR']
 
 # 1. Get the directory of the current file (config.py or similar)
 # Use .resolve() to get the absolute path, and .parent to get the directory
