@@ -2,8 +2,10 @@
 import argparse
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Mapping, Optional, TypeAlias
-from pydantic import BaseModel, Field
+from typing import Any, Callable, Dict, List, Literal, Mapping, Optional, Tuple, TypeAlias
+import numpy as np
+import pandas as pd
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src_code.config import SubsetType, SupportedModel
 
@@ -61,12 +63,55 @@ class TrainingResults(BaseModel):
     trained_model: Optional[Path] = None
 
 
+# class EvalResults(BaseModel):
+#     model: SupportedModel
+#     best_thresh_f2: Optional[float] = None
+#     best_f2_score: Optional[float] = None
+#     roc_auc: Optional[float] = None
+#     auprc: Optional[float] = None
+
+# class EvalResults(BaseModel):
+#     # This line tells Pydantic to allow types like np.ndarray
+#     model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+#     model_name: SupportedModel
+#     y_true: np.ndarray
+#     probs: np.ndarray
+#     preds_default: np.ndarray
+#     preds_thresholded: np.ndarray
+#     # pr_curve: tuple
+#     # roc_curve: tuple
+#     pr_curve: Tuple[np.ndarray, np.ndarray, np.ndarray] 
+#     roc_curve: Tuple[np.ndarray, np.ndarray]
+#     roc_auc: Optional[float] = None
+#     auprc: Optional[float] = None
+#     best_threshold: Optional[float] = None
+#     best_score: Optional[float] = None
+#     classification_report: Optional[Dict[str, float]] = None
 class EvalResults(BaseModel):
-    model: SupportedModel
-    best_thresh_f2: Optional[float] = None
-    best_f2_score: Optional[float] = None
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    model_name: Any # Use Any or str if SupportedModel causes issues
+    y_true: np.ndarray
+    probs: np.ndarray
+    preds_default: np.ndarray
+    preds_thresholded: np.ndarray
+    pr_curve: Tuple[np.ndarray, np.ndarray, np.ndarray] 
+    roc_curve: Tuple[np.ndarray, np.ndarray]
     roc_auc: Optional[float] = None
     auprc: Optional[float] = None
+    best_threshold: Optional[float] = None
+    best_score: Optional[float] = None
+    # Changed from Dict[str, float] to Dict[str, Any] to support nested dicts
+    classification_report: Optional[Dict[str, Any]] = None
+
+    @field_validator("y_true", "probs", "preds_default", "preds_thresholded", mode="before")
+    @classmethod
+    def convert_to_numpy(cls, v: Any) -> np.ndarray:
+        if isinstance(v, pd.Series):
+            return v.values
+        return v
+
 
 
 # @dataclass

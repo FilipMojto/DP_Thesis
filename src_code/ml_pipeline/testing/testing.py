@@ -1,5 +1,6 @@
 import math
 from pathlib import Path
+from typing import List
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,7 +14,9 @@ from sklearn.metrics import (
     roc_curve,
 )
 from notebooks.logging_config import MyLogger
+from src_code.config import SupportedModel
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
+from src_code.ml_pipeline.experimenting.types import EvalResults
 from src_code.ml_pipeline.testing.objects import EvaluationResult
 
 
@@ -52,7 +55,7 @@ def classification_report_table(results):
 
 
 def evaluate_model(
-    model_name: str,
+    model_name: SupportedModel,
     model: BaseEstimator,
     X_test,
     y_true,
@@ -83,7 +86,21 @@ def evaluate_model(
     auprc = average_precision_score(y_true, probs)
     logger.log_result(f"AUPRC: {auprc:.4f}")
 
-    return EvaluationResult(
+    # return EvaluationResult(
+    #     model_name=model_name,
+    #     y_true=y_true,
+    #     probs=probs,
+    #     preds_default=preds,
+    #     preds_thresholded=preds_thresh,
+    #     pr_curve=(precision, recall, pr_thresholds),
+    #     roc_curve=(fpr, tpr),
+    #     roc_auc=roc_auc,
+    #     auprc=auprc,
+    #     best_threshold=best_thresh,
+    #     best_score=best_f2_score,
+    #     classification_report=report,
+    # )
+    return EvalResults(
         model_name=model_name,
         y_true=y_true,
         probs=probs,
@@ -114,28 +131,6 @@ def evaluate_model(
 #     logger.log_result("Plotting complete.")
 
 #     return precision, recall, thresholds
-
-
-def plot_pr_grid(results, experiment_path: Path = None, cols=2):
-    rows = math.ceil(len(results) / cols)
-    fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 5 * rows))
-    axes = np.array(axes).reshape(-1)
-
-    for ax, res in zip(axes, results):
-        precision, recall, _ = res.pr_curve
-        ax.plot(recall, precision)
-        ax.set_title(res.model_name)
-        ax.set_xlabel("Recall")
-        ax.set_ylabel("Precision")
-        ax.grid(True)
-
-    if experiment_path:
-        save_file = experiment_path / "precision_recall_curves.png"
-        plt.savefig(save_file)
-        print(f"Saved PR grid to {save_file}")
-
-    plt.tight_layout()
-    plt.show()
 
 
 def find_best_threshold(
@@ -196,25 +191,108 @@ def find_optimal_threshold_F2(
 #     logger.log_result("Displayed successfully.")
 
 
-def plot_roc_grid(results, experiment_path: Path = None, cols=2):
-    rows = math.ceil(len(results) / cols)
-    fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 5 * rows))
-    axes = np.array(axes).reshape(-1)
+# def plot_pr_grid(results, experiment_path: Path = None, cols=2):
+#     rows = math.ceil(len(results) / cols)
+#     fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 5 * rows))
+#     axes = np.array(axes).reshape(-1)
 
+#     for ax, res in zip(axes, results):
+#         precision, recall, _ = res.pr_curve
+#         ax.plot(recall, precision)
+#         ax.set_title(res.model_name)
+#         ax.set_xlabel("Recall")
+#         ax.set_ylabel("Precision")
+#         ax.grid(True)
+
+#     if experiment_path:
+#         save_file = experiment_path / "precision_recall_curves.png"
+#         plt.savefig(save_file)
+#         print(f"Saved PR grid to {save_file}")
+
+#     plt.tight_layout()
+#     plt.show()
+
+def plot_pr_combined(results: List[EvalResults], experiment_path: Path = None):
+    """Newer combined plot for PR curves that can handle EvalResults from experimenting types.
+    Old version - plot_pr_grid - is more for quick individual checks, while this one is for final comparisons.
+    Args:
+        results (List[EvalResults]): _description_
+        experiment_path (Path, optional): _description_. Defaults to None.
+    """
+    plt.figure(figsize=(10, 7))
+    
+    for res in results:
+        # Assuming res.pr_curve returns (precision, recall, thresholds)
+        precision, recall, _ = res.pr_curve
+        label = f"{res.model_name} (AUPRC: {res.auprc:.3f})"
+        plt.plot(recall, precision, label=label, linewidth=2)
+
+    plt.title("Precision-Recall Curves Comparison")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.ylim([0.0, 1.05])
+    plt.xlim([0.0, 1.0])
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend(loc="lower left")
+    
     if experiment_path:
-        save_file = experiment_path / "roc_curves.png"
+        save_file = experiment_path / "precision_recall_combined.png"
         plt.savefig(save_file)
-        print(f"Saved ROC grid to {save_file}")
+        print(f"Saved PR combined plot to {save_file}")
 
-    for ax, res in zip(axes, results):
+    plt.show()
+
+
+# def plot_roc_grid(results, experiment_path: Path = None, cols=2):
+#     rows = math.ceil(len(results) / cols)
+#     fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 5 * rows))
+#     axes = np.array(axes).reshape(-1)
+
+#     if experiment_path:
+#         save_file = experiment_path / "roc_curves.png"
+#         plt.savefig(save_file)
+#         print(f"Saved ROC grid to {save_file}")
+
+#     for ax, res in zip(axes, results):
+#         fpr, tpr = res.roc_curve
+#         ax.plot(fpr, tpr, label=f"AUC={res.roc_auc:.3f}")
+#         ax.plot([0, 1], [0, 1], "--", color="gray")
+#         ax.set_title(res.model_name)
+#         ax.set_xlabel("FPR")
+#         ax.set_ylabel("TPR")
+#         ax.legend()
+#         ax.grid(True)
+
+#     plt.tight_layout()
+#     plt.show()
+
+def plot_roc_combined(results: List[EvalResults], experiment_path: Path = None):
+    """Newer version of ROC curve plotting that can handle EvalResults from experimenting types.
+    Old version - plot_roc_grid - is more for quick individual checks, while this one
+
+    Args:
+        results (List[EvalResults]): _description_
+        experiment_path (Path, optional): _description_. Defaults to None.
+    """
+    plt.figure(figsize=(10, 7))
+    
+    # Plot the diagonal 50/50 line
+    plt.plot([0, 1], [0, 1], 'k--', alpha=0.5)
+    
+    for res in results:
+        # Assuming res.roc_curve returns (fpr, tpr, thresholds)
         fpr, tpr = res.roc_curve
-        ax.plot(fpr, tpr, label=f"AUC={res.roc_auc:.3f}")
-        ax.plot([0, 1], [0, 1], "--", color="gray")
-        ax.set_title(res.model_name)
-        ax.set_xlabel("FPR")
-        ax.set_ylabel("TPR")
-        ax.legend()
-        ax.grid(True)
+        label = f"{res.model_name} (AUC: {res.roc_auc:.3f})"
+        plt.plot(fpr, tpr, label=label, linewidth=2)
 
-    plt.tight_layout()
+    plt.title("ROC Curves Comparison")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend(loc="lower right")
+    
+    if experiment_path:
+        save_file = experiment_path / "roc_combined.png"
+        plt.savefig(save_file)
+
     plt.show()

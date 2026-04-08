@@ -60,7 +60,7 @@ def evaluate(
         for model_type in models
     }
 
-    results = []
+    # results = []
     results_v2: List[EvalResults] = []
 
     # =============================================================================
@@ -82,7 +82,6 @@ def evaluate(
     # # -----------------------------------------------------------------------------
 
     
-
     for name, artifact in loaded_models.items():
         logger.start_section(section_name=f"Evaluating model: {name}")
         model_wrapper = artifact.model_wrapper
@@ -123,18 +122,10 @@ def evaluate(
             logger=logger,
         )
 
-        results.append(results_local)
-        results_v2.append(
-            EvalResults(
-                model=name,
-                best_thresh_f2=results_local.best_threshold,
-                best_f2_score=results_local.best_score,
-                roc_auc=results_local.roc_auc,
-                auprc=results_local.auprc,
-            )
-        )
+        # results.append(results_local)
+        results_v2.append(results_local)
 
-    report_df = test_utils.classification_report_table(results)
+    report_df = test_utils.classification_report_table(results_v2)
     logger.log_result(f"\n{report_df.round(3)}")
 
     if exp_dir:
@@ -143,8 +134,10 @@ def evaluate(
         with open(exp_dir / "report_summary.txt", "w") as f:
             f.write(report_df.to_string())
 
-    test_utils.plot_pr_grid(results=results, experiment_path=exp_dir)
-    test_utils.plot_roc_grid(results=results, experiment_path=exp_dir)
+    # test_utils.plot_pr_grid(results=results, experiment_path=exp_dir)
+    test_utils.plot_pr_combined(results=results_v2, experiment_path=exp_dir)
+    # test_utils.plot_roc_grid(results=results, experiment_path=exp_dir)
+    test_utils.plot_roc_combined(results=results_v2, experiment_path=exp_dir)
 
     return results_v2
 
