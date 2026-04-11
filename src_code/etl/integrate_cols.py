@@ -312,41 +312,44 @@ if __name__ == "__main__":
         file_log_path=LOG_DIR / "parallel_msg_extractor.log",
     )
     input_df_versioner = VersionedFileManager(
-        file_path=INTERIM_DATA_DIR / f"{subset}_labeled_features_partial.feather"
+        file_path=INTERIM_DATA_DIR / f"{subset}_labeled_features_partial.feather", logger=logger
     )
 
     output_df_versioner = VersionedFileManager(
-        file_path=EXTENDED_DATA_DIR / f"{subset}_extended.feather"
+        file_path=EXTENDED_DATA_DIR / f"{subset}_extended.feather", logger=logger
     )
 
-    # df_path = ETL_PATH_MAPPINGS["test"]["current_newest"]
-    # input_df = load_df(df_file_path=input_df_versioner.current_newest, logger=logger)
-    # keys = ["repo", "commit"]
-
-    # df_size_before = len(input_df)
-    # input_df = input_df.drop_duplicates(subset=keys)
-    # df_size_after = len(input_df)
-
-    # logger.log_result(
-    #     f"Dropped {df_size_before - df_size_after} ({(df_size_before - df_size_after) / df_size_before}%) duplicates!"
-    # )
-
+  
     # if prefetch_messages:
     input_df = load_df(df_file_path=input_df_versioner.current_newest, logger=logger)
-    keys = ["repo", "commit"]
+    # keys = ["repo", "commit"]
 
     df_size_before = len(input_df)
-    input_df = input_df.drop_duplicates(subset=keys)
-    df_size_after = len(input_df)
+    # input_df = input_df.drop_duplicates(subset=keys)
+    
+    commit_df = (
+        input_df
+        .groupby(["repo", "commit"])
+        .agg({
+            "lines": list,  # keep all lists
+        })
+        .reset_index()
+    )
+
+    commit_df["has_bug"] = commit_df["lines"].apply(
+        lambda rows: any(len(x) > 0 for x in rows)
+    )
+
+    df_size_after = len(commit_df)
+
+    # commit_df["label"] = commit_df["lines"].astype(int)
+    commit_df["label"] = commit_df["has_bug"].astype(int)
 
     logger.log_result(
         f"Dropped {df_size_before - df_size_after} ({(df_size_before - df_size_after) / df_size_before}%) duplicates!"
     )
 
-    input_df = parallel_fetch_messages(df=input_df, logger=logger, cache_path=cached_messages)
-    # else:
-    #     input_df = load_df(df_file_path=output_df_versioner.current_newest, logger=logger)
+    if prefetch_messages:
+        commit_df = parallel_fetch_messages(df=commit_df, logger=logger, cache_path=cached_messages)
 
-    # input_df = integrate_additional_columns(input_df=input_df, logger=logger, subset=subset, max_rows=max_rows)
-
-    save_df(df=input_df, df_file_path=output_df_versioner.next_base_output, logger=logger)
+    save_df(df=commit_df, df_file_path=output_df_versioner.next_base_output, logger=logger)

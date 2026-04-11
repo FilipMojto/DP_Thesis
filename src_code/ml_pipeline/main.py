@@ -54,27 +54,27 @@ ARG_MATRIX_TYPE: TypeAlias = (
 )
 
 
-def __from_matrix_to_list(
-    matrix: Dict[str, ARG_MATRIX_TYPE],
-    logger: MyLogger,
-):
-    # arg_resolvers_full: List[ARG_MATRIX_TYPE] = []
-    arg_resolvers_full = None
+# def __from_matrix_to_list(
+#     matrix: Dict[str, ARG_MATRIX_TYPE],
+#     logger: MyLogger,
+# ):
+#     # arg_resolvers_full: List[ARG_MATRIX_TYPE] = []
+#     arg_resolvers_full = None
 
-    # if isinstance(row, Dict):
-    #     logger.log_result(f"{name}: received an arg resolver. Processing...")
-    #     for
+#     # if isinstance(row, Dict):
+#     #     logger.log_result(f"{name}: received an arg resolver. Processing...")
+#     #     for
 
-    for _, row in matrix.items():
-        # arg_resolvers_full.extend(row.values() if isinstance(row, Dict) else row)
-        if isinstance(row, Dict):
-            arg_resolvers_full
+#     for _, row in matrix.items():
+#         # arg_resolvers_full.extend(row.values() if isinstance(row, Dict) else row)
+#         if isinstance(row, Dict):
+#             arg_resolvers_full
 
-        # if isinstance(row, Dict):
-        #     logger.log_result(f"{name}: received an arg resolver. Processing...")
-        #     for
+#         # if isinstance(row, Dict):
+#         #     logger.log_result(f"{name}: received an arg resolver. Processing...")
+#         #     for
 
-    return arg_resolvers_full
+#     return arg_resolvers_full
 
 
 def main(
