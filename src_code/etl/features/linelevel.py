@@ -1,3 +1,5 @@
+import pandas as pd
+
 from src_code.external_models.codebert import EMBED_MODEL, tokenizer, device
 import torch
 
@@ -52,8 +54,38 @@ def compute_context_embedding(diff_text):
 
 
 ### ---------- TOKEN FEATURES ----------
+# def count_token_keywords(diff_text):
+#     """Count keywords like TODO, FIXME, try, except, raise in added lines."""
+#     tokens = {
+#         "todo": 0,
+#         "fixme": 0,
+#         "try": 0,
+#         "except": 0,
+#         "raise": 0,
+#     }
+#     for d in diff_text:
+#         patch = d.diff.decode(errors="ignore")
+#         for line in patch.splitlines():
+#             if line.startswith('+') and not line.startswith('+++'):  # only added lines
+#                 l = line.lower()
+#                 tokens["todo"] += l.count("todo")
+#                 tokens["fixme"] += l.count("fixme")
+#                 tokens["try"] += l.count("try")
+#                 tokens["except"] += l.count("except")
+#                 tokens["raise"] += l.count("raise")
+#     return tokens
+
+import re
+
+TOKEN_PATTERNS = {
+    "todo": re.compile(r"\btodo\b", re.IGNORECASE),
+    "fixme": re.compile(r"\bfixme\b", re.IGNORECASE),
+    "try": re.compile(r"\btry\b", re.IGNORECASE),
+    "except": re.compile(r"\bexcept\b", re.IGNORECASE),
+    "raise": re.compile(r"\braise\b", re.IGNORECASE),
+}
+
 def count_token_keywords(diff_text):
-    """Count keywords like TODO, FIXME, try, except, raise in added lines."""
     tokens = {
         "todo": 0,
         "fixme": 0,
@@ -61,14 +93,44 @@ def count_token_keywords(diff_text):
         "except": 0,
         "raise": 0,
     }
+
     for d in diff_text:
-        patch = d.diff.decode(errors="ignore")
+        patch = d.diff.decode(errors="ignore") if d.diff else ""
         for line in patch.splitlines():
-            if line.startswith('+') and not line.startswith('+++'):  # only added lines
-                l = line.lower()
-                tokens["todo"] += l.count("todo")
-                tokens["fixme"] += l.count("fixme")
-                tokens["try"] += l.count("try")
-                tokens["except"] += l.count("except")
-                tokens["raise"] += l.count("raise")
+            if line.startswith("+") and not line.startswith("+++"):
+                for token_name, pattern in TOKEN_PATTERNS.items():
+                    tokens[token_name] += len(pattern.findall(line))
+
     return tokens
+
+
+
+# # new logic
+# import re
+
+# TOKEN_PATTERNS = {
+#     "todo": re.compile(r"\btodo\b", re.IGNORECASE),
+#     "fixme": re.compile(r"\bfixme\b", re.IGNORECASE),
+#     "try": re.compile(r"\btry\b", re.IGNORECASE),
+#     "except": re.compile(r"\bexcept\b", re.IGNORECASE),
+#     "raise": re.compile(r"\braise\b", re.IGNORECASE),
+# }
+
+# def count_token_keywords_from_patch_text(patch_text: str) -> pd.Series:
+#     tokens = {
+#         "todo": 0,
+#         "fixme": 0,
+#         "try": 0,
+#         "except": 0,
+#         "raise": 0,
+#     }
+
+#     if not isinstance(patch_text, str):
+#         return pd.Series(tokens)
+
+#     for line in patch_text.splitlines():
+#         if line.startswith("+") and not line.startswith("+++"):
+#             for token_name, pattern in TOKEN_PATTERNS.items():
+#                 tokens[token_name] += len(pattern.findall(line))
+
+#     return pd.Series(tokens)

@@ -58,4 +58,4 @@ STATISTICAL_METRICS = CHURN_METRICS + TEXTUAL_METRICS + DEVELOPER_METRICS + HIST
 NON_STATISTICAL_METRICS = LINE_TOKEN_FEATURES
 
 
-CODE_SUTRUCTURAL_METRICS = ['ast_node_delta', 'max_func_change_size', 'complexity_delta']
+# CODE_SUTRUCTURAL_METRICS = ['ast_node_delta', 'max_func_change_size', 'complexity_delta']

@@ -324,7 +324,7 @@ if __name__ == "__main__":
 
     model_type = args.model.lower()
     best_model_path = tune_hyperparams(
-        preprocessed_df_path=PROCESSED_DATA_DIR / "train_engineered",
+        
         # model_type=model_type,
         logger=logger,
         experiment_id=None,

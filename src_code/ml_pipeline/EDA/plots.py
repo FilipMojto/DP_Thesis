@@ -1,5 +1,6 @@
 import math
 from pathlib import Path
+import re
 from typing import Dict, Iterable, List, Literal
 
 from sklearn.decomposition import PCA
@@ -160,6 +161,7 @@ def plot_num_feature_distributions(
     drop_cols: Iterable[str] = None,
     preset="a4-portrait",
     rows_per_page=6,
+    cols_per_page=2,
 ):
 
     def sample_cols(cols, logger: MyLogger, ratio=0.05, random_state=RANDOM_STATE):
@@ -281,7 +283,7 @@ def plot_num_feature_distributions(
         filtered_cols,
         col_type,
         experiment_dir,
-        n_cols=1,
+        n_cols=cols_per_page,
         rows_per_page=rows_per_page,
         preset=preset,
     )
@@ -435,39 +437,112 @@ def plot_commit_msg_len_distribution(df: pd.DataFrame, logger: MyLogger):
 #         plt.savefig(experiment_dir / "discrepancy_log.pdf", bbox_inches="tight")
 #     else:
 #         plt.show()
+# def plot_line_discrepancy_distribution(
+#     df: pd.DataFrame, logger: MyLogger, experiment_dir: Path = None
+# ):
+#     logger.log_check("Plotting symlog-scaled line discrepancy distribution...")
+
+#     # Calculate discrepancy
+#     # line_discrepancy = (
+#     #     df["content"].str.count("\n") - df["loc_added"] - df["loc_deleted"]
+#     # )
+ 
+#     df["added_from_diff"] = df["content"].str.count(r"^\+(?!\+\+)", flags=re.MULTILINE)
+#     df["deleted_from_diff"] = df["content"].str.count(r"^\-(?!--)", flags=re.MULTILINE)
+
+#     setup_latex_style("a4-portrait")
+#     fig, ax = plt.subplots(figsize=(6.3, 4))
+
+#     # Note: We do NOT use log_scale=True here because it breaks on negatives.
+#     # Instead, we plot normally and then transform the AXIS.
+#     sns.histplot(line_discrepancy, bins=100, kde=True, ax=ax, color="#4C72B0")
+
+#     # Apply symlog to handle the -8 to 7324 range
+#     ax.set_xscale("symlog")
+
+#     ax.set_title("Line Discrepancy Distribution (Symlog Scale)")
+#     ax.set_xlabel("Discrepancy (Linear near 0, Log for outliers)")
+#     ax.set_ylabel("Count")
+
+#     # Add a vertical line at 0 for reference
+#     ax.axvline(0, color="red", linestyle="--", alpha=0.5, label="Zero Discrepancy")
+#     ax.legend()
+
+#     if experiment_dir:
+#         experiment_dir.mkdir(parents=True, exist_ok=True)
+#         plt.savefig(experiment_dir / "discrepancy_symlog.pdf", bbox_inches="tight")
+#         logger.log_result(f"Line discrepancy distribution saved to {experiment_dir / 'discrepancy_symlog.pdf'}")
+#     else:
+#         plt.show()
 def plot_line_discrepancy_distribution(
     df: pd.DataFrame, logger: MyLogger, experiment_dir: Path = None
 ):
     logger.log_check("Plotting symlog-scaled line discrepancy distribution...")
 
-    # Calculate discrepancy
-    line_discrepancy = (
-        df["content"].str.count("\n") - df["loc_added"] - df["loc_deleted"]
+    # --- Work on a copy to avoid side effects ---
+    df = df.copy()
+
+    # --- Extract added/deleted lines from diff ---
+    df["added_from_diff"] = df["content"].str.count(
+        r"^\+(?!\+\+)", flags=re.MULTILINE
+    )
+    df["deleted_from_diff"] = df["content"].str.count(
+        r"^\-(?!--)", flags=re.MULTILINE
     )
 
+    # --- Compute discrepancies ---
+    df["added_error"] = df["added_from_diff"] - df["loc_added"]
+    df["deleted_error"] = df["deleted_from_diff"] - df["loc_deleted"]
+
+    # total discrepancy (can be negative or positive)
+    line_discrepancy = df["added_error"] + df["deleted_error"]
+
+    # --- Logging basic stats ---
+    logger.log_result(
+        f"Discrepancy stats | mean: {line_discrepancy.mean():.2f}, "
+        f"median: {line_discrepancy.median():.2f}, "
+        f"std: {line_discrepancy.std():.2f}"
+    )
+
+    zero_ratio = (line_discrepancy == 0).mean() * 100
+    logger.log_result(f"Exact match (0 discrepancy): {zero_ratio:.2f}%")
+
+    # --- Plot ---
     setup_latex_style("a4-portrait")
     fig, ax = plt.subplots(figsize=(6.3, 4))
 
-    # Note: We do NOT use log_scale=True here because it breaks on negatives.
-    # Instead, we plot normally and then transform the AXIS.
-    sns.histplot(line_discrepancy, bins=100, kde=True, ax=ax, color="#4C72B0")
+    sns.histplot(line_discrepancy, bins=100, kde=True, ax=ax)
 
-    # Apply symlog to handle the -8 to 7324 range
+    # symlog handles both positive and negative values
     ax.set_xscale("symlog")
 
     ax.set_title("Line Discrepancy Distribution (Symlog Scale)")
-    ax.set_xlabel("Discrepancy (Linear near 0, Log for outliers)")
+    ax.set_xlabel("Discrepancy (Diff-derived - Dataset)")
     ax.set_ylabel("Count")
 
-    # Add a vertical line at 0 for reference
-    ax.axvline(0, color="red", linestyle="--", alpha=0.5, label="Zero Discrepancy")
+    ax.axvline(0, linestyle="--", alpha=0.7, label="Perfect match")
     ax.legend()
 
+    # --- Save or show ---
     if experiment_dir:
         experiment_dir.mkdir(parents=True, exist_ok=True)
-        plt.savefig(experiment_dir / "discrepancy_symlog.pdf", bbox_inches="tight")
+        output_path = experiment_dir / "discrepancy_symlog.pdf"
+        plt.savefig(output_path, bbox_inches="tight")
+        logger.log_result(f"Line discrepancy distribution saved to {output_path}")
     else:
         plt.show()
+
+
+    commit_size = df["loc_added"] + df["loc_deleted"]
+    df["relative_error"] = line_discrepancy / (commit_size + 1e-6)
+    plt.figure(figsize=(6, 4))
+    plt.scatter(commit_size, abs(line_discrepancy), alpha=0.3)
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel("Commit Size (loc_added + loc_deleted)")
+    plt.ylabel("Absolute Discrepancy")
+    plt.title("Discrepancy vs Commit Size")
+    plt.show()
 
 
 def plot_embedding_norm_distribution(

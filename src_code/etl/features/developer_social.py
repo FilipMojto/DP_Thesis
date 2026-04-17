@@ -88,7 +88,9 @@ def pre_calculate_author_metrics(df: pd.DataFrame, get_repo_func) -> pd.DataFram
     author_repo_commits = defaultdict(lambda: defaultdict(int))
     
     # Cache structure for recent activity: {author_email: list of commit_datetimes}
-    author_recent_activity_cache = defaultdict(list)
+    # author_recent_activity_cache = defaultdict(list)
+    author_recent_activity_cache = defaultdict(lambda: defaultdict(list))
+
     RECENT_ACTIVITY_DAYS = 30 
     
     exp_list = []
@@ -106,10 +108,11 @@ def pre_calculate_author_metrics(df: pd.DataFrame, get_repo_func) -> pd.DataFram
         author_repo_commits[repo][author_email] += 1
         
         # --- Recent Activity (30-day window) ---
-        author_recent_activity_cache[author_email].append(current_time)
+        author_recent_activity_cache[repo][author_email].append(current_time)
         cutoff_time = current_time - pd.Timedelta(days=RECENT_ACTIVITY_DAYS)
         
-        recent_commits = author_recent_activity_cache[author_email]
+        # recent_commits = author_recent_activity_cache[author_email]
+        recent_commits = author_recent_activity_cache[repo][author_email]
         
         # Filter in place to remove old commits
         # Note: Filtering a list repeatedly is O(N) where N is list size, better than O(N*C) Git call.

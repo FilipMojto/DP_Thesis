@@ -24,8 +24,9 @@ SubsetArg = Literal['train', 'test', 'val', 'all']
 class Artifact(BaseModel):
     ...
 
-class MyDataset(BaseModel):
+class DfMetadata(BaseModel):
     type: SubsetType
+    # data: Optional[pd.DataFrame] = None
     
     rows: Optional[int] = None
     cols: Optional[int] = None
@@ -33,10 +34,15 @@ class MyDataset(BaseModel):
     # rows_after: Optional[int] = None
     # cols_after: Optional[int] = None
 
+class MyDataset:
+    def __init__(self, metadata: DfMetadata, data: Optional[pd.DataFrame] = None):
+        self.metadata = metadata
+        self.data = data
+
 
 class EdaResults(BaseModel):
-    loaded_datasets: List[MyDataset] = Field(default_factory=list)
-    EDA_ready_datasets: List[MyDataset] = Field(default_factory=list)
+    loaded_datasets: List[DfMetadata] = Field(default_factory=list)
+    EDA_ready_datasets: List[DfMetadata] = Field(default_factory=list)
 
 
 class TuningResults(BaseModel):
@@ -49,8 +55,8 @@ class PreprocessingResults(BaseModel):
     # col_after: Optional[int] = None
     # row_before: Optional[int] = None
     # row_after: Optional[int] = None
-    loaded_datasets: List[MyDataset] = Field(default_factory=list)
-    preprocessed_datasets: List[MyDataset] = Field(default_factory=list)
+    loaded_datasets: List[DfMetadata] = Field(default_factory=list)
+    preprocessed_datasets: List[DfMetadata] = Field(default_factory=list)
     # engineered_cols: Optional[int] = None
 
 

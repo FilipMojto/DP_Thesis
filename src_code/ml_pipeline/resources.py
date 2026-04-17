@@ -31,27 +31,36 @@ class CoreConfig:
     def __post_init__(self):
         self._calculate_cores()
 
-    def _calculate_cores(self):
-        # 1. Determine total physical availability
-        # We use logical=False if you want physical cores, 
-        # but for Grid Search, logical cores (Hyperthreading) are usually fine.
-        total_available = os.cpu_count() or 1
+    # def _calculate_cores(self):
+    #     # 1. Determine total physical availability
+    #     # We use logical=False if you want physical cores, 
+    #     # but for Grid Search, logical cores (Hyperthreading) are usually fine.
+    #     total_available = os.cpu_count() or 1
         
-        # Rule (a): Reserve cores must be complied with
-        # We ensure we don't try to reserve more cores than exist
-        actual_reserves = min(self.reserve_cores, total_available - 1)
+    #     # Rule (a): Reserve cores must be complied with
+    #     # We ensure we don't try to reserve more cores than exist
+    #     actual_reserves = min(self.reserve_cores, total_available - 1)
+    #     max_allowed = max(1, total_available - actual_reserves)
+
+    #     if self.mode == 'all':
+    #         # Rule (c) variant: If 'all', use everything except reserves
+    #         self._final_n_jobs = max_allowed
+    #     else:
+    #         # Rule (b): Manual mode
+    #         # Comply with manual setting only if it doesn't exceed the (Total - Reserved) limit
+    #         if self.num_of_cores > max_allowed:
+    #             self._final_n_jobs = max_allowed
+    #         else:
+    #             self._final_n_jobs = max(1, self.num_of_cores)
+    def _calculate_cores(self):
+        total_available = os.cpu_count() or 1
+        actual_reserves = max(0, min(self.reserve_cores, total_available - 1))
         max_allowed = max(1, total_available - actual_reserves)
 
-        if self.mode == 'all':
-            # Rule (c) variant: If 'all', use everything except reserves
+        if self.mode == "all":
             self._final_n_jobs = max_allowed
         else:
-            # Rule (b): Manual mode
-            # Comply with manual setting only if it doesn't exceed the (Total - Reserved) limit
-            if self.num_of_cores > max_allowed:
-                self._final_n_jobs = max_allowed
-            else:
-                self._final_n_jobs = max(1, self.num_of_cores)
+            self._final_n_jobs = max(1, min(self.num_of_cores, max_allowed))
 
     @property
     def n_jobs(self) -> int:

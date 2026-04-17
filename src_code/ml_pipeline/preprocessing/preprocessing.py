@@ -84,10 +84,15 @@ def drop_invalid_rows(
         print_to_console=print_to_console,
     )
 
+    print(df.columns.to_list())
+
+    
+
     # Validate filter columns
     for col in row_filters:
         if col not in df.columns.to_list():
-            raise ValueError(f"Filter column '{col}' is not a numeric feature.")
+            df[col].head()
+            raise ValueError(f"Filter column '{col}' is not a numeric feature. Actual type: {type(col)}")
 
     # Build combined mask (AND across all filters)
     valid_mask = Series(True, index=df.index)

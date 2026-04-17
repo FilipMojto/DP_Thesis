@@ -12,7 +12,10 @@ from git import Repo
 import logging
 import pyarrow.feather as feather
 
+from notebooks.logging_config import MyLogger
 from src_code.etl.utils import get_repo_instance
+from src_code.ml_pipeline.resources import CoreConfig
+from src_code.versioning import VersionedFileManager
 
 from .repos import (
     BUG_INDUCING_COMMITS,
@@ -63,36 +66,119 @@ class StopProcessing(Exception):
 # ---------------------------------------------------------------------
 # Commit classifier (now also extracts features)
 # ---------------------------------------------------------------------
-def classify_and_extract(row, bug_set: set):
-    # 💡 CRITICAL: Check stop event before starting expensive work (e.g., git clone)
+# def classify_and_extract(row, bug_set: set):
+#     # 💡 CRITICAL: Check stop event before starting expensive work (e.g., git clone)
+#     if stop_event.is_set():
+#         # Raise our custom exception to cleanly exit the thread
+#         raise StopProcessing(f"Stop event set. Skipping {row.repo}/{row.commit}")
+
+#     repo = row.repo
+#     commit_hash = row.commit
+#     filepath = row.filepath
+
+#     label = 1 if commit_hash in bug_set else 0
+
+#     # 2. Feature Extraction
+#     extraction_start = time.time()
+#     features = extract_commit_features(Repo(PYTHON_LIBS_DIR / repo), commit_hash)
+#     extraction_end = time.time()
+#     logger.info(
+#         f"[TIMING] Feature extraction for {repo}/{commit_hash} took {extraction_end - extraction_start:.2f} seconds."
+#     )
+#     # Merge results, critically including 'repo' and 'commit' for safe merging later
+#     result = {
+#         "repo": repo,
+#         "commit": commit_hash,
+#         "filepath": filepath,
+#         "label": label,
+#         **features,
+#     }
+
+#     return result
+
+def normalize_grouped_lines(value):
+    if value is None:
+        return []
+    if isinstance(value, float) and pd.isna(value):
+        return []
+    if isinstance(value, np.ndarray):
+        value = value.tolist()
+    if not isinstance(value, list):
+        return []
+
+    normalized = []
+    for inner in value:
+        if isinstance(inner, np.ndarray):
+            inner = inner.tolist()
+        elif inner is None:
+            inner = []
+        elif not isinstance(inner, list):
+            inner = []
+        normalized.append(inner)
+
+    return normalized
+
+
+def has_buggy_lines(grouped_lines) -> bool:
+    rows = normalize_grouped_lines(grouped_lines)
+    return any(len(inner) > 0 for inner in rows)
+
+# def classify_and_extract(row, bug_set: set):
+#     if stop_event.is_set():
+#         raise StopProcessing(f"Stop event set. Skipping {row.repo}/{row.commit}")
+
+#     repo = row.repo
+#     commit_hash = row.commit
+#     label = row.label
+
+#     # label = 1 if commit_hash in bug_set else 0
+
+#     extraction_start = time.time()
+#     features = extract_commit_features(Repo(PYTHON_LIBS_DIR / repo), commit_hash, logger)
+#     extraction_end = time.time()
+
+#     logger.info(
+#         f"[TIMING] Feature extraction for {repo}/{commit_hash} took {extraction_end - extraction_start:.2f} seconds."
+#     )
+
+#     result = {
+#         "repo": repo,
+#         "commit": commit_hash,
+#         "label": label,
+#         **features,
+#     }
+
+#     return result
+
+def classify_and_extract(row):
     if stop_event.is_set():
-        # Raise our custom exception to cleanly exit the thread
         raise StopProcessing(f"Stop event set. Skipping {row.repo}/{row.commit}")
 
     repo = row.repo
     commit_hash = row.commit
-    filepath = row.filepath
+    label = row.label
 
-    label = 1 if commit_hash in bug_set else 0
-
-    # 2. Feature Extraction
     extraction_start = time.time()
-    features = extract_commit_features(Repo(PYTHON_LIBS_DIR / repo), commit_hash)
+    features = extract_commit_features(Repo(PYTHON_LIBS_DIR / repo), commit_hash, logger)
     extraction_end = time.time()
+
     logger.info(
         f"[TIMING] Feature extraction for {repo}/{commit_hash} took {extraction_end - extraction_start:.2f} seconds."
     )
-    # Merge results, critically including 'repo' and 'commit' for safe merging later
+
+    if features is None:
+        features = {}
+
     result = {
         "repo": repo,
         "commit": commit_hash,
-        "filepath": filepath,
         "label": label,
+        "lines": row.lines,              # optional, but useful to keep
+        "has_bug": row.has_bug,          # optional
         **features,
     }
 
     return result
-
 
 def atomic_feather_save(df: pd.DataFrame, out_file: Path):
     tmp_file = out_file.with_suffix(".tmp")
@@ -115,6 +201,96 @@ def can_create_file(path: Path) -> bool:
     return os.access(parent, os.W_OK)
 
 
+# def _save_to_file(
+#     input_df: pd.DataFrame,
+#     results_list: list,
+#     existing_out_file: Path,
+#     out_file: Path,
+#     append: bool,
+# ):
+#     """
+
+#     Args:
+#         input_df (pd.DataFrame): DataFrame containing the original input data.
+#         results_list (list): List of dictionaries containing the results from processing.
+#         existing_out_file (Path): Path to the existing output file.
+#         out_file (Path): Path to the output file.
+#         append (bool): Whether to append to the existing file or not.
+#     """
+
+#     # Convert results back to a DataFrame
+#     results_df = pd.DataFrame(results_list)
+
+#     # 💡 CRITICAL CHANGE: Use merge for a SAFE partial save.
+#     # This aligns the features/labels using the common keys ('repo', 'commit'),
+#     # ensuring data integrity even if rows were skipped or completed out of order.
+#     # df_merged = input_df.merge(
+#     #     results_df,
+#     #     on=["repo", "commit", "filepath"],
+#     #     how="inner",  # Only keep rows that were successfully processed
+#     # )
+#     df_merged = (
+#         input_df[["repo", "commit"]]
+#         .drop_duplicates()
+#         .merge(results_df, on=["repo", "commit"], how="inner")
+#     )
+
+#     df_merged["recent_churn"] = calc_recent_churn_from_df(df_merged, window_days=30)
+
+#     # Drop embeddings if they are not part of results_df
+#     for col in ["code_embed", "msg_embed"]:
+#         if col not in results_df.columns and col in df_merged.columns:
+#             df_merged = df_merged.drop(columns=[col], errors="ignore")
+
+#     # Convert any remaining np.ndarray to list, keep existing lists
+#     for col in ["code_embed", "msg_embed"]:
+#         if col in df_merged.columns:
+#             df_merged[col] = df_merged[col].apply(
+#                 lambda x: x.tolist() if isinstance(x, np.ndarray) else x
+#             )
+#             df_merged[col] = df_merged[col].apply(
+#                 lambda x: x if isinstance(x, list) else []
+#             )
+#             df_merged[col] = df_merged[col].astype(object)
+
+#     # Guard against empty results
+#     if len(results_df) == 0:
+#         logger.warning("No results to save; skipping file write.")
+#         return
+
+#     if append and existing_out_file.exists():
+#         logger.info(
+#             f"Append=True and {existing_out_file} exists → loading existing data..."
+#         )
+
+#         existing_df = pd.read_feather(existing_out_file)
+
+#         key_cols = ["repo", "commit", "filepath"]
+
+#         # 🔥 Compare ONLY the newly processed rows
+#         before = len(df_merged)
+#         df_new = df_merged.merge(
+#             existing_df[key_cols], on=key_cols, how="left", indicator=True
+#         )
+
+#         df_new = df_new[df_new["_merge"] == "left_only"].drop(columns=["_merge"])
+#         after = len(df_new)
+
+#         logger.info(f"Skipping existing rows: {before - after} duplicates removed.")
+#         logger.info(f"Appending {after} new rows.")
+
+#         # Append new rows only
+#         final_df = pd.concat([existing_df, df_new], ignore_index=True)
+#         final_df.drop_duplicates(subset=key_cols, keep="last", inplace=True)
+
+#         # atomic_feather_save(final_df, out_file)
+#         final_df.to_feather(out_file)
+
+#         return
+
+#     logger.info(f"Saving {len(df_merged)} rows to {out_file}")
+#     df_merged.to_feather(out_file)
+#     logger.info("Done")
 def _save_to_file(
     input_df: pd.DataFrame,
     results_list: list,
@@ -122,27 +298,20 @@ def _save_to_file(
     out_file: Path,
     append: bool,
 ):
-    """
-
-    Args:
-        input_df (pd.DataFrame): DataFrame containing the original input data.
-        results_list (list): List of dictionaries containing the results from processing.
-        existing_out_file (Path): Path to the existing output file.
-        out_file (Path): Path to the output file.
-        append (bool): Whether to append to the existing file or not.
-    """
-
-    # Convert results back to a DataFrame
     results_df = pd.DataFrame(results_list)
 
-    # 💡 CRITICAL CHANGE: Use merge for a SAFE partial save.
-    # This aligns the features/labels using the common keys ('repo', 'commit'),
-    # ensuring data integrity even if rows were skipped or completed out of order.
-    df_merged = input_df.merge(
-        results_df,
-        on=["repo", "commit", "filepath"],
-        how="inner",  # Only keep rows that were successfully processed
-    )
+    if len(results_df) == 0:
+        logger.warning("No results to save; skipping file write.")
+        return
+
+    key_cols = ["repo", "commit"]
+
+    # Keep only newly extracted columns from results_df, plus keys
+    results_df = results_df[
+        [c for c in results_df.columns if c in key_cols or c not in input_df.columns]
+    ]
+
+    df_merged = input_df.merge(results_df, on=key_cols, how="inner")
 
     df_merged["recent_churn"] = calc_recent_churn_from_df(df_merged, window_days=30)
 
@@ -151,7 +320,6 @@ def _save_to_file(
         if col not in results_df.columns and col in df_merged.columns:
             df_merged = df_merged.drop(columns=[col], errors="ignore")
 
-    # Convert any remaining np.ndarray to list, keep existing lists
     for col in ["code_embed", "msg_embed"]:
         if col in df_merged.columns:
             df_merged[col] = df_merged[col].apply(
@@ -162,11 +330,6 @@ def _save_to_file(
             )
             df_merged[col] = df_merged[col].astype(object)
 
-    # Guard against empty results
-    if len(results_df) == 0:
-        logger.warning("No results to save; skipping file write.")
-        return
-
     if append and existing_out_file.exists():
         logger.info(
             f"Append=True and {existing_out_file} exists → loading existing data..."
@@ -174,9 +337,6 @@ def _save_to_file(
 
         existing_df = pd.read_feather(existing_out_file)
 
-        key_cols = ["repo", "commit", "filepath"]
-
-        # 🔥 Compare ONLY the newly processed rows
         before = len(df_merged)
         df_new = df_merged.merge(
             existing_df[key_cols], on=key_cols, how="left", indicator=True
@@ -188,13 +348,10 @@ def _save_to_file(
         logger.info(f"Skipping existing rows: {before - after} duplicates removed.")
         logger.info(f"Appending {after} new rows.")
 
-        # Append new rows only
         final_df = pd.concat([existing_df, df_new], ignore_index=True)
         final_df.drop_duplicates(subset=key_cols, keep="last", inplace=True)
 
-        # atomic_feather_save(final_df, out_file)
         final_df.to_feather(out_file)
-
         return
 
     logger.info(f"Saving {len(df_merged)} rows to {out_file}")
@@ -207,7 +364,7 @@ def _save_to_file(
 # ---------------------------------------------------------------------
 def transform(
     repos_filter: List[str] = None,
-    workers: int = 8,
+    reserved_cores: int = 8,
     skip_existing: bool = False,
     save_after: int = None,
     subset: Literal["train", "test", "validate"] = "train",
@@ -225,21 +382,28 @@ def transform(
     """
 
     # --- DataFrame File Path Constants ---
-
+# --- Logging Path Constants ---
+    myLogger = MyLogger(label="ETL", section_name="ETL_script", file_log_path=LOG_DIR / "etl.log")
     # raw input DataFrame path
     input_df_path: Path = ETL_PATH_MAPPINGS[subset]["input"]
     # newest output DataFrame path processed by this script
-    existing_output_df_path: Path = ETL_PATH_MAPPINGS[subset]["current_newest"]
+    existing_versioner = VersionedFileManager(
+        file_path=INTERIM_DATA_DIR / f"{subset}_labeled_features_partial.feather",
+        logger=myLogger,
+    )
+    existing_output_df_path: Path = existing_versioner.current_newest
+    # existing_output_df_path: Path = ETL_PATH_MAPPINGS[subset]["current_newest"]
     # next output DataFrame path to write new results
-    next_output_df_path: Path = ETL_PATH_MAPPINGS[subset]["next_output"]
+    # next_output_df_path: Path = ETL_PATH_MAPPINGS[subset]["next_output"]
+    next_output_df_path = existing_versioner.next_base_output
 
-    # --- Logging Path Constants ---
+    
 
     logger.info(f"Newest out file: {existing_output_df_path}")
     logger.info(f"Next out file: {next_output_df_path}")
 
     logger.info(f"[LOAD] {input_df_path}")
-    logger.info(f"Using {workers} worker threads.")
+    logger.info(f"Using {reserved_cores} reserved cores.")
     logger.info(f"Repos filter: {repos_filter}")
 
     # --- Loading Raw Data in Feather format ---
@@ -259,41 +423,34 @@ def transform(
     # --- Skipping already processed rows ---
 
     if skip_existing and existing_output_df_path.exists():
-        # If user wants to skip existing and output file exists
-
-        # if newest_output_df_path.exists():
         logger.info(
             f"skip_existing=True and {existing_output_df_path} exists → loading existing data..."
         )
-        # df_existing = pd.read_feather(newest_output_df_path)
-        key_cols = ["repo", "commit", "filepath"]
 
-        before = len(input_df)
-        # This code ensures we only process rows not already in the existing output
-        # The rows that have not been processed yet are preserved for processing
+        key_cols = ["repo", "commit"]
+
+        # before = len(input_df)
+
         input_df = input_df.merge(
-            existing_output_df[key_cols], on=key_cols, how="left", indicator=True
+            existing_output_df[key_cols].drop_duplicates(),
+            on=key_cols,
+            how="left",
+            indicator=True
         )
+        before = len(input_df)
 
-        # Filter to only rows not in existing output
-        input_df = input_df[input_df["_merge"] == "left_only"]
-        # Remove the temporary merge indicator column
-        input_df = input_df.drop(columns=["_merge"])
+
+        input_df = input_df[input_df["_merge"] == "left_only"].drop(columns=["_merge"])
 
         after = len(input_df)
 
-        logger.info(
-            f"Skipping already existing rows: {before - after} duplicates removed."
-        )
+        logger.info(f"Skipping already existing rows: {before - after} duplicates removed.")
         logger.info(f"{after} rows remain to process.")
-
-        # If no rows remain, exit early
-        if len(input_df) == 0:
-            logger.warning("No new rows to process after skipping existing. Exiting.")
-            return
+        
+    core_mode = CoreConfig(reserve_cores=reserved_cores, mode="all")
 
     logger.info(f"Dataset size: {len(input_df)}")
-    logger.info(f"[PROCESS] Starting feature extraction with {workers} workers...")
+    logger.info(f"[PROCESS] Starting feature extraction with {core_mode.n_jobs} workers...")
 
     # CRITICAL ADDITION: Pre-calculate the expensive metrics
     logger.info("[PRECALC] Calculating author experience and recent activity...")
@@ -306,9 +463,48 @@ def transform(
         return
 
     # We need the 'repo' and 'commit' columns present in the input for merging later
-    rows_to_process = list(
-        input_df[["repo", "commit", "filepath"]].itertuples(index=False)
+    # rows_to_process = list(
+    #     input_df[["repo", "commit", "filepath"]].itertuples(index=False)
+    # )
+    # commit_input_df = (
+    # input_df[["repo", "commit"]]
+    #     .drop_duplicates()
+    #     .reset_index(drop=True)
+    # )
+    # commit_input_df = (
+    #     input_df
+    #     .groupby(["repo", "commit"], as_index=False)
+    #     .first()
+    # )
+    # commit_input_df = (
+    #     input_df
+    #     .groupby(["repo", "commit"], as_index=False)
+    #     .agg({
+    #         "lines": list,
+    #         "content": lambda x: "\n".join(map(str, x)),
+    #         "filepath": list,   # optional, useful for debugging
+    #     })
+    # )
+    agg_dict = {
+        "lines": list,
+        "content": lambda x: "\n".join(map(str, x)),
+    }
+
+    for col in ["filepath", "author_email", "canonical_datetime", "author_exp_pre", "author_recent_activity_pre"]:
+        if col in input_df.columns:
+            agg_dict[col] = list if col == "filepath" else "first"
+
+    commit_input_df = (
+        input_df
+        .groupby(["repo", "commit"], as_index=False)
+        .agg(agg_dict)
     )
+
+
+    commit_input_df["has_bug"] = commit_input_df["lines"].apply(has_buggy_lines)
+    commit_input_df["label"] = commit_input_df["has_bug"].astype(int)
+
+    rows_to_process = list(commit_input_df.itertuples(index=False))
     results_list = []
 
     classify_func = partial(classify_and_extract)
@@ -316,10 +512,11 @@ def transform(
     # --- Parallel Execution Block with Ctrl+C Handling ---
     logger.info("Press Ctrl+C to stop processing and save partial results.")
 
-    with ThreadPoolExecutor(max_workers=workers) as executor:
+    with ThreadPoolExecutor(max_workers=core_mode.n_jobs) as executor:
         # Map original row tuples to futures
         futures = {
-            executor.submit(classify_func, row, BUG_INDUCING_COMMITS[row.repo]): row
+            # executor.submit(classify_func, row, BUG_INDUCING_COMMITS[row.repo]): row
+            executor.submit(classify_func, row): row
             for row in rows_to_process
         }
 
@@ -345,7 +542,7 @@ def transform(
                     if save_after and len(results_list) >= save_after:
                         logger.info(f"Saving {save_after} processed rows!")
                         _save_to_file(
-                            input_df=input_df,
+                            input_df=commit_input_df,
                             results_list=results_list,
                             existing_out_file=existing_output_df_path,
                             append=skip_existing,
@@ -388,12 +585,23 @@ def transform(
         return
 
     _save_to_file(
-        input_df=input_df,
+        input_df=commit_input_df,
         results_list=results_list,
         existing_out_file=existing_output_df_path,
         append=skip_existing,
         out_file=next_output_df_path,
     )
+
+    logger.info(f"Commit-level rows: {len(commit_input_df)}")
+    logger.info(f"Positive label rate: {commit_input_df['label'].mean():.4f}")
+
+    sample = commit_input_df[["repo", "commit", "lines", "label"]].head(5)
+    logger.info(f"Grouped commit sample:\n{sample}")
+
+    bad = commit_input_df[
+        (commit_input_df["label"] == 0) & (commit_input_df["lines"].apply(has_buggy_lines))
+    ]
+    logger.info(f"Inconsistent clean labels after grouping: {len(bad)}")
 
 
 # ---------------------------------------------------------------------
@@ -415,11 +623,16 @@ if __name__ == "__main__":
         help="The data subset to process. Must be one of: train, test, or validate.",
     )
 
+    # parser.add_argument(
+    #     "--workers",
+    #     type=int,
+    #     default=8,
+    #     help="Number of worker threads for parallel classification",
+    # )
     parser.add_argument(
-        "--workers",
+        "--reserve-cores",
         type=int,
-        default=8,
-        help="Number of worker threads for parallel classification",
+        default=4
     )
     parser.add_argument(
         "--skip-existing",
@@ -486,7 +699,7 @@ if __name__ == "__main__":
         transform(
             subset=args.subset,
             repos_filter=args.repos if not args.all else get_registered_repos(),
-            workers=args.workers,
+            reserved_cores=args.reserve_cores,
             skip_existing=args.skip_existing,
             save_after=args.save_after,
         )

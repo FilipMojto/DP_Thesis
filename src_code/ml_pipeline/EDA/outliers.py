@@ -62,19 +62,13 @@ def plot_boxplots_with_outliers(
     logger: MyLogger, 
     experiment_dir: Path = None,
     drop_binaries: bool = True,
+    n_rows_per_page: int = 3,
+    n_cols_per_page: int = 2,
 ):
     logger.log_check("Boxplot outlier analysis with paginated output...")
-
     features = feature_sets.numeric_cols + feature_sets.engineered_cols
 
-    # if drop_binaries:
-    #     logger.log_check("Dropping binaries...")
-
-    #     for feature in features:
-    #         if is_binary(df=df, col_name=feature):
-    #             df = df.drop(feature, axis=1)
-    #             logger.log_result(f"Dropped binary column: {feature}")
-    #             features.remove(feature)
+ 
     if drop_binaries:
         logger.log_check("Dropping binaries...")
 
@@ -88,17 +82,16 @@ def plot_boxplots_with_outliers(
                 logger.log_result(f"Dropped binary column: {f}")
         
 
-
-
     # 1. Initialize the paginator
     # n_cols=1 and rows_per_page=5 fits 5 stacked boxplots on an A4 page nicely
     gen = grid_paginator(
         features=features,
         col_name='structural_boxplots', 
         experiment_dir=experiment_dir, 
-        n_cols=1, 
-        rows_per_page=5, 
-        preset='a4-portrait'
+        n_cols=n_cols_per_page, 
+        rows_per_page=n_rows_per_page, 
+        preset='a4-portrait',
+        
     )
 
     # 2. Iterate directly over the generator

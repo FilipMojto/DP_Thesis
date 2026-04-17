@@ -5,9 +5,9 @@
             "name": "Debug transformdata (module)",
             "type": "debugpy",
             "request": "launch",
-            "module": "src_code.scripts.transformdata",
+            "module": "src_code.etl.ETL",
             // "args": ["--repos", "ansible", "--skip-existing", "--save-after", "500", "--copy-output"],
-            "args": ["--subset", "test", "--skip-existing", "--save-after", "500", "--copy-output"],
+            "args": ["--subset", "train", "--save-after", "500", "--reserve-cores", "2", "--all", "--skip-existing"],
 
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -23,7 +23,7 @@
             "request": "launch",
             "module": "src_code.ml_pipeline.scripts.train",
             // "args": ["--model", "NN", "--skip-cv", "--skip-pfi"],
-            "args": ["--model", "RF", "--skip-pfi", "--load-tuned"],
+            "args": ["--model", "XGB", "--skip-pfi", "--load-tuned"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,
@@ -54,7 +54,7 @@
             "request": "launch",
             "module": "src_code.etl.integrate_cols",
             // "args": ["--skip-tuning", "--model", "XGB"],
-            "args": ["--subset", "test"],
+            "args": ["--subset", "val", "--prefetch-messages"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,
@@ -146,6 +146,56 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}" 
             }
-        }
+        },
+        {
+            "name": "Debug relabel script",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.etl.relabeling.relabel_data",
+            // "args": ["--skip-tuning", "--model", "XGB"],
+            "args": ["--subset", "train"],
+            // "args": ["tune", "--model", "RF", "--max-rows", "4000"],
+            // "args": ["preprocess", "--subset", "train", "--max-rows", "4000"],
+            // "args": ["engineer", "--subset", "all", "--max-rows", "4000"],
+
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
+        },
+
+        {
+            "name": "Debug etl2 extract script",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.etl2.extract",
+            // "args": [],
+            "args": ["--max-rows", "5000"],
+
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
+        },
+
+        {
+            "name": "Debug etl2 train script",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src_code.etl2.train",
+            // "args": [],
+            "args": [],
+
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}" 
+            }
+        },
     ]
 }

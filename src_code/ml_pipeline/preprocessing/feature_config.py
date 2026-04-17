@@ -35,6 +35,7 @@ DROP_COLS = [
     "content",
     "methods",
     "lines",
+    "has_bug"
     # "code_embed",
     # "msg_embed",
     # "files_changed",
