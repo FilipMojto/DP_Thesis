@@ -188,6 +188,13 @@ def get_parser(add_help: bool = False) -> argparse.ArgumentParser:
         help="One or models to evaluate",
     )
 
+    parser.add_argument(
+        "--exp-id",
+        required=False,
+        default=None,
+        help="Experiment id used to store artifacts"
+    )
+
     return parser
 
 
@@ -197,4 +204,4 @@ if __name__ == "__main__":
     parser = get_parser(add_help=True)
     args = parser.parse_args()
 
-    evaluate(logger=logger, models=args.models, experiment_id=None)
+    evaluate(logger=logger, models=args.models, experiment_id=args.exp_id)

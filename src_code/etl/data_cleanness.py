@@ -9,19 +9,19 @@ import numpy as np
 import pandas as pd
 
 from notebooks.logging_config import MyLogger
-from src_code.config import EXTENDED_DATA_DIR, LOG_DIR, SubsetType
+from src_code.config import ENGINEERED_DATA_DIR, EXTENDED_DATA_DIR, LOG_DIR, SubsetType
 from src_code.ml_pipeline.data_utils import load_df
 from src_code.versioning import VersionedFileManager
 
 parser = ArgumentParser(description="Validates data cleanness of extracted data.")
 parser.add_argument(
-        "--subset",
-        # choices=["train", "test", "validate"],  # This is the key part
-        choices=get_args(SubsetType),
-        required=False,  # Recommend making it required
-        default="train",  # Optional: Set a default value
-        help="The data subset to process. Must be one of: train, test, or val.",
-    )
+    "--subset",
+    # choices=["train", "test", "validate"],  # This is the key part
+    choices=get_args(SubsetType),
+    required=False,  # Recommend making it required
+    default="train",  # Optional: Set a default value
+    help="The data subset to process. Must be one of: train, test, or val.",
+)
 
 args = parser.parse_args()
 
@@ -35,7 +35,8 @@ logger = MyLogger(
 subset: SubsetType = args.subset
 
 input_versioner = VersionedFileManager(
-    file_path=EXTENDED_DATA_DIR / f"{subset}_extended.feather",
+    # file_path=EXTENDED_DATA_DIR / f"{subset}_extended.feather",
+    file_path=ENGINEERED_DATA_DIR / f"{subset}_engineered.feather",
     logger=logger,
 )
 input_df = load_df(df_file_path=input_versioner.current_newest, logger=logger)
@@ -688,10 +689,12 @@ input_df = input_df[input_df["ast_delta"] < input_df["ast_delta"].quantile(0.99)
 input_df = input_df[
     input_df["complexity_delta"] < input_df["complexity_delta"].quantile(0.99)
 ]
+# input_df = input_df[input_df["files_changed"] < input_df["files_changed"].quantile(0.99)]
+# input_df = input_df[input_df["hunks_count"] < input_df["hunks_count"].quantile(0.99)]
 for col in ["loc_added", "ast_delta", "complexity_delta"]:
     input_df[f"{col}"] = np.log1p(input_df[col])
 
-    
+
 log_header("LIGHT CONSISTENCY SIGNALS")
 
 print("Correlation among a few key size features:")

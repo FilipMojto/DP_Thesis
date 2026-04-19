@@ -36,7 +36,7 @@ from src_code.ml_pipeline.preprocessing.transform import (
 # from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
 from src_code.ml_pipeline.training.constants import DEF_TOP_K
 from src_code.ml_pipeline.training.ensemble import load_ensemble_supported_models
-from src_code.ml_pipeline.training.scoring import DEF_SCORER
+from src_code.ml_pipeline.training.scoring import DEF_SCORER, DEF_SCORER_NAME
 from src_code.ml_pipeline.training.training import (
     check_single_infer,
     fit_model,
@@ -264,7 +264,7 @@ def train(
         logger.log_check("Running post-training cross-validation...")
 
         # f2_scorer = make_scorer(fbeta_score, beta=2)
-
+        logger.log_result(f"Using {DEF_SCORER_NAME} as scorer for cv")
         cv_scores = cross_val_score(
             model_wrapper.pipeline,
             X_train,
@@ -274,9 +274,9 @@ def train(
             n_jobs=-1,
         )
 
-        logger.log_result(f"CV F2 scores: {cv_scores}")
-        logger.log_result(f"Mean CV F2: {cv_scores.mean():.4f}")
-        logger.log_result(f"Std CV F2: {cv_scores.std():.4f}")
+        logger.log_result(f"CV {DEF_SCORER_NAME} scores: {cv_scores}")
+        logger.log_result(f"Mean CV {DEF_SCORER_NAME}: {cv_scores.mean():.4f}")
+        logger.log_result(f"Std CV {DEF_SCORER_NAME}: {cv_scores.std():.4f}")
 
         results.cv_scores = cv_scores
 

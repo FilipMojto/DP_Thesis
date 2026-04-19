@@ -87,20 +87,7 @@ def evaluate_model(
     auprc = average_precision_score(y_true, probs)
     logger.log_result(f"AUPRC: {auprc:.4f}")
 
-    # return EvaluationResult(
-    #     model_name=model_name,
-    #     y_true=y_true,
-    #     probs=probs,
-    #     preds_default=preds,
-    #     preds_thresholded=preds_thresh,
-    #     pr_curve=(precision, recall, pr_thresholds),
-    #     roc_curve=(fpr, tpr),
-    #     roc_auc=roc_auc,
-    #     auprc=auprc,
-    #     best_threshold=best_thresh,
-    #     best_score=best_f2_score,
-    #     classification_report=report,
-    # )
+
     return EvalResults(
         model_name=model_name,
         y_true=y_true,
@@ -112,7 +99,7 @@ def evaluate_model(
         roc_auc=roc_auc,
         auprc=auprc,
         best_threshold=best_thresh,
-        best_score=best_f2_score,
+        # best_score=best_f2_score,
         classification_report=report,
     )
 
