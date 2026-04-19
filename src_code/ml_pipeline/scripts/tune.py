@@ -332,6 +332,7 @@ if __name__ == "__main__":
         model_type=args.model,
         n_cores=args.workers,
         core_mode=args.core_mode,
+        reserve_cores=args.reserve_cores,
         # # random_state=RANDOM_STATE,
         # # max_rows=args.max_rows,
         # # n_workers=get_n_jobs(reserve=2) if args.workers < 0 else args.workers,

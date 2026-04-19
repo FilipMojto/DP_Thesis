@@ -8,7 +8,7 @@ import src_code.ml_pipeline.data_utils as dutls
 from src_code.ml_pipeline.models import ModelWrapperBase
 
 
-ENSEMBLE_SUPPORTED_MODELS = Literal['RF', 'XGB', 'LR']
+ENSEMBLE_SUPPORTED_MODELS = Literal['RF', 'XGB', 'NN']
 
 
 def load_ensemble_supported_models(logger: MyLogger) -> Dict[str, ModelWrapperBase]:

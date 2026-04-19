@@ -1,6 +1,6 @@
 import math
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Tuple
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -59,12 +59,13 @@ def evaluate_model(
     model: BaseEstimator,
     X_test,
     y_true,
+    probs,
     logger: MyLogger,
 ):
     logger.log_check(f"Evaluating model: {model_name}")
 
     preds = model.predict(X_test)
-    probs = model.predict_proba(X_test)[:, 1]
+    # probs = model.predict_proba(X_test)[:, 1]
 
     # Curves
     precision, recall, pr_thresholds = precision_recall_curve(y_true, probs)
@@ -296,3 +297,83 @@ def plot_roc_combined(results: List[EvalResults], experiment_path: Path = None):
         plt.savefig(save_file)
 
     plt.show()
+
+
+
+def compute_effort_curve(
+    scores: np.ndarray,
+    y_true: np.ndarray,
+    effort_levels: np.ndarray | None = None,
+) -> Tuple[np.ndarray, List[float]]:
+    if effort_levels is None:
+        effort_levels = np.linspace(0.01, 1.0, 50)
+
+    df = pd.DataFrame({
+        "score": scores,
+        "y_true": y_true,
+    }).sort_values(by="score", ascending=False).reset_index(drop=True)
+
+    total_bugs = df["y_true"].sum()
+    recalls: List[float] = []
+
+    for effort in effort_levels:
+        k = max(1, int(effort * len(df)))
+        top_k = df.iloc[:k]
+
+        bugs_found = top_k["y_true"].sum()
+        recall_at_k = bugs_found / total_bugs if total_bugs > 0 else 0.0
+        recalls.append(float(recall_at_k))
+
+    return effort_levels, recalls
+
+
+def plot_effort_combined(
+    model_scores: Dict[str, np.ndarray],
+    y_true: np.ndarray,
+    heuristic_scores: Dict[str, np.ndarray] | None = None,
+    experiment_path: Path | None = None,
+    filename: str = "effort_curve_combined.png",
+):
+    effort_levels = np.linspace(0.01, 1.0, 50)
+
+    plt.figure()
+
+    # ML models
+    for model_name, scores in model_scores.items():
+        x, recalls = compute_effort_curve(
+            scores=np.asarray(scores),
+            y_true=np.asarray(y_true),
+            effort_levels=effort_levels,
+        )
+        plt.plot(x, recalls, label=f"ML Model ({model_name})", linewidth=2)
+
+    # Heuristics
+    if heuristic_scores:
+        for heuristic_name, scores in heuristic_scores.items():
+            x, recalls = compute_effort_curve(
+                scores=np.asarray(scores),
+                y_true=np.asarray(y_true),
+                effort_levels=effort_levels,
+            )
+            plt.plot(x, recalls, linestyle="--", label=f"Heuristic ({heuristic_name})")
+
+    # Random baseline
+    plt.plot(
+        effort_levels,
+        effort_levels,
+        linestyle=":",
+        label="Random baseline",
+    )
+
+    plt.xlabel("Percentage of Commits Inspected")
+    plt.ylabel("Percentage of Bugs Found (Recall)")
+    plt.title("Effort-based Comparison: ML vs Heuristics")
+    plt.legend()
+    plt.grid()
+
+    if experiment_path:
+        experiment_path.mkdir(parents=True, exist_ok=True)
+        plt.savefig(experiment_path / filename, bbox_inches="tight")
+
+    plt.show()
+    plt.close()

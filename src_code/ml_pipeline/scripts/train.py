@@ -36,6 +36,7 @@ from src_code.ml_pipeline.preprocessing.transform import (
 # from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
 from src_code.ml_pipeline.training.constants import DEF_TOP_K
 from src_code.ml_pipeline.training.ensemble import load_ensemble_supported_models
+from src_code.ml_pipeline.training.scoring import DEF_SCORER
 from src_code.ml_pipeline.training.training import (
     check_single_infer,
     fit_model,
@@ -101,6 +102,7 @@ def train(
     top_k: int = DEF_TOP_K,
     experiment_id: int = None,
     perform_cv: bool = False,
+    limit_features: bool = False,
 ):
     logger.start_session(
         session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID
@@ -129,31 +131,44 @@ def train(
     validate_df = load_df(validate_df_versioner.current_newest)
 
     # SELECTED_SUBSETS = [STATISTICAL_METRICS]
-    FEATURE_SUBSETS = {
-        "STATISTICAL_METRICS": STATISTICAL_METRICS,
-        "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
-        # "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
-        # "SEMANTIC_METRICS": SEMANTIC_METRICS,
-    }
+    if limit_features:
+        
+        FEATURE_SUBSETS = {
+            "STATISTICAL_METRICS": STATISTICAL_METRICS,
+            "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
+            # "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
+            # "SEMANTIC_METRICS": SEMANTIC_METRICS,
+        }
+        logger.log_check(f"Limiting features to {[key for key in FEATURE_SUBSETS.keys()]}")
 
-    # SELECTED_SUBSETS = ["STATISTICAL_METRICS", "STRUCTURAL_METRICS"]
-    selected_subsets = []
-    selected_features = []
+        # SELECTED_SUBSETS = ["STATISTICAL_METRICS", "STRUCTURAL_METRICS"]
+        selected_subsets = []
+        selected_features = []
 
-    for subset_name in selected_subsets:
-        subset = FEATURE_SUBSETS[subset_name]
-        selected_features.extend(subset)
-        logger.log_result(
-            f"Using feature subset '{subset_name}' ({len(subset)} features)"
-        )
+        for subset_name in selected_subsets:
+            subset = FEATURE_SUBSETS[subset_name]
+            selected_features.extend(subset)
+            logger.log_result(
+                f"Using feature subset '{subset_name}' ({len(subset)} features)"
+            )
 
-    if selected_features:
-        selected_features.append(TARGET)
-        logger.log_result(f"Total selected features: {len(selected_features)}")
-        logger.log_result(f"First 5 features: {selected_features[:5]}")
+        if selected_features:
+            selected_features.append(TARGET)
+            logger.log_result(f"Total selected features: {len(selected_features)}")
+            logger.log_result(f"First 5 features: {selected_features[:5]}")
 
-        train_df = train_df[selected_features]
-        validate_df = validate_df[selected_features]
+            train_df = train_df[selected_features]
+            validate_df = validate_df[selected_features]
+
+        train_col_count_after = len(train_df.columns.to_list())
+        val_col_count_after = len(validate_df.columns.to_list())
+
+        if train_col_count_after != val_col_count_after:
+            raise ValueError(f"Training and validation subsets have different column count!")
+        
+        logger.log_result(f"Restricted column count to: {train_col_count_after}")
+    else:
+        logger.log_result("Applying no feature subset restrictions!")
 
     # -----------------------------------------------------------------------------
     # Dropping invalid cols
@@ -244,18 +259,18 @@ def train(
     # -----------------------------------------------------------------------------
     # Optional - Cross Validation
     # -----------------------------------------------------------------------------
-    
+
     if perform_cv:
         logger.log_check("Running post-training cross-validation...")
 
-        f2_scorer = make_scorer(fbeta_score, beta=2)
+        # f2_scorer = make_scorer(fbeta_score, beta=2)
 
         cv_scores = cross_val_score(
             model_wrapper.pipeline,
             X_train,
             y_train,
             cv=5,
-            scoring=f2_scorer,
+            scoring=DEF_SCORER,
             n_jobs=-1,
         )
 
@@ -338,7 +353,14 @@ def get_parser(add_help: bool = False) -> ArgumentParser:
         required=False,
         default=False,
         help="Whether to perform cross-validation after training.",
-        )
+    )
+    parser.add_argument(
+        "--limit-features",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Whether to limit dataset to only certain feature subsets.",
+    )
 
     return parser
 
@@ -361,4 +383,5 @@ if __name__ == "__main__":
         experiment_id=None,
         top_k=args.top_k,
         perform_cv=args.perform_cv,
+        limit_features=args.limit_features,
     )

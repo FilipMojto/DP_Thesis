@@ -101,7 +101,7 @@ ETL_PATH_MAPPINGS = {
         "input": JIT_TEST_FEATHER_FILE,
         "base_output": get_output(JIT_TEST_FEATHER_FILE)
     },
-    "validate": {
+    "val": {
         "input": JIT_VAL_FEATHER_FILE,
         "base_output": get_output(JIT_VAL_FEATHER_FILE)
     }

@@ -52,5 +52,6 @@ TUNING_DROP_COLS = [
     "methods",
     "lines",
     "canonical_datetime",
+    "has_bug"
     # "message",
 ]

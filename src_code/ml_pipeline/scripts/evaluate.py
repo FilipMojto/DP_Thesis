@@ -62,6 +62,8 @@ def evaluate(
 
     # results = []
     results_v2: List[EvalResults] = []
+    # for risk-based assessment
+    model_effort_scores = {}
 
     # =============================================================================
     # FINAL EVALUATION
@@ -77,6 +79,7 @@ def evaluate(
     )
 
     test_df = drop_cols(df=test_df, cols=DROP_COLS, logger=logger)
+    y_true = test_df["label"].values if "label" in test_df.columns else None
     # # -----------------------------------------------------------------------------
     # # Model Loading
     # # -----------------------------------------------------------------------------
@@ -109,6 +112,10 @@ def evaluate(
 
         X_trans = model_wrapper.transform(test_df)
 
+        # y_true = test_df["label"].values if "label" in test_df.columns else None
+        y_proba = model_wrapper.model.predict_proba(X_trans)[:, 1]
+        model_effort_scores[name] = y_proba
+
         # -----------------------------------------------------------------------------
         # Inference
         # -----------------------------------------------------------------------------
@@ -119,11 +126,29 @@ def evaluate(
             model=model_wrapper.model,
             X_test=X_trans,
             y_true=y_true,
+            probs=y_proba,
             logger=logger,
         )
 
         # results.append(results_local)
         results_v2.append(results_local)
+    
+    # -----------------------------------------------------------------------------
+    # heuristic results for risk-based assessment
+    # -----------------------------------------------------------------------------
+    
+    
+    heuristics = {}
+
+    if "loc_change" not in test_df.columns:
+        if "loc_added" in test_df.columns and "loc_deleted" in test_df.columns:
+            test_df["loc_change"] = test_df["loc_added"] + test_df["loc_deleted"]
+
+    if "loc_change" in test_df.columns:
+        heuristics["LOC_CHANGE"] = test_df["loc_change"].values
+
+    if "files_changed" in test_df.columns:
+        heuristics["FILES_CHANGED"] = test_df["files_changed"].values
 
     report_df = test_utils.classification_report_table(results_v2)
     logger.log_result(f"\n{report_df.round(3)}")
@@ -133,11 +158,18 @@ def evaluate(
         # Optional: Save a pretty version for humans
         with open(exp_dir / "report_summary.txt", "w") as f:
             f.write(report_df.to_string())
+    
 
     # test_utils.plot_pr_grid(results=results, experiment_path=exp_dir)
     test_utils.plot_pr_combined(results=results_v2, experiment_path=exp_dir)
     # test_utils.plot_roc_grid(results=results, experiment_path=exp_dir)
     test_utils.plot_roc_combined(results=results_v2, experiment_path=exp_dir)
+    test_utils.plot_effort_combined(
+        model_scores=model_effort_scores,
+        y_true=y_true,
+        heuristic_scores=heuristics,
+        experiment_path=exp_dir,
+    )
 
     return results_v2
 

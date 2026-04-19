@@ -1,7 +1,7 @@
 import argparse
 import os
 import threading
-from typing import List, Literal
+from typing import List, Literal, get_args
 import numpy as np
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed, CancelledError
@@ -367,7 +367,8 @@ def transform(
     reserved_cores: int = 8,
     skip_existing: bool = False,
     save_after: int = None,
-    subset: Literal["train", "test", "validate"] = "train",
+    # subset: Literal["train", "test", "validate"] = "train",
+    subset: SubsetType = 'train',
 ):
     """
     Args:
@@ -617,7 +618,8 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--subset",
-        choices=["train", "test", "validate"],  # This is the key part
+        # choices=["train", "test", "validate"],  # This is the key part
+        choices=get_args(SubsetType),
         required=False,  # Recommend making it required
         default="train",  # Optional: Set a default value
         help="The data subset to process. Must be one of: train, test, or validate.",

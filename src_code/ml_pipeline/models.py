@@ -25,6 +25,36 @@ from src_code.utils.utils import timeit
 
 DEF_N_JOBS = 1  # 🔴 IMPORTANT – consistent across models
 
+def log_native_feature_importance(
+    model,
+    feature_names: list[str],
+    logger: MyLogger,
+    top_n: int = 20,
+    title: str = "Model-native feature importance",
+):
+    if not hasattr(model, "feature_importances_"):
+        logger.log_result(f"{title}: not available for this model.")
+        return
+
+    importances = np.asarray(model.feature_importances_, dtype=float)
+
+    if len(importances) != len(feature_names):
+        logger.log_result(
+            f"{title}: length mismatch between importances ({len(importances)}) "
+            f"and feature names ({len(feature_names)})."
+        )
+        return
+
+    ranked = sorted(
+        zip(feature_names, importances),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+
+    logger.log_result(f"{title} | Top {top_n}:")
+    for i, (name, score) in enumerate(ranked[:top_n], start=1):
+        logger.log_result(f" - [{i}/{len(ranked)}] {name}: {score:.6f}")
+
 
 class ModelWrapperBase(ABC):
     def __init__(
@@ -121,10 +151,14 @@ class RFWrapper(ModelWrapperBase):
         try:
             # This pulls names from the pipeline steps (encoding, selection, etc.)
             self.feature_names_ = self.pipeline[:-1].get_feature_names_out().tolist()
+            log_native_feature_importance(model=self.model, feature_names=self.feature_names_, logger=self.logger)
+
         except Exception as e:
             # Fallback if preprocessing doesn't support get_feature_names_out
             num_features = self.model.n_features_in_
             self.feature_names_ = [f"feature_{i}" for i in range(num_features)]
+        
+        
 
 
 class XGBWrapper(ModelWrapperBase):
@@ -213,6 +247,7 @@ class XGBWrapper(ModelWrapperBase):
         # 3️⃣ Save feature names (now that Step 1 is done, these are available)
         try:
             self.feature_names_ = self.pipeline[:-1].get_feature_names_out().tolist()
+            log_native_feature_importance(model=self.model, feature_names=self.feature_names_, logger=self.logger)
         except Exception as e:
             self.feature_names_ = [
                 f"feature_{i}" for i in range(X_train_ready.shape[1])
@@ -225,20 +260,42 @@ def init_weights(m):
         nn.init.zeros_(m.bias)
 
 class SimpleNN(nn.Module):
-    def __init__(self, input_dim, hidden_units=128):
+    def __init__(self, input_dim, hidden_units=128, dropout=0.3):
         super().__init__()
+
+        # self.model = nn.Sequential(
+        #     nn.Linear(input_dim, hidden_units),
+        #     nn.BatchNorm1d(hidden_units),
+        #     nn.ReLU(),
+        #     nn.Dropout(dropout),   # 🔥 now configurable
+        #     nn.Linear(hidden_units, 1),
+        # )
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_units),
-            nn.BatchNorm1d(hidden_units),  # <-- added BatchNorm
+            nn.BatchNorm1d(hidden_units),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_units, 1),
+            nn.Dropout(dropout),
+
+            nn.Linear(hidden_units, hidden_units // 2),
+            nn.ReLU(),
+
+            nn.Linear(hidden_units // 2, 1),
         )
 
         self.model.apply(init_weights)
 
     def forward(self, X):
         return self.model(X).squeeze(1)
+    
+
+class FloatTargetNeuralNetBinaryClassifier(NeuralNetBinaryClassifier):
+    def fit(self, X, y, **fit_params):
+        y = np.asarray(y, dtype=np.float32)
+        return super().fit(X, y, **fit_params)
+
+    def partial_fit(self, X, y, classes=None, **fit_params):
+        y = np.asarray(y, dtype=np.float32)
+        return super().partial_fit(X, y, classes=classes, **fit_params)
 
 
 class NNWrapper(ModelWrapperBase):
@@ -254,9 +311,9 @@ class NNWrapper(ModelWrapperBase):
         self.use_scaling = True
 
         if tuned_params:
-            self.model = NeuralNetBinaryClassifier(**tuned_params)
+            self.model = FloatTargetNeuralNetBinaryClassifier(**tuned_params)
         else:
-            self.model = NeuralNetBinaryClassifier(
+            self.model = FloatTargetNeuralNetBinaryClassifier(
                 SimpleNN,
                 module__input_dim=self.top_k,
                 module__hidden_units=128,
@@ -286,7 +343,10 @@ class NNWrapper(ModelWrapperBase):
         # criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         # self.model.set_params(criterion=criterion)
         # Calculate your weight
-        pos_weight = torch.tensor([y_train_np.shape[0] / (2 * y_train_np.sum())], dtype=torch.float32)
+        # pos_weight = torch.tensor([y_train_np.shape[0] / (2 * y_train_np.sum())], dtype=torch.float32)
+        num_pos = y_train_np.sum()
+        num_neg = len(y_train_np) - num_pos
+        pos_weight = torch.tensor([num_neg / max(num_pos, 1)], dtype=torch.float32)
         self.logger.log_result(f"Calculated pos_weight: {pos_weight}")
 
         # Set the parameter, not the object. 

@@ -18,6 +18,7 @@ from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER, DEF_RANDOM_STATE
 from src_code.ml_pipeline.resources import CoreConfig
 from src_code.ml_pipeline.training.constants import DEF_TOP_K
 
+from src_code.ml_pipeline.training.scoring import DEF_SCORER
 from src_code.mlops_intstrex.adapters.grid_search import GridSearchAdapter
 from src_code.mlops_intstrex.reporters.progress_reporter import ProgressReporter
 from src_code.mlops_intstrex.reporters.tqdm_reporter import TqdmReporter
@@ -110,7 +111,8 @@ class TuningWrapperBase(ABC):
         )
 
         # self.mcc_scorer = make_scorer(matthews_corrcoef)
-        self.f2_scorer = make_scorer(fbeta_score, beta=2)
+        # self.f2_scorer = make_scorer(fbeta_score, beta=2)
+        self.f2_scorer = DEF_SCORER
 
         logger.log_check(
             f"Applying the following core config: {self.core_config.__str__()}"
@@ -220,10 +222,22 @@ class XGBTuningWrapper(TuningWrapperBase):
 
 
 class NNTuningWrapper(TuningWrapperBase):
+    # PARAM_GRID = {
+    #     "model__lr": [0.002, 0.0005],
+    #     # "model__max_epochs": [20, 50],
+    #     "model__module__hidden_units": [64, 128],
+    # }
+    # PARAM_GRID = {
+    #     "model__lr": [0.002, 0.001, 0.0005],
+    #     "model__batch_size": [32, 64, 128],
+    #     "model__module__hidden_units": [64, 128, 256],
+    #     "model__module__dropout": [0.2, 0.3, 0.5],
+    # }
     PARAM_GRID = {
-        "model__lr": [0.002, 0.0005],
-        # "model__max_epochs": [20, 50],
-        "model__module__hidden_units": [64, 128],
+        "model__lr": [0.002, 0.001],
+        "model__batch_size": [32],
+        "model__module__hidden_units": [64],
+        "model__module__dropout": [0.2],
     }
 
     def __init__(
