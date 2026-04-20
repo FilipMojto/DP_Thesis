@@ -101,7 +101,7 @@
             "request": "launch",
             "module": "src_code.ml_pipeline.scripts.EDA",
             // "args": ["--skip-tuning", "--model", "XGB"],
-            // "args": ["--load-etl-df"],
+            "args": ["--subset", "train", "--load-etl-df"],
             // "args": ["--max-rows", "10000"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

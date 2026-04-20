@@ -179,6 +179,31 @@ class NamingPCA(PCA):
         return [f"{self.prefix}{i}" for i in range(self.n_components)]
 
 
+class ZeroHeavyFeatureDropper(BaseEstimator, TransformerMixin):
+    def __init__(self, max_zero_fraction: float = 0.95):
+        self.max_zero_fraction = max_zero_fraction
+        self.keep_columns_ = None
+        self.drop_columns_ = None
+
+    def fit(self, X, y=None):
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        zero_frac = (X == 0).mean(axis=0)
+        self.keep_columns_ = zero_frac[zero_frac <= self.max_zero_fraction].index.tolist()
+        self.drop_columns_ = zero_frac[zero_frac > self.max_zero_fraction].index.tolist()
+        return self
+
+    def transform(self, X):
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        return X.loc[:, self.keep_columns_]
+
+    def get_feature_names_out(self, input_features=None):
+        return np.array(self.keep_columns_, dtype=object)
+
+
 if __name__ == "__main__":
     pass
     # vectorizer = DenseTfidf()

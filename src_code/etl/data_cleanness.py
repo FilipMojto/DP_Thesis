@@ -40,7 +40,7 @@ input_versioner = VersionedFileManager(
     logger=logger,
 )
 input_df = load_df(df_file_path=input_versioner.current_newest, logger=logger)
-
+print(input_df['repo'].value_counts())
 
 # ---------------------------
 # Helpers

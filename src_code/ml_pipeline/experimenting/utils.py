@@ -30,8 +30,8 @@ def save_df_as_md(df: pd.DataFrame, path: Path):
 
 
 
-def get_experiment_dir(experiment_id: int, target_dir: Path) -> Path:
-    path = Path(f"{target_dir}/experiment_{experiment_id}")
+def get_experiment_dir(experiment_id: int, target_dir: Path, label: str = None) -> Path:
+    path = Path(f"{target_dir}/experiment_{experiment_id}{"_" + label if label else ""}")
     path.mkdir(parents=True, exist_ok=True)
     return path
 

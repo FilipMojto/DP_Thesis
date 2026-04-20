@@ -5,7 +5,9 @@ import numpy as np
 
 
 DERIVED_FEATURES = {
-    "loc_churn_ratio": lambda df: df["loc_added"] / (df["loc_deleted"] + 1),
+    # "loc_churn_ratio": lambda df: df["loc_added"] / (df["loc_deleted"] + 1),
+    "loc_churn_ratio": lambda df: df["loc_added"] - df['loc_deleted'] / (df['loc_added'] + df["loc_deleted"] + 1),
+
     "activity_per_exp": lambda df: df["author_recent_activity_pre"]
     / (df["author_exp_pre"] + 1),
 }

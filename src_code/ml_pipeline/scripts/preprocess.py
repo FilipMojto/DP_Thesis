@@ -298,8 +298,8 @@ def transform_df(
     return [df_path.next_base_output for df_path in output_paths.values()]
 
 
-def get_parser():
-    parser = argparse.ArgumentParser(add_help=False, description="Preprocessing Script for ML Pipeline")
+def get_parser(add_help = False):
+    parser = argparse.ArgumentParser(add_help=add_help, description="Preprocessing Script for ML Pipeline")
 
     parser.add_argument(
         "--subset",
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     #     default=None,
     #     help="Limit dataset to first n rows only for testing purposes.",
     # )
-    parser = get_parser()
+    parser = get_parser(add_help=True)
 
     args = parser.parse_args()
     subset: SubsetType = args.subset
@@ -376,14 +376,14 @@ if __name__ == "__main__":
 
     # script_logger.start_session()
     # script_logger.log_check("Starting preprocessing phase...")
-    if args.engineer:
-        early_preprocess(
-            subset=subset,
-            # engineer=args.engineer,
-            # transform=args.transform,
-            script_logger=script_logger,
-            max_rows=args.max_rows,
-        )
+    # if args.engineer:
+    #     early_preprocess(
+    #         subset=subset,
+    #         # engineer=args.engineer,
+    #         # transform=args.transform,
+    #         script_logger=script_logger,
+    #         max_rows=args.max_rows,
+    #     )
 
     if args.transform:
         transform_df(subset=subset, max_rows=args.max_rows, logger=script_logger)

@@ -62,8 +62,10 @@ def perform_EDA(
     logger.log_result(f"Config: {subset=}, {load_ETL_processed=}, {experiment_id=}, {max_rows=}, {intersect_with_processed=}")
     results = EdaResults()
 
+    mode = "etl" if load_ETL_processed else "preprocessed"
+
     dfs = load_input_dfs_eda(
-        mode="etl" if load_ETL_processed else "preprocessed", logger=logger
+        mode=mode, logger=logger
     )
 
     for label, df in dfs.items():
@@ -99,7 +101,7 @@ def perform_EDA(
   
     # experiment_dir = EDA_DIR if experiment_id else None
     exp_dir = (
-        get_experiment_dir(experiment_id, target_dir=EDA_DIR) if experiment_id else None
+        get_experiment_dir(experiment_id, target_dir=EDA_DIR, label=mode) if experiment_id else None
     )
 
     if max_rows and max_rows < len(input_df):
@@ -115,24 +117,24 @@ def perform_EDA(
     inspect_dataframe(df=input_df, logger=logger, name=f"EDA {subset} dataframe")
     identify_missing_values(df=input_df, logger=logger)
 
-    # plot_num_feature_distributions(
-    #     input_df,
-    #     logger=logger,
-    #     feature_ctgs=feature_sets,
-    #     drop_cols=["raise"],
-    #     col_type="structural",
-    #     experiment_dir=exp_dir / "struct_features_distributions",
-    #     rows_per_page=4,
-    #     cols_per_page=2,
-    # )
-    # plot_num_feature_distributions(
-    #     input_df,
-    #     logger=logger,
-    #     feature_ctgs=feature_sets,
-    #     col_type="engineered",
-    #     experiment_dir=exp_dir / "struct_features_engineered_distributions",
-    #     rows_per_page=5,
-    # )
+    plot_num_feature_distributions(
+        input_df,
+        logger=logger,
+        feature_ctgs=feature_sets,
+        drop_cols=["raise"],
+        col_type="structural",
+        experiment_dir=exp_dir / "struct_features_distributions",
+        rows_per_page=4,
+        cols_per_page=2,
+    )
+    plot_num_feature_distributions(
+        input_df,
+        logger=logger,
+        feature_ctgs=feature_sets,
+        col_type="engineered",
+        experiment_dir=exp_dir / "struct_features_engineered_distributions",
+        rows_per_page=5,
+    )
 
     # plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, cols=feature_ctgs.embedding_cols, experiment_dir=exp_dir / "embedding_distributions")
     # plot_num_feature_distributions(input_df, logger=logger, feature_ctgs=feature_ctgs, cols=feature_ctgs.tfidf_vectorized_cols, experiment_dir=exp_dir / "tfidf_vectorized_distributions")
@@ -244,15 +246,15 @@ def perform_EDA(
 
     # logger.log_check("Starting the outlier phase...")
 
-    plot_boxplots_with_outliers(
-        df=input_df,
-        feature_sets=feature_sets,
-        logger=logger,
-        experiment_dir=exp_dir / "outliers",
-        drop_binaries=True,
-        n_cols_per_page=2,
-        n_rows_per_page=4,
-    )
+    # plot_boxplots_with_outliers(
+    #     df=input_df,
+    #     feature_sets=feature_sets,
+    #     logger=logger,
+    #     experiment_dir=exp_dir / "outliers",
+    #     drop_binaries=True,
+    #     n_cols_per_page=2,
+    #     n_rows_per_page=4,
+    # )
 
     # -----------------------------------------------------------------------------
     # Target Separability

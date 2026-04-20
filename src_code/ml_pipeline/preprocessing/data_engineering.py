@@ -101,7 +101,7 @@ def aggr_line_token_features(
     df["line_token_total"] = df[features].sum(axis=1)
     logger.log_result("Feature 'line_token_total' created successfully.")
 
-    # Optionally create ratios per total lines (if loc_added exists)
+    #Optionally create ratios per total lines (if loc_added exists)
     if "loc_added" in df.columns:
         logger.log_check("loc_added feature detected. Creating ratios per total lines.")
         denom = df["loc_added"] + 1  # avoid division by zero

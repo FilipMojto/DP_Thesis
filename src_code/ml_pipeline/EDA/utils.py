@@ -92,7 +92,7 @@ class NumFeatureSets:
     @staticmethod
     def extract_features(df: pd.DataFrame, logger: MyLogger):
         logger.log_check("Checking numeric features...")
-        num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        num_cols = df.select_dtypes(include=[np.number, np.bool]).columns.tolist()
         num_cols.remove('label')  # exclude target
 
         embedding_cols = [c for c in num_cols if is_embedding_column(c)]

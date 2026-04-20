@@ -9,9 +9,9 @@ from sklearn.compose import ColumnTransformer
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.pipeline import FunctionTransformer, Pipeline
 
-from notebooks.constants import ENGINEERED_FEATURES, LINE_TOKEN_FEATURES, NUMERIC_FEATURES
+from notebooks.constants import BINARY_BUCKET_FEATURES, ENGINEERED_FEATURES, HEAVY_TAIL_FEATURES, LINE_TOKEN_FEATURES, NUMERIC_FEATURES, SPARSE_TOKEN_FEATURES
 from notebooks.logging_config import MyLogger
-from notebooks.transformers import EmbeddingExpander, NamingPCA, WinsorizerIQR
+from notebooks.transformers import EmbeddingExpander, NamingPCA, WinsorizerIQR, ZeroHeavyFeatureDropper
 from src_code.config import FITTED_TRANSFORMER, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
 from src_code.ml_pipeline.preprocessing.vectorizers import sklearn_tfidf_vectorizer
@@ -58,35 +58,63 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
 
 
     # 1. Define a pipeline for numeric features: Winsorize THEN Log
-    numeric_pipe = Pipeline(
-        [
-            ("winsorize", WinsorizerIQR(factor=WINSORIZE_FACTOR)),
-            ("log", log_transformer),
-            # ("interactions", FeatureInteractionTransformer(NUMERIC_FEATURES)),
-            ("var_thresh", VarianceThreshold(threshold=VARIANCE_THRESHOLD)),
-        ]
-    )
-    logger.log_result(f"Winsorization factor set to {WINSORIZE_FACTOR}.", print_to_console=True)
-    logger.log_result(f"Variance threshold set to {VARIANCE_THRESHOLD}.", print_to_console=True)
+    # numeric_pipe = Pipeline(
+    #     [
+    #         ("winsorize", WinsorizerIQR(factor=WINSORIZE_FACTOR)),
+    #         ("log", log_transformer),
+    #         # ("interactions", FeatureInteractionTransformer(NUMERIC_FEATURES)),
+    #         ("var_thresh", VarianceThreshold(threshold=VARIANCE_THRESHOLD)),
+    #     ]
+    # )
+    # logger.log_result(f"Winsorization factor set to {WINSORIZE_FACTOR}.", print_to_console=True)
+    # logger.log_result(f"Variance threshold set to {VARIANCE_THRESHOLD}.", print_to_console=True)
 
-    pipelines.extend([msg_emb_pipe, code_emb_pipe, numeric_pipe])
+    # pipelines.extend([msg_emb_pipe, code_emb_pipe, numeric_pipe])
 
-    # num_features = NUMERIC_FEATURES + ENGINEERED_FEATURES
+    # # num_features = NUMERIC_FEATURES + ENGINEERED_FEATURES
+
+    # transformer = ColumnTransformer(
+    #     transformers=[
+    #         ("text", sklearn_tfidf_vectorizer, "message"),
+    #         ("num", numeric_pipe, NUMERIC_FEATURES + ENGINEERED_FEATURES),
+    #         ("tokens", log_transformer, LINE_TOKEN_FEATURES),
+    #         ("code_embed", code_emb_pipe, ["code_embed"]),  # Pass as list
+    #         ("msg_embed", msg_emb_pipe, ["msg_embed"]),  # Pass as list
+    #         # 2. This step keeps the original raw vector column
+    #         # Note: We use 'passthrough' directly on the column names
+    #         # ("code_embed_raw", "passthrough", ["code_embed"]),
+    #         # ("msg_embed_raw", "passthrough", ["msg_embed"]),
+    #     ],
+    #     remainder="passthrough",
+    #     verbose_feature_names_out=False,  # This now works because names are unique
+    # )
+    heavy_tail_pipe = Pipeline([
+        ("winsorize", WinsorizerIQR(factor=WINSORIZE_FACTOR)),
+        ("log", log_transformer),
+        ("var_thresh", VarianceThreshold(threshold=0.0)),
+    ])
+
+    binary_pipe = Pipeline([
+        ("var_thresh", VarianceThreshold(threshold=0.0)),
+    ])
+
+    sparse_pipe = Pipeline([
+        ("drop_zero_heavy", ZeroHeavyFeatureDropper(max_zero_fraction=0.95)),
+        ("log", log_transformer),
+        ("var_thresh", VarianceThreshold(threshold=0.0)),
+    ])
 
     transformer = ColumnTransformer(
         transformers=[
             ("text", sklearn_tfidf_vectorizer, "message"),
-            ("num", numeric_pipe, NUMERIC_FEATURES + ENGINEERED_FEATURES),
-            ("tokens", log_transformer, LINE_TOKEN_FEATURES),
-            ("code_embed", code_emb_pipe, ["code_embed"]),  # Pass as list
-            ("msg_embed", msg_emb_pipe, ["msg_embed"]),  # Pass as list
-            # 2. This step keeps the original raw vector column
-            # Note: We use 'passthrough' directly on the column names
-            # ("code_embed_raw", "passthrough", ["code_embed"]),
-            # ("msg_embed_raw", "passthrough", ["msg_embed"]),
+            ("heavy_num", heavy_tail_pipe, HEAVY_TAIL_FEATURES),
+            ("binary", binary_pipe, BINARY_BUCKET_FEATURES),
+            ("sparse_tokens", sparse_pipe, SPARSE_TOKEN_FEATURES),
+            ("code_embed", code_emb_pipe, ["code_embed"]),
+            ("msg_embed", msg_emb_pipe, ["msg_embed"]),
         ],
-        remainder="passthrough",
-        verbose_feature_names_out=False,  # This now works because names are unique
+        remainder="drop",
+        verbose_feature_names_out=False,
     )
 
     return transformer

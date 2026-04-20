@@ -199,11 +199,12 @@ def plot_num_feature_distributions(
                 if feature not in ENGINEERED_FEATURES
             ]
         case "engineered":
-            filtered_cols = [
-                feature
-                for feature in feature_ctgs.numeric_cols
-                if feature in ENGINEERED_FEATURES
-            ]
+            # filtered_cols = [
+            #     feature
+            #     for feature in feature_ctgs.numeric_cols
+            #     if feature in ENGINEERED_FEATURES
+            # ]
+            filtered_cols = feature_ctgs.engineered_cols
         case "embedding":
             # filtered_cols = feature_ctgs.embedding_cols
             filtered_cols = sample_cols(
