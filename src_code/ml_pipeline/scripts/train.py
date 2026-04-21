@@ -6,6 +6,7 @@ from sklearn.metrics import fbeta_score, make_scorer
 from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
 from notebooks.constants import (
+    CHURN_METRICS,
     ENGINEERED_FEATURES,
     INTERACTION_FEATURES,
     LINE_TOKEN_FEATURES,
@@ -26,11 +27,6 @@ from src_code.ml_pipeline.preprocessing.data_engineering import (
     create_buckets,
     create_derived_features,
     create_feature_interactions,
-)
-from src_code.ml_pipeline.preprocessing.transform import (
-    build_transformer,
-    pca_explained_variance,
-    transform,
 )
 
 # from src_code.ml_pipeline.testing.testing import display_ROC_curve, evaluate, find_best_threshold, find_optimal_threshold_MCC, infer, prec_recall_curve
@@ -98,11 +94,12 @@ def train(
     model_type: SupportedModel,
     logger: MyLogger = DEF_SCRIPT_LOGGER,
     load_tuned: bool = True,
-    skip_pfi: bool = False,
+    # skip_pfi: bool = False,
     top_k: int = DEF_TOP_K,
     experiment_id: int = None,
     perform_cv: bool = False,
     limit_features: bool = False,
+    held_out_repo: str = None,
 ):
     logger.start_session(
         session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID
@@ -112,7 +109,7 @@ def train(
     #     MODEL_DIR / f"{model_type.upper()}_model_train.joblib", logger=logger
     # )
     logger.log_result(
-        f"Config: [{model_type=}, {load_tuned=}, {skip_pfi=}, {top_k=}, {experiment_id=}]"
+        f"Config: [{model_type=}, {load_tuned=}, {top_k=}, {experiment_id=}]"
     )
 
     results = TrainingResults()
@@ -130,19 +127,66 @@ def train(
     # validate_df_path = TARGET_DF_FILE = ENGINEERING_MAPPINGS['validate']["output"]
     validate_df = load_df(validate_df_versioner.current_newest)
 
+    # -----------------------------------------------------------------------------
+    # Leaving a repo for cross-project validation
+    # -----------------------------------------------------------------------------
+
+    if held_out_repo:
+        logger.log_result(f"Holding out repository for test: {held_out_repo}")
+
+        # rows_before = len(train_df)
+
+        # print(train_df['repo'].value_counts())
+        train_rows_before = len(train_df)
+        val_rows_before = len(validate_df)
+
+        train_df = train_df[train_df["repo"] != held_out_repo]
+        validate_df = validate_df[validate_df["repo"] != held_out_repo]
+
+        
+
+        # if rows_after_train != rows_after_val:
+        #     raise ValueError(
+        #         f"Training and validation subsets have different row count!"
+        #     )
+
+        logger.log_result(
+        f"Removed held-out repo from training set: "
+            f"{train_rows_before - len(train_df)} rows dropped"
+        )
+        logger.log_result(
+            f"Removed held-out repo from validation set: "
+            f"{val_rows_before - len(validate_df)} rows dropped"
+        )
+
+
+    # -----------------------------------------------------------------------------
+    # Dropping invalid cols
+    # -----------------------------------------------------------------------------
+
+    train_df = drop_cols(df=train_df, cols=ftr_cfg.DROP_COLS, logger=logger)
+    validate_df = drop_cols(df=validate_df, cols=ftr_cfg.DROP_COLS, logger=logger)
+
+    # -----------------------------------------------------------------------------
+    # Limiting to certain subsets
+    # -----------------------------------------------------------------------------
     # SELECTED_SUBSETS = [STATISTICAL_METRICS]
     if limit_features:
-        
+
         FEATURE_SUBSETS = {
-            "STATISTICAL_METRICS": STATISTICAL_METRICS,
-            "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
+            # "STATISTICAL_METRICS": STATISTICAL_METRICS,
+            # "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
             # "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
             # "SEMANTIC_METRICS": SEMANTIC_METRICS,
+            "CHURN_METRICS": CHURN_METRICS,
+            "STRUCTURAL_METRICS": STRUCTURAL_METRICS,
         }
-        logger.log_check(f"Limiting features to {[key for key in FEATURE_SUBSETS.keys()]}")
+        logger.log_check(
+            f"Limiting features to {[key for key in FEATURE_SUBSETS.keys()]}"
+        )
 
         # SELECTED_SUBSETS = ["STATISTICAL_METRICS", "STRUCTURAL_METRICS"]
-        selected_subsets = []
+        selected_subsets = ["CHURN_METRICS", "STRUCTURAL_METRICS"]
         selected_features = []
 
         for subset_name in selected_subsets:
@@ -164,23 +208,17 @@ def train(
         val_col_count_after = len(validate_df.columns.to_list())
 
         if train_col_count_after != val_col_count_after:
-            raise ValueError(f"Training and validation subsets have different column count!")
-        
+            raise ValueError(
+                f"Training and validation subsets have different column count!"
+            )
+
         logger.log_result(f"Restricted column count to: {train_col_count_after}")
     else:
         logger.log_result("Applying no feature subset restrictions!")
 
-    # -----------------------------------------------------------------------------
-    # Dropping invalid cols
-    # -----------------------------------------------------------------------------
+    feature_columns = [c for c in train_df.columns if c != TARGET]
 
-    train_df = drop_cols(df=train_df, cols=ftr_cfg.DROP_COLS, logger=logger)
-    validate_df = drop_cols(df=validate_df, cols=ftr_cfg.DROP_COLS, logger=logger)
-
-    # -----------------------------------------------------------------------------
-    # Dropping cols
-    # -----------------------------------------------------------------------------
-
+    
     # -----------------------------------------------------------------------------
     # analyzing features
     # -----------------------------------------------------------------------------
@@ -236,6 +274,7 @@ def train(
             if (model_type == "ENSEMBLE_VOTING" or model_type == "ENSEMBLE_STACKING")
             else None
         ),
+        available_cols=feature_columns,
     )
 
     # object_cols = X_test.select_dtypes(include=["object"]).columns
@@ -340,13 +379,13 @@ def get_parser(add_help: bool = False) -> ArgumentParser:
     #     default=False,
     #     help="Hyperparameter Tunining is skipped in the training phase.",
     # )
-    parser.add_argument(
-        "--skip-pfi",
-        action="store_true",
-        required=False,
-        default=False,
-        help="PFI is skipped in training phase.",
-    )
+    # parser.add_argument(
+    #     "--skip-pfi",
+    #     action="store_true",
+    #     required=False,
+    #     default=False,
+    #     help="PFI is skipped in training phase.",
+    # )
     parser.add_argument(
         "--perform-cv",
         action="store_true",
@@ -360,6 +399,13 @@ def get_parser(add_help: bool = False) -> ArgumentParser:
         required=False,
         default=False,
         help="Whether to limit dataset to only certain feature subsets.",
+    )
+    parser.add_argument(
+        "--held-out-repo",
+        required=False,
+        type=str,
+        default=None,
+        help="Whether to leave one repo out of repo for cross-project validation",
     )
 
     return parser
@@ -379,9 +425,10 @@ if __name__ == "__main__":
         model_type=args.model,
         logger=script_logger,
         load_tuned=args.load_tuned,
-        skip_pfi=args.skip_pfi,
+        # skip_pfi=args.skip_pfi,
         experiment_id=None,
         top_k=args.top_k,
         perform_cv=args.perform_cv,
         limit_features=args.limit_features,
+        held_out_repo=args.held_out_repo,
     )

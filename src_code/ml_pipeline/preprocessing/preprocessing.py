@@ -17,7 +17,6 @@ from notebooks.logging_config import MyLogger
 from notebooks.transformers import EmbeddingExpander, NamingPCA, WinsorizerIQR
 from src_code.config import FITTED_TRANSFORMER, SubsetType
 from src_code.ml_pipeline.config import DEF_NOTEBOOK_LOGGER
-from src_code.ml_pipeline.preprocessing.transform import build_transformer
 from src_code.utils.utils import timeit
 # from src_code.ml_pipeline.utils import contains_negative
 

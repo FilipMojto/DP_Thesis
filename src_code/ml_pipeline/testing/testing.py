@@ -313,17 +313,92 @@ def compute_effort_curve(
 
     return effort_levels, recalls
 
+def recall_at_effort(
+    scores: np.ndarray,
+    y_true: np.ndarray,
+    effort: float,
+) -> float:
+    scores = np.asarray(scores)
+    y_true = np.asarray(y_true)
 
+    n = len(scores)
+    k = max(1, int(np.ceil(n * effort)))
+
+    ranked_idx = np.argsort(scores)[::-1]
+    top_k_idx = ranked_idx[:k]
+
+    bugs_found = y_true[top_k_idx].sum()
+    total_bugs = y_true.sum()
+
+    if total_bugs == 0:
+        return 0.0
+
+    return float(bugs_found / total_bugs)
+
+
+# def plot_effort_combined(
+#     model_scores: Dict[str, np.ndarray],
+#     y_true: np.ndarray,
+#     heuristic_scores: Dict[str, np.ndarray] | None = None,
+#     experiment_path: Path | None = None,
+#     filename: str = "effort_curve_combined.png",
+# ):
+#     effort_levels = np.linspace(0.01, 1.0, 50)
+
+#     plt.figure()
+
+#     # ML models
+#     for model_name, scores in model_scores.items():
+#         x, recalls = compute_effort_curve(
+#             scores=np.asarray(scores),
+#             y_true=np.asarray(y_true),
+#             effort_levels=effort_levels,
+#         )
+#         plt.plot(x, recalls, label=f"ML Model ({model_name})", linewidth=2)
+
+#     # Heuristics
+#     if heuristic_scores:
+#         for heuristic_name, scores in heuristic_scores.items():
+#             x, recalls = compute_effort_curve(
+#                 scores=np.asarray(scores),
+#                 y_true=np.asarray(y_true),
+#                 effort_levels=effort_levels,
+#             )
+#             plt.plot(x, recalls, linestyle="--", label=f"Heuristic ({heuristic_name})")
+
+#     # Random baseline
+#     plt.plot(
+#         effort_levels,
+#         effort_levels,
+#         linestyle=":",
+#         label="Random baseline",
+#     )
+
+#     plt.xlabel("Percentage of Commits Inspected")
+#     plt.ylabel("Percentage of Bugs Found (Recall)")
+#     plt.title("Effort-based Comparison: ML vs Heuristics")
+#     plt.legend()
+#     plt.grid()
+
+#     if experiment_path:
+#         experiment_path.mkdir(parents=True, exist_ok=True)
+#         plt.savefig(experiment_path / filename, bbox_inches="tight")
+
+#     plt.show()
+#     plt.close()
 def plot_effort_combined(
     model_scores: Dict[str, np.ndarray],
     y_true: np.ndarray,
+    logger: MyLogger,
     heuristic_scores: Dict[str, np.ndarray] | None = None,
     experiment_path: Path | None = None,
     filename: str = "effort_curve_combined.png",
+    highlight_efforts: tuple[float, ...] = (0.3,),
 ):
     effort_levels = np.linspace(0.01, 1.0, 50)
+    summary = {}
 
-    plt.figure()
+    plt.figure(figsize=(9, 6))
 
     # ML models
     for model_name, scores in model_scores.items():
@@ -334,6 +409,21 @@ def plot_effort_combined(
         )
         plt.plot(x, recalls, label=f"ML Model ({model_name})", linewidth=2)
 
+        summary[model_name] = {}
+        for e in highlight_efforts:
+            r = recall_at_effort(scores=np.asarray(scores), y_true=np.asarray(y_true), effort=e)
+            summary[model_name][e] = r
+
+            # mark point on curve
+            # plt.scatter([e], [r], s=25)
+            # plt.annotate(
+            #     f"{r:.2f}",
+            #     (e, r),
+            #     textcoords="offset points",
+            #     xytext=(4, 4),
+            #     fontsize=8,
+            # )
+
     # Heuristics
     if heuristic_scores:
         for heuristic_name, scores in heuristic_scores.items():
@@ -343,6 +433,20 @@ def plot_effort_combined(
                 effort_levels=effort_levels,
             )
             plt.plot(x, recalls, linestyle="--", label=f"Heuristic ({heuristic_name})")
+
+            summary[heuristic_name] = {}
+            for e in highlight_efforts:
+                r = recall_at_effort(scores=np.asarray(scores), y_true=np.asarray(y_true), effort=e)
+                summary[heuristic_name][e] = r
+
+                # plt.scatter([e], [r], s=20)
+                # plt.annotate(
+                #     f"{r:.2f}",
+                #     (e, r),
+                #     textcoords="offset points",
+                #     xytext=(4, -10),
+                #     fontsize=8,
+                # )
 
     # Random baseline
     plt.plot(
@@ -364,3 +468,9 @@ def plot_effort_combined(
 
     plt.show()
     plt.close()
+
+    for name, vals in summary.items():
+        logger.log_result(
+            f"{name}: " + ", ".join([f"R@{int(e*100)}%={r:.3f}" for e, r in vals.items()])
+        )
+    return summary

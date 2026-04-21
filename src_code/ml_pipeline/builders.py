@@ -1,3 +1,5 @@
+from typing import List
+
 from joblib import Memory
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -21,6 +23,7 @@ class PipelineBuilder:
     def build(
         model: BaseEstimator,
         logger: MyLogger,
+        available_cols: List[str],
         memory: Memory = None,
         random_state: int = DEF_RANDOM_STATE,
         top_k: int = DEF_TOP_K,
@@ -29,7 +32,7 @@ class PipelineBuilder:
         steps = [
             (
                 "prep",
-                build_transformer(random_state=random_state, logger=logger),
+                build_transformer(random_state=random_state, logger=logger, available_columns=available_cols),
             )
         ]
 

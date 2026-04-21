@@ -101,6 +101,7 @@ def tune_hyperparams(
     preprocessed_df = drop_cols(
         df=preprocessed_df, cols=TUNING_DROP_COLS, logger=logger
     )
+    feature_columns = [c for c in preprocessed_df.columns if c != TARGET]
 
     if max_rows:
         logger.log_check(f"Restricting dataset to first {max_rows} rows.")
@@ -119,6 +120,7 @@ def tune_hyperparams(
             XGBWrapper.calc_scale_pos_weight(y_train) if model_type == "XGB" else None
         ),
         top_k=top_k,
+        available_cols=feature_columns,
     )
     model = model_wrapper.get_model()
 
@@ -324,7 +326,6 @@ if __name__ == "__main__":
 
     model_type = args.model.lower()
     best_model_path = tune_hyperparams(
-        
         # model_type=model_type,
         logger=logger,
         experiment_id=None,

@@ -39,6 +39,7 @@ def evaluate(
     logger: MyLogger = DEF_SCRIPT_LOGGER,
     models: Iterable[SupportedModel] = SUPPORTED_MODELS,
     experiment_id: int = None,
+    repo_restrict: str = None,
 ):
     logger.start_session(
         session_id=experiment_id if experiment_id else MyLogger.DEF_SESSION_ID
@@ -78,19 +79,40 @@ def evaluate(
         df_file_path=test_df_versioner.current_newest, logger=logger
     )
 
+    # # -----------------------------------------------------------------------------
+    # # Repo Restriction for cross-project validation
+    # # -----------------------------------------------------------------------------
+
+    if repo_restrict:
+        logger.log_check(f"Restricting testing dataset to repository: {repo_restrict}")
+
+        rows_before = len(test_df)
+
+        test_df = test_df[test_df["repo"] == repo_restrict]
+        # rows_after_test = len(test_df)
+        # rows_after_val = len(validate_df)
+
+        logger.log_result(
+            f"Kept {len(test_df)} rows from repo {repo_restrict}, "
+            f"dropped {rows_before - len(test_df)} rows"
+        )
+
     test_df = drop_cols(df=test_df, cols=DROP_COLS, logger=logger)
     y_true = test_df["label"].values if "label" in test_df.columns else None
     # # -----------------------------------------------------------------------------
     # # Model Loading
     # # -----------------------------------------------------------------------------
 
-    
     for name, artifact in loaded_models.items():
         logger.start_section(section_name=f"Evaluating model: {name}")
         model_wrapper = artifact.model_wrapper
-     
+
         model_features = artifact.extract_features()
-        logger.log_result(f"Model was trained on features: {len(model_features)}" if model_features is not None else "Model features not found in artifact.")
+        logger.log_result(
+            f"Model was trained on features: {len(model_features)}"
+            if model_features is not None
+            else "Model features not found in artifact."
+        )
 
         if model_wrapper == None and model_features == None:
             raise ValueError(
@@ -132,12 +154,11 @@ def evaluate(
 
         # results.append(results_local)
         results_v2.append(results_local)
-    
+
     # -----------------------------------------------------------------------------
     # heuristic results for risk-based assessment
     # -----------------------------------------------------------------------------
-    
-    
+
     heuristics = {}
 
     if "loc_change" not in test_df.columns:
@@ -158,7 +179,6 @@ def evaluate(
         # Optional: Save a pretty version for humans
         with open(exp_dir / "report_summary.txt", "w") as f:
             f.write(report_df.to_string())
-    
 
     # test_utils.plot_pr_grid(results=results, experiment_path=exp_dir)
     test_utils.plot_pr_combined(results=results_v2, experiment_path=exp_dir)
@@ -169,6 +189,7 @@ def evaluate(
         y_true=y_true,
         heuristic_scores=heuristics,
         experiment_path=exp_dir,
+        logger=logger,
     )
 
     return results_v2
@@ -192,7 +213,15 @@ def get_parser(add_help: bool = False) -> argparse.ArgumentParser:
         "--exp-id",
         required=False,
         default=None,
-        help="Experiment id used to store artifacts"
+        help="Experiment id used to store artifacts",
+    )
+
+    parser.add_argument(
+        "--repo-restrict",
+        required=False,
+        default=None,
+        type=str,
+        help="Restrict the testing subset to this repo only for cross-project validaiton",
     )
 
     return parser
@@ -204,4 +233,9 @@ if __name__ == "__main__":
     parser = get_parser(add_help=True)
     args = parser.parse_args()
 
-    evaluate(logger=logger, models=args.models, experiment_id=args.exp_id)
+    evaluate(
+        logger=logger,
+        models=args.models,
+        experiment_id=args.exp_id,
+        repo_restrict=args.repo_restrict,
+    )

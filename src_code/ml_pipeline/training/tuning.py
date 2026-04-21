@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import HalvingGridSearchCV
 
+from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
 from src_code.config import SupportedModel
 from src_code.ml_pipeline.builders import PipelineBuilder
@@ -88,7 +89,7 @@ class TuningWrapperBase(ABC):
         reporter: ProgressReporter = None,
         core_config: CoreConfig = DEF_CORE_CONFIG,
         resource: str = "n_samples",
-        max_resources: int = None,
+        # max_resources: int = None,
     ):
         self.X_train = X_train
         self.y_train = y_train
@@ -108,6 +109,7 @@ class TuningWrapperBase(ABC):
             random_state=self.random_state,
             top_k=self.top_k,
             use_scaling=self.use_scaling,
+            available_cols=[c for c in X_train.columns if c != TARGET]
         )
 
         # self.mcc_scorer = make_scorer(matthews_corrcoef)

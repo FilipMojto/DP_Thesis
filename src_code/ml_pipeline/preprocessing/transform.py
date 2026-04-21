@@ -26,8 +26,74 @@ PCA_MSG_EMB_COMPONENTS = 80
 WINSORIZE_FACTOR = 1.5
 VARIANCE_THRESHOLD = 0.0
 
-def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER) -> ColumnTransformer:
-    pipelines: List[Pipeline] = []
+# def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER) -> ColumnTransformer:
+#     # pipelines: List[Pipeline] = []
+
+#     code_emb_pipe = Pipeline(
+#         [
+#             ("expand", EmbeddingExpander(prefix="code")),
+#             (
+#                 "pca",
+#                 NamingPCA(
+#                     n_components=PCA_CODE_EMB_COMPONENTS, prefix="code_emb_", random_state=random_state
+#                 ),
+#             ),
+#         ]
+#     )
+#     logger.log_result(f"PCA for code embeddings set to {PCA_CODE_EMB_COMPONENTS} components.", print_to_console=True)
+
+#     msg_emb_pipe = Pipeline(
+#         [
+#             ("expand", EmbeddingExpander(prefix="msg")),
+#             # ('pca', PCA(n_components=100, random_state=RANDOM_STATE))
+#             (
+#                 "pca",
+#                 NamingPCA(
+#                     n_components=PCA_MSG_EMB_COMPONENTS, prefix="msg_emb_", random_state=random_state
+#                 ),
+#             ),
+#         ]
+#     )
+#     logger.log_result(f"PCA for message embeddings set to {PCA_MSG_EMB_COMPONENTS} components.", print_to_console=True)
+
+
+#     heavy_tail_pipe = Pipeline([
+#         ("winsorize", WinsorizerIQR(factor=WINSORIZE_FACTOR)),
+#         ("log", log_transformer),
+#         ("var_thresh", VarianceThreshold(threshold=0.0)),
+#     ])
+
+#     binary_pipe = Pipeline([
+#         ("var_thresh", VarianceThreshold(threshold=0.0)),
+#     ])
+
+#     sparse_pipe = Pipeline([
+#         ("drop_zero_heavy", ZeroHeavyFeatureDropper(max_zero_fraction=0.95)),
+#         ("log", log_transformer),
+#         ("var_thresh", VarianceThreshold(threshold=0.0)),
+#     ])
+
+#     transformer = ColumnTransformer(
+#         transformers=[
+#             ("text", sklearn_tfidf_vectorizer, "message"),
+#             ("heavy_num", heavy_tail_pipe, HEAVY_TAIL_FEATURES),
+#             ("binary", binary_pipe, BINARY_BUCKET_FEATURES),
+#             ("sparse_tokens", sparse_pipe, SPARSE_TOKEN_FEATURES),
+#             ("code_embed", code_emb_pipe, ["code_embed"]),
+#             ("msg_embed", msg_emb_pipe, ["msg_embed"]),
+#         ],
+#         remainder="drop",
+#         verbose_feature_names_out=False,
+#     )
+
+#     return transformer
+
+def build_transformer(
+    available_columns: list[str],
+    random_state: int,
+    logger: MyLogger = DEF_NOTEBOOK_LOGGER,
+) -> ColumnTransformer:
+    available_columns = set(available_columns)
 
     code_emb_pipe = Pipeline(
         [
@@ -35,59 +101,36 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
             (
                 "pca",
                 NamingPCA(
-                    n_components=PCA_CODE_EMB_COMPONENTS, prefix="code_emb_", random_state=random_state
+                    n_components=PCA_CODE_EMB_COMPONENTS,
+                    prefix="code_emb_",
+                    random_state=random_state,
                 ),
             ),
         ]
     )
-    logger.log_result(f"PCA for code embeddings set to {PCA_CODE_EMB_COMPONENTS} components.", print_to_console=True)
+    logger.log_result(
+        f"PCA for code embeddings set to {PCA_CODE_EMB_COMPONENTS} components.",
+        print_to_console=True,
+    )
 
     msg_emb_pipe = Pipeline(
         [
             ("expand", EmbeddingExpander(prefix="msg")),
-            # ('pca', PCA(n_components=100, random_state=RANDOM_STATE))
             (
                 "pca",
                 NamingPCA(
-                    n_components=PCA_MSG_EMB_COMPONENTS, prefix="msg_emb_", random_state=random_state
+                    n_components=PCA_MSG_EMB_COMPONENTS,
+                    prefix="msg_emb_",
+                    random_state=random_state,
                 ),
             ),
         ]
     )
-    logger.log_result(f"PCA for message embeddings set to {PCA_MSG_EMB_COMPONENTS} components.", print_to_console=True)
+    logger.log_result(
+        f"PCA for message embeddings set to {PCA_MSG_EMB_COMPONENTS} components.",
+        print_to_console=True,
+    )
 
-
-    # 1. Define a pipeline for numeric features: Winsorize THEN Log
-    # numeric_pipe = Pipeline(
-    #     [
-    #         ("winsorize", WinsorizerIQR(factor=WINSORIZE_FACTOR)),
-    #         ("log", log_transformer),
-    #         # ("interactions", FeatureInteractionTransformer(NUMERIC_FEATURES)),
-    #         ("var_thresh", VarianceThreshold(threshold=VARIANCE_THRESHOLD)),
-    #     ]
-    # )
-    # logger.log_result(f"Winsorization factor set to {WINSORIZE_FACTOR}.", print_to_console=True)
-    # logger.log_result(f"Variance threshold set to {VARIANCE_THRESHOLD}.", print_to_console=True)
-
-    # pipelines.extend([msg_emb_pipe, code_emb_pipe, numeric_pipe])
-
-    # # num_features = NUMERIC_FEATURES + ENGINEERED_FEATURES
-
-    # transformer = ColumnTransformer(
-    #     transformers=[
-    #         ("text", sklearn_tfidf_vectorizer, "message"),
-    #         ("num", numeric_pipe, NUMERIC_FEATURES + ENGINEERED_FEATURES),
-    #         ("tokens", log_transformer, LINE_TOKEN_FEATURES),
-    #         ("code_embed", code_emb_pipe, ["code_embed"]),  # Pass as list
-    #         ("msg_embed", msg_emb_pipe, ["msg_embed"]),  # Pass as list
-    #         # 2. This step keeps the original raw vector column
-    #         # Note: We use 'passthrough' directly on the column names
-    #         # ("code_embed_raw", "passthrough", ["code_embed"]),
-    #         # ("msg_embed_raw", "passthrough", ["msg_embed"]),
-    #     ],
-    #     remainder="passthrough",
-    #     verbose_feature_names_out=False,  # This now works because names are unique
-    # )
     heavy_tail_pipe = Pipeline([
         ("winsorize", WinsorizerIQR(factor=WINSORIZE_FACTOR)),
         ("log", log_transformer),
@@ -104,15 +147,45 @@ def build_transformer(random_state: int, logger: MyLogger = DEF_NOTEBOOK_LOGGER)
         ("var_thresh", VarianceThreshold(threshold=0.0)),
     ])
 
+    transformers = []
+
+    # text
+    if "message" in available_columns:
+        transformers.append(("text", sklearn_tfidf_vectorizer, "message"))
+        logger.log_result("Using text feature: message")
+
+    # heavy-tail numeric
+    heavy_cols = [c for c in HEAVY_TAIL_FEATURES if c in available_columns]
+    if heavy_cols:
+        transformers.append(("heavy_num", heavy_tail_pipe, heavy_cols))
+        logger.log_result(f"Using heavy-tail features ({len(heavy_cols)}): {heavy_cols}")
+
+    # binary / bucket
+    binary_cols = [c for c in BINARY_BUCKET_FEATURES if c in available_columns]
+    if binary_cols:
+        transformers.append(("binary", binary_pipe, binary_cols))
+        logger.log_result(f"Using binary features ({len(binary_cols)}): {binary_cols}")
+
+    # sparse token features
+    sparse_cols = [c for c in SPARSE_TOKEN_FEATURES if c in available_columns]
+    if sparse_cols:
+        transformers.append(("sparse_tokens", sparse_pipe, sparse_cols))
+        logger.log_result(f"Using sparse token features ({len(sparse_cols)}): {sparse_cols}")
+
+    # embeddings
+    if "code_embed" in available_columns:
+        transformers.append(("code_embed", code_emb_pipe, ["code_embed"]))
+        logger.log_result("Using code embeddings")
+
+    if "msg_embed" in available_columns:
+        transformers.append(("msg_embed", msg_emb_pipe, ["msg_embed"]))
+        logger.log_result("Using message embeddings")
+
+    if not transformers:
+        raise ValueError("No valid transformers could be constructed from available columns.")
+
     transformer = ColumnTransformer(
-        transformers=[
-            ("text", sklearn_tfidf_vectorizer, "message"),
-            ("heavy_num", heavy_tail_pipe, HEAVY_TAIL_FEATURES),
-            ("binary", binary_pipe, BINARY_BUCKET_FEATURES),
-            ("sparse_tokens", sparse_pipe, SPARSE_TOKEN_FEATURES),
-            ("code_embed", code_emb_pipe, ["code_embed"]),
-            ("msg_embed", msg_emb_pipe, ["msg_embed"]),
-        ],
+        transformers=transformers,
         remainder="drop",
         verbose_feature_names_out=False,
     )

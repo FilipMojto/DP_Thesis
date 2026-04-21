@@ -23,7 +23,7 @@
             "request": "launch",
             "module": "src_code.ml_pipeline.scripts.train",
             // "args": ["--model", "NN", "--skip-cv", "--skip-pfi"],
-            "args": ["--model", "XGB", "--skip-pfi", "--load-tuned"],
+            "args": ["--model", "XGB", "--load-tuned", "--top-k", "100", "--limit-features"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,

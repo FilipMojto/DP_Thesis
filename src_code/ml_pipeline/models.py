@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from collections import Counter
-from typing import Dict
+from typing import Dict, List
 import numpy as np
 from pyparsing import ABC
 from sklearn.base import BaseEstimator
@@ -24,6 +24,7 @@ from src_code.utils.utils import timeit
 
 
 DEF_N_JOBS = 1  # 🔴 IMPORTANT – consistent across models
+
 
 def log_native_feature_importance(
     model,
@@ -60,12 +61,14 @@ class ModelWrapperBase(ABC):
     def __init__(
         self,
         top_k: int,
+        available_cols: List[str],
         random_state: int = DEF_RANDOM_STATE,
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
     ):
         self.logger = logger
         self.model: BaseEstimator = None
         self.random_state = random_state
+        self.available_cols = available_cols
 
         # 🔵 default behavior
         self.use_scaling = False
@@ -90,6 +93,7 @@ class ModelWrapperBase(ABC):
             random_state=self.random_state,
             top_k=self.top_k,
             use_scaling=self.use_scaling,
+            available_cols=self.available_cols,
         )
 
 
@@ -98,11 +102,17 @@ class RFWrapper(ModelWrapperBase):
     def __init__(
         self,
         random_state: int,
+        available_cols: List[str],
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         top_k: int = 100,
         tuned_params=None,
     ):
-        super().__init__(random_state=random_state, logger=logger, top_k=top_k)
+        super().__init__(
+            random_state=random_state,
+            logger=logger,
+            top_k=top_k,
+            available_cols=available_cols,
+        )
 
         self.logger.log_check("Defining Random Forest...")
         self.use_scaling = False
@@ -120,7 +130,7 @@ class RFWrapper(ModelWrapperBase):
                 min_samples_split=2,
                 # class_weight=CLASS_WEIGHT,
                 n_jobs=DEF_N_JOBS,  # 🔴 IMPORTANT
-                class_weight='balanced',  # <-- ADD THIS
+                class_weight="balanced",  # <-- ADD THIS
             )
 
         self.set_up_pipeline()
@@ -133,7 +143,6 @@ class RFWrapper(ModelWrapperBase):
 
     def set_model(self, rf: RandomForestClassifier):
         self.model = rf
-
 
     @timeit(process_name="RF Fit")
     def fit(self, X_train, y_train):
@@ -151,14 +160,14 @@ class RFWrapper(ModelWrapperBase):
         try:
             # This pulls names from the pipeline steps (encoding, selection, etc.)
             self.feature_names_ = self.pipeline[:-1].get_feature_names_out().tolist()
-            log_native_feature_importance(model=self.model, feature_names=self.feature_names_, logger=self.logger)
+            log_native_feature_importance(
+                model=self.model, feature_names=self.feature_names_, logger=self.logger
+            )
 
         except Exception as e:
             # Fallback if preprocessing doesn't support get_feature_names_out
             num_features = self.model.n_features_in_
             self.feature_names_ = [f"feature_{i}" for i in range(num_features)]
-        
-        
 
 
 class XGBWrapper(ModelWrapperBase):
@@ -186,12 +195,18 @@ class XGBWrapper(ModelWrapperBase):
     def __init__(
         self,
         random_state: int,
+        available_cols: List[str],
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         scale_pos_weight=None,
         top_k: int = 100,
         tuned_params=None,
     ):
-        super().__init__(random_state=random_state, logger=logger, top_k=top_k)
+        super().__init__(
+            random_state=random_state,
+            logger=logger,
+            top_k=top_k,
+            available_cols=available_cols,
+        )
 
         self.logger.log_check("Defining XGBoost...")
         self.use_scaling = False
@@ -247,7 +262,9 @@ class XGBWrapper(ModelWrapperBase):
         # 3️⃣ Save feature names (now that Step 1 is done, these are available)
         try:
             self.feature_names_ = self.pipeline[:-1].get_feature_names_out().tolist()
-            log_native_feature_importance(model=self.model, feature_names=self.feature_names_, logger=self.logger)
+            log_native_feature_importance(
+                model=self.model, feature_names=self.feature_names_, logger=self.logger
+            )
         except Exception as e:
             self.feature_names_ = [
                 f"feature_{i}" for i in range(X_train_ready.shape[1])
@@ -258,6 +275,7 @@ def init_weights(m):
     if isinstance(m, nn.Linear):
         nn.init.kaiming_uniform_(m.weight, nonlinearity="relu")
         nn.init.zeros_(m.bias)
+
 
 class SimpleNN(nn.Module):
     def __init__(self, input_dim, hidden_units=128, dropout=0.3):
@@ -275,10 +293,8 @@ class SimpleNN(nn.Module):
             nn.BatchNorm1d(hidden_units),
             nn.ReLU(),
             nn.Dropout(dropout),
-
             nn.Linear(hidden_units, hidden_units // 2),
             nn.ReLU(),
-
             nn.Linear(hidden_units // 2, 1),
         )
 
@@ -286,7 +302,7 @@ class SimpleNN(nn.Module):
 
     def forward(self, X):
         return self.model(X).squeeze(1)
-    
+
 
 class FloatTargetNeuralNetBinaryClassifier(NeuralNetBinaryClassifier):
     def fit(self, X, y, **fit_params):
@@ -301,12 +317,18 @@ class FloatTargetNeuralNetBinaryClassifier(NeuralNetBinaryClassifier):
 class NNWrapper(ModelWrapperBase):
     def __init__(
         self,
+        available_cols: List[str],
         random_state=DEF_RANDOM_STATE,
         logger=DEF_NOTEBOOK_LOGGER,
         top_k=100,
         tuned_params=None,
     ):
-        super().__init__(random_state=random_state, logger=logger, top_k=top_k)
+        super().__init__(
+            random_state=random_state,
+            logger=logger,
+            top_k=top_k,
+            available_cols=available_cols,
+        )
 
         self.use_scaling = True
 
@@ -332,7 +354,6 @@ class NNWrapper(ModelWrapperBase):
 
     def get_model(self):
         return self.model
-    
 
     @timeit(process_name="NN Fit")
     def fit(self, X_train, y_train, X_val=None, y_val=None, **kwargs):
@@ -349,7 +370,7 @@ class NNWrapper(ModelWrapperBase):
         pos_weight = torch.tensor([num_neg / max(num_pos, 1)], dtype=torch.float32)
         self.logger.log_result(f"Calculated pos_weight: {pos_weight}")
 
-        # Set the parameter, not the object. 
+        # Set the parameter, not the object.
         # Note: This might still trigger an initialization error if the net is already "warm"
         self.model.set_params(criterion__pos_weight=pos_weight)
 
@@ -374,8 +395,7 @@ class NNWrapper(ModelWrapperBase):
 
             valid_ds = Dataset(X_val_transformed, y_val_np)
             self.model.set_params(train_split=predefined_split(valid_ds))
-        
-        
+
         # 4️⃣ Fit ONLY the neural net
         self.model.fit(X_train_transformed, y_train_np)
         self.pipeline.steps[-1] = ("model", self.model)
@@ -388,12 +408,18 @@ class LRWrapper(ModelWrapperBase):
 
     def __init__(
         self,
+        available_cols: List[str],
         random_state: int = DEF_RANDOM_STATE,
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         top_k: int = 100,
         tuned_params: dict = None,
     ):
-        super().__init__(top_k=top_k, random_state=random_state, logger=logger)
+        super().__init__(
+            top_k=top_k,
+            random_state=random_state,
+            logger=logger,
+            available_cols=available_cols,
+        )
 
         self.logger.log_check("Defining Logistic Regression model...")
         self.use_scaling = True  # LR benefits from feature scaling
@@ -447,6 +473,7 @@ class LRWrapper(ModelWrapperBase):
             num_features = self.model.n_features_in_
             self.feature_names_ = [f"feature_{i}" for i in range(num_features)]
 
+
 class DummyWrapper(ModelWrapperBase):
 
     def __init__(
@@ -462,10 +489,7 @@ class DummyWrapper(ModelWrapperBase):
 
         self.use_scaling = False
 
-        self.model = DummyClassifier(
-            strategy=strategy,
-            random_state=random_state
-        )
+        self.model = DummyClassifier(strategy=strategy, random_state=random_state)
 
         self.set_up_pipeline()
 
@@ -486,32 +510,37 @@ class DummyWrapper(ModelWrapperBase):
         try:
             self.feature_names_ = self.pipeline[:-1].get_feature_names_out().tolist()
         except:
-            self.feature_names_ = [f"feature_{i}" for i in range(self.model.n_features_in_)]
+            self.feature_names_ = [
+                f"feature_{i}" for i in range(self.model.n_features_in_)
+            ]
 
 
 class VotingWrapper(ModelWrapperBase):
 
     def __init__(
         self,
-        base_wrappers: Dict[str, ModelWrapperBase],  # {"rf": RFWrapper, "xgb": XGBWrapper, ...}
+        base_wrappers: Dict[
+            str, ModelWrapperBase
+        ],  # {"rf": RFWrapper, "xgb": XGBWrapper, ...}
         random_state: int,
         logger,
+        available_cols: List[str],
         top_k: int = 100,
     ):
-        super().__init__(top_k=top_k, random_state=random_state, logger=logger)
+        super().__init__(
+            top_k=top_k,
+            random_state=random_state,
+            logger=logger,
+            available_cols=available_cols,
+        )
 
         self.logger.log_check("Defining Voting Ensemble...")
 
         # Extract trained models
-        estimators = [
-            (name, wrapper.model)
-            for name, wrapper in base_wrappers.items()
-        ]
+        estimators = [(name, wrapper.model) for name, wrapper in base_wrappers.items()]
 
         self.model = VotingClassifier(
-            estimators=estimators,
-            voting="soft",  # IMPORTANT
-            n_jobs=-1
+            estimators=estimators, voting="soft", n_jobs=-1  # IMPORTANT
         )
 
         self.use_scaling = False  # depends on base models
@@ -532,6 +561,7 @@ class VotingWrapper(ModelWrapperBase):
 from sklearn.ensemble import StackingClassifier
 from sklearn.linear_model import LogisticRegression
 
+
 class StackingWrapper(ModelWrapperBase):
 
     def __init__(
@@ -539,26 +569,27 @@ class StackingWrapper(ModelWrapperBase):
         base_wrappers: dict,
         random_state: int,
         logger,
+        available_cols: List[str],
         top_k: int = 100,
     ):
-        super().__init__(top_k=top_k, random_state=random_state, logger=logger)
+        super().__init__(
+            top_k=top_k,
+            random_state=random_state,
+            logger=logger,
+            available_cols=available_cols,
+        )
 
         self.logger.log_check("Defining Stacking Ensemble...")
 
-        estimators = [
-            (name, wrapper.model)
-            for name, wrapper in base_wrappers.items()
-        ]
+        estimators = [(name, wrapper.model) for name, wrapper in base_wrappers.items()]
 
         self.model = StackingClassifier(
             estimators=estimators,
             final_estimator=LogisticRegression(
-                class_weight="balanced",
-                max_iter=1000,
-                random_state=random_state
+                class_weight="balanced", max_iter=1000, random_state=random_state
             ),
             stack_method="predict_proba",  # important for your use-case
-            n_jobs=-1
+            n_jobs=-1,
         )
 
         self.use_scaling = False
@@ -581,6 +612,7 @@ class ModelWrapperFactory:
         model_type: SupportedModel,
         random_state: int,
         top_k: int,
+        available_cols: List[str],
         logger: MyLogger = DEF_NOTEBOOK_LOGGER,
         scale_pos_weight=None,
         tuned_hyperparams: dict = None,
@@ -588,7 +620,11 @@ class ModelWrapperFactory:
     ) -> ModelWrapperBase:
         if model_type == "RF":
             return RFWrapper(
-                random_state, logger=logger, top_k=top_k, tuned_params=tuned_hyperparams
+                random_state,
+                logger=logger,
+                top_k=top_k,
+                tuned_params=tuned_hyperparams,
+                available_cols=available_cols,
             )
         elif model_type == "XGB":
             return XGBWrapper(
@@ -597,6 +633,7 @@ class ModelWrapperFactory:
                 scale_pos_weight=scale_pos_weight,
                 top_k=top_k,
                 tuned_params=tuned_hyperparams,
+                available_cols=available_cols,
             )
         elif model_type == "NN":
             return NNWrapper(
@@ -604,6 +641,7 @@ class ModelWrapperFactory:
                 logger=logger,
                 top_k=top_k,
                 tuned_params=tuned_hyperparams,
+                available_cols=available_cols,
             )
         elif model_type == "LR":
             return LRWrapper(
@@ -611,6 +649,7 @@ class ModelWrapperFactory:
                 logger=logger,
                 top_k=top_k,
                 tuned_params=tuned_hyperparams,
+                available_cols=available_cols,
             )
         elif model_type == "ENSEMBLE_VOTING":
             return VotingWrapper(
@@ -618,6 +657,7 @@ class ModelWrapperFactory:
                 random_state=random_state,
                 logger=logger,
                 top_k=top_k,
+                available_cols=available_cols,
             )
         elif model_type == "DUMMY_STRATIFIED":
             return DummyWrapper(
@@ -637,6 +677,7 @@ class ModelWrapperFactory:
                 random_state=random_state,
                 logger=logger,
                 top_k=top_k,
+                available_cols=available_cols,
             )
         else:
             raise ValueError(f"Unexpected value: {model_type=}")
