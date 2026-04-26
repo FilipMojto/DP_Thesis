@@ -1,6 +1,3 @@
-# from src_code.config import LOG_DIR
-
-
 from pathlib import Path
 
 from src_code.ml_pipeline.preprocessing.feature_config import BUCKET_MAPPINGS
@@ -28,10 +25,7 @@ EMBEDDINGS = ["code_embed", "msg_embed"]
 ENGINEERED_FEATURES = [
     "loc_churn_ratio",
     "activity_per_exp",
-    # "loc_added_bucket",
-    # "extreme_churn_flag",
     "line_token_total",
-
 ]
 
 BUCKETED_FEATURES = ['author_exp_pre', 'loc_added']
@@ -50,7 +44,7 @@ for i in range(len(INTERACTION_FEATURES)):
         ENGINEERED_FEATURES.append(f"{f1}_x_{f2}")
 
 LOG_FILE = Path().resolve().parent / "notebooks.log"
-LOG_DIR = Path().resolve().parent / "notebooks/logs"
+LOG_DIR = Path().resolve().parent / "logs/notebooks"
 
 CHURN_METRICS = ['loc_added', 'loc_deleted', 'files_changed', 'hunks_count']
 TEXTUAL_METRICS = ['msg_len', 'has_fix_kw', 'has_bug_kw']
@@ -64,10 +58,6 @@ STRUCTURAL_METRICS = ['ast_delta', 'max_func_change', 'complexity_delta']
 STATISTICAL_METRICS = CHURN_METRICS + TEXTUAL_METRICS + DEVELOPER_METRICS + HISTORIC_TEMPORAL_METRICS
 # NOTE: Also includes embeddings and tfidf
 NON_STATISTICAL_METRICS = LINE_TOKEN_FEATURES
-
-
-# CODE_SUTRUCTURAL_METRICS = ['ast_node_delta', 'max_func_change_size', 'complexity_delta']
-
 
 HEAVY_TAIL_FEATURES = [
     "author_exp_pre",

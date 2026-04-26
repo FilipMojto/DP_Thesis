@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src_code.external_models.codebert import EMBED_MODEL, tokenizer, device
+from src_code.etl.codebert import EMBED_MODEL, tokenizer, device
 import torch
 
 

@@ -29,8 +29,6 @@ def find_newest_version(
     base_stem = base_output.stem
 
     clean_stem = re.sub(r'_v\d+$', '', base_stem)
-
-    # candidates = parent.glob(f"{base_stem}_v*{extension}")
     candidates = parent.glob(f"{clean_stem}_v*{extension}")
 
     newest_path = None
@@ -42,11 +40,6 @@ def find_newest_version(
             newest_version = v
             newest_path = p
 
-    # if newest_path is None:
-    #     newest_path = Path(f"{base_stem}_v1{extension}")
-    #     newest_version = 1
-
-    # print(f"Newest version for {base_output} is v{newest_version} at {newest_path}")
     return newest_path, newest_version
 
 
@@ -72,21 +65,14 @@ class VersionedFileManager:
     - Does not create or write files; only manages paths.
     """
 
-    # def __init__(self, src_dir: Path, file_name: str, extension: str):
     def __init__(self, file_path: Path, logger: MyLogger, throw_not_found_err: bool = False):
-        # self.src_dir = src_dir
-        # self.file_name = file_name
         self.file_path = file_path
         self.extension = file_path.suffix
         self.logger = logger
-        # self.base_output = src_dir / file_name
-        # self.base_output = file_path.parent / file_path.stem
-
-        # self.current_newest, self.current_newest_version = find_newest_version(self.base_output)
+  
         self.update()
-
         self.logger.log_result(f"Current newest version: {self.current_newest.absolute() if self.current_newest else self.current_newest}")
-        # self.logger.logg
+
         if throw_not_found_err and self.current_newest == None:
             raise FileNotFoundError("File not found!")
         
@@ -97,11 +83,7 @@ class VersionedFileManager:
         self.current_newest, self.current_newest_version = find_newest_version(
             self.file_path, extension=self.extension
         )
-        # self.current_newest.ab
-        # self.next_base_output = next_version_path(self.base_output)
+
         self.next_base_output = self.file_path.with_name(
             f"{self.file_path.stem}_v{self.current_newest_version + 1}{self.file_path.suffix}"
         )
-
-    # def update_to_next_version(self):
-    #     self.update()

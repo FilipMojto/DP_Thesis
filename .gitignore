@@ -173,3 +173,5 @@ models/**/*.joblib
 docs/**/*.docx
 
 testing
+
+docs/

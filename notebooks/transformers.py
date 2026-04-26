@@ -48,28 +48,28 @@ class WinsorizerIQR(BaseEstimator, TransformerMixin):
         return input_features
 
 
-class QuantileThresholdFlag(BaseEstimator, TransformerMixin):
-    """Learns a quantile threshold on fit and creates a boolean flag on transform."""
+# class QuantileThresholdFlag(BaseEstimator, TransformerMixin):
+#     """Learns a quantile threshold on fit and creates a boolean flag on transform."""
 
-    def __init__(self, quantile=0.95):
-        self.quantile = quantile
-        self.threshold = None
+#     def __init__(self, quantile=0.95):
+#         self.quantile = quantile
+#         self.threshold = None
 
-    def fit(self, X, y=None):
-        # Assumes X is a DataFrame with a single column (the target feature)
-        self.threshold = X.iloc[:, 0].quantile(self.quantile)
-        return self
+#     def fit(self, X, y=None):
+#         # Assumes X is a DataFrame with a single column (the target feature)
+#         self.threshold = X.iloc[:, 0].quantile(self.quantile)
+#         return self
 
-    def transform(self, X):
-        # Apply the learned threshold
-        flag = (X.iloc[:, 0] > self.threshold).astype(int).values.reshape(-1, 1)
-        return flag
+#     def transform(self, X):
+#         # Apply the learned threshold
+#         flag = (X.iloc[:, 0] > self.threshold).astype(int).values.reshape(-1, 1)
+#         return flag
 
-    def get_feature_names_out(self, input_features=None):
-        # Renames the output feature
-        if input_features is not None and len(input_features) == 1:
-            return [f"extreme_flag_{input_features[0]}"]
-        return ["extreme_flag"]
+#     def get_feature_names_out(self, input_features=None):
+#         # Renames the output feature
+#         if input_features is not None and len(input_features) == 1:
+#             return [f"extreme_flag_{input_features[0]}"]
+#         return ["extreme_flag"]
 
 
 class EmbeddingExpander(BaseEstimator, TransformerMixin):
@@ -97,35 +97,25 @@ class EmbeddingExpander(BaseEstimator, TransformerMixin):
 
 
 # class FeatureInteractionTransformer(BaseEstimator, TransformerMixin):
-#     def __init__(self, feature_names: list[str]):
-#         self.feature_names = list(feature_names)
-
-#     def fit(self, X, y=None):
-#         return self
-
-#     def transform(self, X):
-#         if not isinstance(X, pd.DataFrame):
-#             X = pd.DataFrame(X, columns=self.feature_names)
-
-#         X = X.copy()
-
-#         for f1, f2 in itertools.combinations(self.feature_names, 2):
-#             X[f"{f1}_x_{f2}"] = X[f1] * X[f2]
-
-#         return X
-# class FeatureInteractionTransformer(BaseEstimator, TransformerMixin):
 #     def __init__(self, feature_names):
-#         # MUST assign verbatim
-#         self.feature_names = feature_names
+#         self.feature_names = feature_names  # store verbatim
 
 #     def fit(self, X, y=None):
-#         # Safe place to normalize / validate
 #         self._feature_names_ = list(self.feature_names)
+#         self._interaction_names_ = [
+#             f"{f1}_x_{f2}"
+#             for i, f1 in enumerate(self._feature_names_)
+#             for f2 in self._feature_names_[i + 1 :]
+#         ]
 #         return self
 
 #     def transform(self, X):
 #         if not isinstance(X, pd.DataFrame):
-#             X = pd.DataFrame(X, columns=self._feature_names_)
+#             X = pd.DataFrame(
+#                 X,
+#                 columns=self._feature_names_,
+#                 index=getattr(X, "index", None),
+#             )
 
 #         X = X.copy()
 
@@ -136,38 +126,6 @@ class EmbeddingExpander(BaseEstimator, TransformerMixin):
 
 #     def get_feature_names_out(self, input_features=None):
 #         return np.array(self._feature_names_ + self._interaction_names_)
-
-
-class FeatureInteractionTransformer(BaseEstimator, TransformerMixin):
-    def __init__(self, feature_names):
-        self.feature_names = feature_names  # store verbatim
-
-    def fit(self, X, y=None):
-        self._feature_names_ = list(self.feature_names)
-        self._interaction_names_ = [
-            f"{f1}_x_{f2}"
-            for i, f1 in enumerate(self._feature_names_)
-            for f2 in self._feature_names_[i + 1 :]
-        ]
-        return self
-
-    def transform(self, X):
-        if not isinstance(X, pd.DataFrame):
-            X = pd.DataFrame(
-                X,
-                columns=self._feature_names_,
-                index=getattr(X, "index", None),
-            )
-
-        X = X.copy()
-
-        for f1, f2 in itertools.combinations(self._feature_names_, 2):
-            X[f"{f1}_x_{f2}"] = X[f1] * X[f2]
-
-        return X
-
-    def get_feature_names_out(self, input_features=None):
-        return np.array(self._feature_names_ + self._interaction_names_)
 
 
 class NamingPCA(PCA):
@@ -206,50 +164,4 @@ class ZeroHeavyFeatureDropper(BaseEstimator, TransformerMixin):
 
 if __name__ == "__main__":
     pass
-    # vectorizer = DenseTfidf()
     
-    # logger = MyLogger(
-    #     label="TRANSFORMERS", section_name="transfomers script", file_log_path=LOG_DIR / "transformers_script.log"
-    # )
-    # subset = "train"
-    # input_df_file = VersionedFileManager(
-    #     file_path=EXTENDED_DATA_DIR / f"{subset}_extended"
-    # )
-    # input_df = load_df(df_file_path=input_df_file.current_newest, logger=logger)
-
-    # X_tfidf = sklearn_tfidf_vectorizer.fit_transform(input_df["message"])
-    # # X_tfidf = vectorizer.fit_transform(input_df["message"])
-
-    # feature_names = sklearn_tfidf_vectorizer.get_feature_names_out()
-    # # feature_names = vectorizer.get_feature_names_out()
-
-
-    # set_config(transform_output="default")
-
-    # tfidf_only = ColumnTransformer(
-    #     transformers=[
-    #         ("text", sklearn_tfidf_vectorizer, "message"),
-    #     ],
-    #     remainder="drop",
-    #     verbose_feature_names_out=False,
-    # )
-
-    # X = tfidf_only.fit_transform(input_df)
-
-    # X_df = pd.DataFrame(
-    #     X.toarray(),
-    #     columns=sklearn_tfidf_vectorizer.get_feature_names_out(),
-    #     index=input_df.index,
-    # )
-
-    # print(type(X_df))
-    # print(X_df.head())
-    # print(X_df.columns[:20])
-    # print("Number of columns:", len(X_df.columns))
-    # print("Info:", X_df.info())
-
-    # print(X_df['ansible'].describe())
-
-    # # print(feature_names[:100])
-    # # print("Number of features:", len(feature_names))
-    # # print(f"Size: {input_df.info()}")

@@ -2,7 +2,7 @@ from git import Commit
 import torch
 import logging
 
-from src_code.external_models.codebert import EMBED_MODEL, tokenizer, device
+from src_code.etl.codebert import EMBED_MODEL, tokenizer, device
 
 logging.basicConfig(level=logging.INFO)
 

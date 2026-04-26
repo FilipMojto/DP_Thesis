@@ -595,41 +595,118 @@ def plot_embedding_norm_distribution(
     )
 
 
+# def plot_feature_relationships_with_label(
+#     df: pd.DataFrame, cols: Iterable[str], logger: MyLogger
+# ):
+#     logger.log_check(
+#         "Checking Feature Distributions by Label... (median, IQR, min, max, outlier_ratio)"
+#     )
+
+#     # structural_cols = feature_ctgs.structural_cols.copy()
+#     # if "except" in structural_cols:
+#     #     structural_cols.remove("except")
+
+#     # Logging metrics
+#     for feature in cols:
+#         for lbl in df["label"].unique():
+#             series = df[df["label"] == lbl][feature].dropna()
+#             Q1 = series.quantile(0.25)
+#             Q3 = series.quantile(0.75)
+#             IQR = Q3 - Q1
+#             median = series.median()
+#             min_val, max_val = series.min(), series.max()
+#             outlier_ratio = (
+#                 (series < Q1 - 1.5 * IQR) | (series > Q3 + 1.5 * IQR)
+#             ).mean()
+#             logger.log_result(
+#                 f"{feature} | label={lbl} | median={median:.2f}, IQR={IQR:.2f}, min={min_val:.2f}, max={max_val:.2f}, outlier_ratio={outlier_ratio:.2%}"
+#             )
+
+#     # Plotting
+#     n_features = len(cols)
+#     n_cols = 3
+#     n_rows = math.ceil(n_features / n_cols)
+
+#     plt.figure(figsize=(20, 4 * n_rows))
+
+#     for i, col in enumerate(cols, 1):
+#         plt.subplot(n_rows, n_cols, i)
+#         sns.boxplot(x="label", y=col, data=df)
+#         plt.title(f"{col} by label")
+
+#     plt.tight_layout()
+#     plt.show()
 def plot_feature_relationships_with_label(
-    df: pd.DataFrame, cols: Iterable[str], logger: MyLogger
+    df: pd.DataFrame,
+    cols: Iterable[str],
+    logger: MyLogger,
 ):
     logger.log_check(
-        "Checking Feature Distributions by Label... (median, IQR, min, max, outlier_ratio)"
+        "Checking feature distributions by label: median, IQR, min, max, outlier_ratio"
     )
 
-    # structural_cols = feature_ctgs.structural_cols.copy()
-    # if "except" in structural_cols:
-    #     structural_cols.remove("except")
+    valid_cols = []
 
-    # Logging metrics
     for feature in cols:
-        for lbl in df["label"].unique():
-            series = df[df["label"] == lbl][feature].dropna()
+        if feature not in df.columns:
+            logger.log_result(f"Skipping missing feature: {feature}")
+            continue
+
+        # Skip non-numeric columns
+        if not pd.api.types.is_numeric_dtype(df[feature]):
+            logger.log_result(f"Skipping non-numeric feature: {feature}")
+            continue
+
+        # Convert boolean columns to int, or skip them if preferred
+        if pd.api.types.is_bool_dtype(df[feature]):
+            logger.log_result(f"Converting boolean feature to int: {feature}")
+            df[feature] = df[feature].astype(int)
+
+        valid_cols.append(feature)
+
+        for lbl in sorted(df["label"].dropna().unique()):
+            series = pd.to_numeric(
+                df.loc[df["label"] == lbl, feature],
+                errors="coerce",
+            ).dropna()
+
+            if series.empty:
+                logger.log_result(f"{feature} | label={lbl} | empty series")
+                continue
+
             Q1 = series.quantile(0.25)
             Q3 = series.quantile(0.75)
             IQR = Q3 - Q1
             median = series.median()
-            min_val, max_val = series.min(), series.max()
-            outlier_ratio = (
-                (series < Q1 - 1.5 * IQR) | (series > Q3 + 1.5 * IQR)
-            ).mean()
+            min_val = series.min()
+            max_val = series.max()
+
+            if IQR == 0:
+                outlier_ratio = 0.0
+            else:
+                outlier_ratio = (
+                    (series < Q1 - 1.5 * IQR) |
+                    (series > Q3 + 1.5 * IQR)
+                ).mean()
+
             logger.log_result(
-                f"{feature} | label={lbl} | median={median:.2f}, IQR={IQR:.2f}, min={min_val:.2f}, max={max_val:.2f}, outlier_ratio={outlier_ratio:.2%}"
+                f"{feature} | label={lbl} | "
+                f"median={median:.2f}, IQR={IQR:.2f}, "
+                f"min={min_val:.2f}, max={max_val:.2f}, "
+                f"outlier_ratio={outlier_ratio:.2%}"
             )
 
-    # Plotting
-    n_features = len(cols)
+    if not valid_cols:
+        logger.log_result("No valid numeric columns to plot.")
+        return
+
+    n_features = len(valid_cols)
     n_cols = 3
     n_rows = math.ceil(n_features / n_cols)
 
     plt.figure(figsize=(20, 4 * n_rows))
 
-    for i, col in enumerate(cols, 1):
+    for i, col in enumerate(valid_cols, 1):
         plt.subplot(n_rows, n_cols, i)
         sns.boxplot(x="label", y=col, data=df)
         plt.title(f"{col} by label")
