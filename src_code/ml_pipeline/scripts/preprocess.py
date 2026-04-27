@@ -7,6 +7,7 @@ from notebooks.logging_config import MyLogger
 from src_code.config import (
     LOG_DIR,
     PROCESSED_DATA_DIR,
+    TRANSFORMED_DATA_DIR,
     SubsetType,
 )
 
@@ -52,7 +53,7 @@ def transform_df(
     #     )
     for df in input_dfs:
         output_paths[df.metadata.type] = VersionedFileManager(
-            file_path=PROCESSED_DATA_DIR / f"{df.metadata.type}_transformed.feather",
+            file_path=TRANSFORMED_DATA_DIR / f"{df.metadata.type}_transformed.feather",
             logger=logger,
         )
 
@@ -60,6 +61,7 @@ def transform_df(
     for df in input_dfs:
         target_df = df.data
         feature_columns = [c for c in target_df.columns if c != TARGET]
+        # feature_columns = target_df.columns.tolist()  # Use all columns for transformation, including target if present. The transformer should handle it appropriately.
 
         describe_dataframe(
             df=target_df, logger=logger, name=f"{subset} before transformation"
@@ -74,6 +76,7 @@ def transform_df(
             random_state=RANDOM_STATE,
             pandas_output=True,
             available_cols=feature_columns,
+            target_col=TARGET
         )
 
         # --- Variance Explanation by Embeddings - Demo ---
@@ -88,7 +91,12 @@ def transform_df(
             f"{tr.pca_explained_variance(fitted_transformer, 'msg_embed'):.2%} of variance"
         )
 
+        logger.log_result("Dimensions of transformed dataframe: " + str(target_df.shape))
         logger.log_result(f"Column data types: {target_df.dtypes.to_dict()}")
+        
+        if TARGET not in target_df.columns:
+            logger.log_result(f"Warning: Target column '{TARGET}' not found in transformed dataframe columns.", print_to_console=True)
+        
         save_df(
             df=target_df,
             df_file_path=output_paths[df.metadata.type].next_base_output,

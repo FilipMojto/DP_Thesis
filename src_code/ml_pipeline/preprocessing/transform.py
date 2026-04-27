@@ -248,6 +248,78 @@ def log_dropped_features(transformer, numeric_features_list, logger: MyLogger):
         logger.log_result("VarianceThreshold did not drop any features.")
 
 
+# def transform(
+#     df: pd.DataFrame,
+#     subset: SubsetType,
+#     random_state: int,
+#     available_cols: Iterable[str],
+#     logger: MyLogger = DEF_NOTEBOOK_LOGGER,
+#     fitted_transformer: Path = FITTED_TRANSFORMER,
+#     print_to_console: bool = True,
+#     pandas_output: bool = False,
+# ):
+#     logger.log_check("Performing df transformation...")
+#     transformed_array = None
+
+#     if subset == "train":
+
+#         logger.log_result(
+#             "Detected train subset. Creating new preprocessor...",
+#             print_to_console=print_to_console,
+#         )
+
+#         # 3. FIT and TRANSFORM
+#         transformer = build_transformer(
+#             random_state=random_state, available_columns=available_cols
+#         )
+
+#         transformer.fit(df)
+#         transformed_array = transformer.transform(df)
+
+#         # log_dropped_features(
+#         #     transformer=transformer,
+#         #     numeric_features_list=NUMERIC_FEATURES + ENGINEERED_FEATURES,
+#         #     logger=logger,
+#         # )
+
+#         # 4. SAVE
+#         joblib.dump(transformer, fitted_transformer)
+
+#         # print("Fitted preprocessor saved to fitted_preprocessor.joblib")
+#     elif subset in ("test", "val"):
+#         logger.log_result(
+#             "Detected test subset. Loading fitted preprocessor...",
+#             print_to_console=print_to_console,
+#         )
+#         transformer: ColumnTransformer = joblib.load(fitted_transformer)
+
+#         # df = transformer.transform(df)
+#         transformed_array = transformer.transform(df)
+#     else:
+#         msg = "Unknown subset value!"
+#         logger.logger.error(msg)
+#         raise ValueError(msg)
+
+#     logger.log_result(
+#         "Transformations applied successfully.", print_to_console=print_to_console
+#     )
+
+#     if pandas_output:
+#         # transformer.set_output(transform="pandas") # <--- Force this specific instance
+#         # 2. Get the feature names
+#         # This works because your PrefixedTfidf implements get_feature_names_out
+#         feature_names = transformer.get_feature_names_out()
+
+#         # 3. Reconstruct the DataFrame
+#         df = pd.DataFrame(
+#             transformed_array,
+#             columns=feature_names,
+#             index=df.index,  # Crucial to keep your original index!
+#         )
+#     else:
+#         df = transformed_array
+
+#     return df, transformer
 def transform(
     df: pd.DataFrame,
     subset: SubsetType,
@@ -257,70 +329,67 @@ def transform(
     fitted_transformer: Path = FITTED_TRANSFORMER,
     print_to_console: bool = True,
     pandas_output: bool = False,
+    target_col: str = "label",
 ):
     logger.log_check("Performing df transformation...")
-    transformed_array = None
+
+    y = None
+    if target_col in df.columns:
+        y = df[target_col].copy()
+        X = df.drop(columns=[target_col])
+    else:
+        X = df.copy()
 
     if subset == "train":
-
         logger.log_result(
             "Detected train subset. Creating new preprocessor...",
             print_to_console=print_to_console,
         )
 
-        # 3. FIT and TRANSFORM
         transformer = build_transformer(
-            random_state=random_state, available_columns=available_cols
+            random_state=random_state,
+            available_columns=available_cols,
         )
 
-        transformer.fit(df)
-        transformed_array = transformer.transform(df)
+        transformer.fit(X)
+        transformed_array = transformer.transform(X)
 
-        # log_dropped_features(
-        #     transformer=transformer,
-        #     numeric_features_list=NUMERIC_FEATURES + ENGINEERED_FEATURES,
-        #     logger=logger,
-        # )
-
-        # 4. SAVE
         joblib.dump(transformer, fitted_transformer)
 
-        # print("Fitted preprocessor saved to fitted_preprocessor.joblib")
     elif subset in ("test", "val"):
         logger.log_result(
-            "Detected test subset. Loading fitted preprocessor...",
+            "Detected test/val subset. Loading fitted preprocessor...",
             print_to_console=print_to_console,
         )
-        transformer: ColumnTransformer = joblib.load(fitted_transformer)
 
-        # df = transformer.transform(df)
-        transformed_array = transformer.transform(df)
+        transformer: ColumnTransformer = joblib.load(fitted_transformer)
+        transformed_array = transformer.transform(X)
+
     else:
         msg = "Unknown subset value!"
         logger.logger.error(msg)
         raise ValueError(msg)
 
     logger.log_result(
-        "Transformations applied successfully.", print_to_console=print_to_console
+        "Transformations applied successfully.",
+        print_to_console=print_to_console,
     )
 
     if pandas_output:
-        # transformer.set_output(transform="pandas") # <--- Force this specific instance
-        # 2. Get the feature names
-        # This works because your PrefixedTfidf implements get_feature_names_out
         feature_names = transformer.get_feature_names_out()
 
-        # 3. Reconstruct the DataFrame
-        df = pd.DataFrame(
+        transformed_df = pd.DataFrame(
             transformed_array,
             columns=feature_names,
-            index=df.index,  # Crucial to keep your original index!
+            index=df.index,
         )
-    else:
-        df = transformed_array
 
-    return df, transformer
+        if y is not None:
+            transformed_df[target_col] = y
 
+        return transformed_df, transformer
+
+    return transformed_array, transformer
 
 def pca_explained_variance(transformer: ColumnTransformer, name: str) -> float:
     """

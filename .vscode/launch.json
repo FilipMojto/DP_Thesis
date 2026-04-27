@@ -69,7 +69,7 @@
             "request": "launch",
             "module": "src_code.ml_pipeline.scripts.preprocess",
             // "args": ["--skip-tuning", "--model", "XGB"],
-            "args": ["--subset", "train", "--engineer", "--transform"],
+            "args": ["--subset", "train"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false,

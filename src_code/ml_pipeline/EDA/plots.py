@@ -3,9 +3,10 @@ from pathlib import Path
 import re
 from typing import Dict, Iterable, List, Literal
 
+from matplotlib.lines import Line2D
 from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise_distances
-from notebooks.constants import EMBEDDINGS, ENGINEERED_FEATURES, LINE_TOKEN_FEATURES
+from notebooks.constants import EMBEDDINGS, ENGINEERED_FEATURES, LINE_TOKEN_FEATURES, TARGET
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -155,7 +156,7 @@ def plot_num_feature_distributions(
     logger: MyLogger,
     feature_ctgs: NumFeatureSets,
     col_type: Literal[
-        "structural", "engineered", "embedding", "vectorized"
+        "structural", "embedding", "vectorized"
     ] = "structural",
     experiment_dir: Path = None,
     drop_cols: Iterable[str] = None,
@@ -193,11 +194,7 @@ def plot_num_feature_distributions(
 
     match col_type:
         case "structural":
-            filtered_cols = [
-                feature
-                for feature in feature_ctgs.numeric_cols
-                if feature not in ENGINEERED_FEATURES
-            ]
+            filtered_cols = feature_ctgs.numeric_cols + feature_ctgs.engineered_cols
         case "engineered":
             # filtered_cols = [
             #     feature
@@ -745,26 +742,33 @@ def plot_pairwise_relationship(
     df: pd.DataFrame,
     feature_ctgs: NumFeatureSets,
     logger: MyLogger,
-    top_features: int = 5,
+    top_features: int = None,
     experiment_dir: Path = None,
+    limit_features: Iterable[str] = None,
+    target_col: str = TARGET,
 ):
     # TOP_FEATURES = 5
 
     # Compute correlations with label
     corr_with_label = (
-        df[feature_ctgs.all_numeric_cols() + ["label"]].corr()["label"].drop("label")
-    )  # exclude label itself
+        df[feature_ctgs.all_numeric_cols() + [target_col]].corr()[target_col].drop(target_col)
+    )  # exclude target column itself
 
-    # Take top N correlated features
-    selected_features = (
-        corr_with_label.abs()
-        .sort_values(ascending=False)
-        .head(top_features)
-        .index.to_list()
-    )
+    if top_features is not None:
+        # Take top N correlated features
+        selected_features = (
+            corr_with_label.abs()
+            .sort_values(ascending=False)
+            .head(top_features)
+            .index.to_list()
+        )
+    elif limit_features is not None:
+        # Use provided list of features, but filter to those that exist in the DF
+        selected_features = [f for f in limit_features if f in df.columns]
+        logger.log_result(f"Using provided feature list for pairwise plot: {selected_features}")
 
-    # Add label back for hue
-    selected_features.append("label")
+    # Add target column back for hue
+    selected_features.append(target_col)
 
     # print(selected_features)
 
@@ -778,13 +782,13 @@ def plot_pairwise_relationship(
         "Checking Selected Feature Distributions and Correlations... (median, IQR, min, max, overlap)"
     )
 
-    # Exclude label for stats
+    # Exclude target column for stats
     features_only = selected_features[:-1]
 
     # Log per-feature stats + overlap coefficient
     for feature in features_only:
-        series0 = df[df["label"] == 0][feature].dropna()
-        series1 = df[df["label"] == 1][feature].dropna()
+        series0 = df[df[target_col] == 0][feature].dropna()
+        series1 = df[df[target_col] == 1][feature].dropna()
 
         # Basic stats on full feature
         median = df[feature].median()
@@ -816,7 +820,7 @@ def plot_pairwise_relationship(
     # In your pairplot call, use plot_kws to rasterize
     sns.pairplot(
         df_sample[selected_features],
-        hue="label",
+        hue=target_col,
         corner=True,
         plot_kws={
             "rasterized": True,  # This renders the dots as a bitmap
@@ -838,114 +842,311 @@ def plot_pairwise_relationship(
         plt.show()
 
 
+# def plot_2D_embedding_separability(
+#     df: pd.DataFrame,
+#     logger: MyLogger,
+#     embeddings=EMBEDDINGS,
+#     sample_size: int = 2000,
+#     experiment_dir: Path = None,
+# ):
+#     # sample_size = 2000  # safe for memory
+#     results_df = pd.DataFrame({
+#         "embedding": [],
+#         "inter_label_dist": [],
+#         "intra_dist_label0": [],
+#         "intra_dist_label1": [],
+#     })
+
+
+#     for emb_name in embeddings:
+#         logger.log_check(f"PCA of {emb_name}")
+
+#         # Stack embeddings into 2D array
+#         emb_matrix = np.vstack(df[emb_name].values)
+
+#         # PCA to 2D
+#         # pca = PCA(n_components=2)
+#         # emb_2d = pca.fit_transform(emb_matrix)
+#         pca = PCA(n_components=2)
+#         # Force the result to be a NumPy array immediately
+#         emb_2d = np.array(pca.fit_transform(emb_matrix))
+
+#         # Explained variance
+#         var_explained = pca.explained_variance_ratio_
+#         logger.log_result(
+#             f"{emb_name} - Explained variance by PC1: {var_explained[0]:.2%}, PC2: {var_explained[1]:.2%}"
+#         )
+
+#         # 1. Split by labels (Ensure these are numpy arrays)
+#         labels = df["label"].values
+#         points_label0 = emb_2d[labels == 0]
+#         points_label1 = emb_2d[labels == 1]
+
+#         # 2. Fixed Sampling: Use iloc if it's a DF, or index directly if it's an array
+#         # To be safe, we force points_label0 to be a numpy array if it isn't already
+#         if hasattr(points_label0, "values"):
+#             points_label0 = points_label0.values
+#         if hasattr(points_label1, "values"):
+#             points_label1 = points_label1.values
+
+#         idx0 = np.random.choice(
+#             points_label0.shape[0],
+#             min(sample_size, points_label0.shape[0]),
+#             replace=False,
+#         )
+#         idx1 = np.random.choice(
+#             points_label1.shape[0],
+#             min(sample_size, points_label1.shape[0]),
+#             replace=False,
+#         )
+
+#         points_label0_sample = points_label0[idx0]
+#         points_label1_sample = points_label1[idx1]
+
+#         # Distances
+#         inter_label_dist = pairwise_distances(
+#             points_label0_sample, points_label1_sample
+#         ).mean()
+#         intra_dist_label0 = pairwise_distances(points_label0_sample).mean()
+#         intra_dist_label1 = pairwise_distances(points_label1_sample).mean()
+
+#         logger.log_result(
+#             f"{emb_name} - Mean distance between label 0 and 1 in PCA 2D space: {inter_label_dist:.3f}"
+#         )
+#         logger.log_result(
+#             f"{emb_name} - Mean intra-label distances: label 0: {intra_dist_label0:.3f}, label 1: {intra_dist_label1:.3f}"
+#         )
+
+#         results_df.loc[len(results_df)] = {
+#             "embedding": emb_name,
+#             "inter_label_dist": inter_label_dist,
+#             "intra_dist_label0": intra_dist_label0,
+#             "intra_dist_label1": intra_dist_label1,
+#         }
+
+#         if experiment_dir:
+#             experiment_dir.mkdir(parents=True, exist_ok=True)
+#             save_df_as_md(df=results_df.round(3), path=experiment_dir / f"{emb_name}_stats.md")
+
+#         # Plot
+#         plt.figure(figsize=(10, 7))
+#         plt.scatter(
+#             emb_2d[:, 0], emb_2d[:, 1], c=df["label"], cmap="coolwarm", alpha=0.5
+#         )
+#         plt.title(f"PCA of {emb_name} Colored by Label")
+#         plt.xlabel("PC1")
+#         plt.ylabel("PC2")
+#         # plt.show()
+#         if experiment_dir:
+#             experiment_dir.mkdir(parents=True, exist_ok=True)
+#             save_path = experiment_dir / f"2D_{emb_name}_embedding_separability.pdf"
+#             plt.savefig(save_path, bbox_inches="tight", dpi=300)
+#         else:
+#             plt.show()
+
+    
+#     return results_df
+
 def plot_2D_embedding_separability(
     df: pd.DataFrame,
     logger: MyLogger,
-    embeddings=EMBEDDINGS,
+    embeddings: Iterable[str] = EMBEDDINGS,
     sample_size: int = 2000,
-    experiment_dir: Path = None,
-):
-    # sample_size = 2000  # safe for memory
-    results_df = pd.DataFrame({
-        "embedding": [],
-        "inter_label_dist": [],
-        "intra_dist_label0": [],
-        "intra_dist_label1": [],
-    })
+    experiment_dir: Path | None = None,
+    random_state: int = 42,
+    base_fontsize: int = 12,
+) -> pd.DataFrame:
+    """
+    Visualize embedding separability using a 2D PCA projection and compute
+    simple inter-/intra-label distance statistics.
 
+    Notes:
+    - PCA to 2D is only a diagnostic visualization.
+    - Lack of visible separation in 2D does not imply embeddings are useless.
+    """
+
+    rng = np.random.default_rng(random_state)
+
+    results = []
+
+    title_size = base_fontsize * 1.3
+    label_size = base_fontsize
+    tick_size = base_fontsize * 0.9
+    legend_size = base_fontsize * 0.9
+
+    if "label" not in df.columns:
+        raise KeyError("Column 'label' is required for embedding separability analysis.")
+
+    labels = df["label"].to_numpy()
 
     for emb_name in embeddings:
-        logger.log_check(f"PCA of {emb_name}")
+        if emb_name not in df.columns:
+            logger.log_result(f"Skipping missing embedding column: {emb_name}")
+            continue
 
-        # Stack embeddings into 2D array
-        emb_matrix = np.vstack(df[emb_name].values)
+        logger.log_check(f"Computing 2D PCA projection for embedding: {emb_name}")
 
-        # PCA to 2D
-        # pca = PCA(n_components=2)
-        # emb_2d = pca.fit_transform(emb_matrix)
-        pca = PCA(n_components=2)
-        # Force the result to be a NumPy array immediately
-        emb_2d = np.array(pca.fit_transform(emb_matrix))
+        # ------------------------------------------------------------------
+        # Build embedding matrix
+        # ------------------------------------------------------------------
+        try:
+            emb_matrix = np.vstack(df[emb_name].dropna().values)
+        except Exception as exc:
+            logger.logger.error(f"Failed to stack embeddings for {emb_name}: {exc}")
+            continue
 
-        # Explained variance
+        # Align labels if missing embeddings were dropped
+        valid_idx = df[emb_name].dropna().index
+        emb_labels = df.loc[valid_idx, "label"].to_numpy()
+
+        if emb_matrix.shape[0] != len(emb_labels):
+            logger.logger.warning(
+                f"Embedding-label size mismatch for {emb_name}. Skipping."
+            )
+            continue
+
+        if len(np.unique(emb_labels)) < 2:
+            logger.log_result(
+                f"Skipping {emb_name}: only one label present after filtering."
+            )
+            continue
+
+        # ------------------------------------------------------------------
+        # PCA projection
+        # ------------------------------------------------------------------
+        pca = PCA(n_components=2, random_state=random_state)
+        emb_2d = pca.fit_transform(emb_matrix)
+
         var_explained = pca.explained_variance_ratio_
+
         logger.log_result(
-            f"{emb_name} - Explained variance by PC1: {var_explained[0]:.2%}, PC2: {var_explained[1]:.2%}"
+            f"{emb_name} - Explained variance: "
+            f"PC1={var_explained[0]:.2%}, PC2={var_explained[1]:.2%}"
         )
 
-        # 1. Split by labels (Ensure these are numpy arrays)
-        labels = df["label"].values
-        points_label0 = emb_2d[labels == 0]
-        points_label1 = emb_2d[labels == 1]
+        # ------------------------------------------------------------------
+        # Distance statistics
+        # ------------------------------------------------------------------
+        points_label0 = emb_2d[emb_labels == 0]
+        points_label1 = emb_2d[emb_labels == 1]
 
-        # 2. Fixed Sampling: Use iloc if it's a DF, or index directly if it's an array
-        # To be safe, we force points_label0 to be a numpy array if it isn't already
-        if hasattr(points_label0, "values"):
-            points_label0 = points_label0.values
-        if hasattr(points_label1, "values"):
-            points_label1 = points_label1.values
+        n0 = min(sample_size, points_label0.shape[0])
+        n1 = min(sample_size, points_label1.shape[0])
 
-        idx0 = np.random.choice(
-            points_label0.shape[0],
-            min(sample_size, points_label0.shape[0]),
-            replace=False,
-        )
-        idx1 = np.random.choice(
-            points_label1.shape[0],
-            min(sample_size, points_label1.shape[0]),
-            replace=False,
-        )
+        idx0 = rng.choice(points_label0.shape[0], size=n0, replace=False)
+        idx1 = rng.choice(points_label1.shape[0], size=n1, replace=False)
 
         points_label0_sample = points_label0[idx0]
         points_label1_sample = points_label1[idx1]
 
-        # Distances
         inter_label_dist = pairwise_distances(
-            points_label0_sample, points_label1_sample
+            points_label0_sample,
+            points_label1_sample,
         ).mean()
+
         intra_dist_label0 = pairwise_distances(points_label0_sample).mean()
         intra_dist_label1 = pairwise_distances(points_label1_sample).mean()
 
         logger.log_result(
-            f"{emb_name} - Mean distance between label 0 and 1 in PCA 2D space: {inter_label_dist:.3f}"
+            f"{emb_name} - Mean inter-label distance: {inter_label_dist:.3f}"
         )
         logger.log_result(
-            f"{emb_name} - Mean intra-label distances: label 0: {intra_dist_label0:.3f}, label 1: {intra_dist_label1:.3f}"
+            f"{emb_name} - Mean intra-label distance: "
+            f"label 0={intra_dist_label0:.3f}, label 1={intra_dist_label1:.3f}"
         )
 
-    
+        results.append(
+            {
+                "embedding": emb_name,
+                "pc1_var": var_explained[0],
+                "pc2_var": var_explained[1],
+                "inter_label_dist": inter_label_dist,
+                "intra_dist_label0": intra_dist_label0,
+                "intra_dist_label1": intra_dist_label1,
+            }
+        )
 
-        # results_df = pd.DataFrame({
-        #     "inter_label_dist": [f"{inter_label_dist:.3f}"],
-        #     "intra_dist_label0": [f"{intra_dist_label0:.3f}"],
-        #     "intra_dist_label1": [f"{intra_dist_label1:.3f}"],
-        # })
-        results_df.loc[len(results_df)] = {
-            "embedding": emb_name,
-            "inter_label_dist": inter_label_dist,
-            "intra_dist_label0": intra_dist_label0,
-            "intra_dist_label1": intra_dist_label1,
-        }
+        results_df = pd.DataFrame(results)
 
         if experiment_dir:
             experiment_dir.mkdir(parents=True, exist_ok=True)
-            save_df_as_md(df=results_df.round(3), path=experiment_dir / f"{emb_name}_stats.md")
+            save_df_as_md(
+                df=results_df.round(3),
+                path=experiment_dir / "embedding_separability_stats.md",
+            )
 
-        # Plot
+        # ------------------------------------------------------------------
+        # Plot sample
+        # ------------------------------------------------------------------
+        plot_n = min(sample_size, emb_2d.shape[0])
+        plot_idx = rng.choice(emb_2d.shape[0], size=plot_n, replace=False)
+
+        emb_2d_plot = emb_2d[plot_idx]
+        labels_plot = emb_labels[plot_idx]
+
         plt.figure(figsize=(10, 7))
-        plt.scatter(
-            emb_2d[:, 0], emb_2d[:, 1], c=df["label"], cmap="coolwarm", alpha=0.5
+
+        scatter = plt.scatter(
+            emb_2d_plot[:, 0],
+            emb_2d_plot[:, 1],
+            c=labels_plot,
+            cmap="coolwarm",
+            alpha=0.45,
+            s=12,
         )
-        plt.title(f"PCA of {emb_name} Colored by Label")
-        plt.xlabel("PC1")
-        plt.ylabel("PC2")
-        # plt.show()
+
+        legend_elements = [
+            Line2D(
+                [0], [0],
+                marker="o",
+                color="w",
+                label="Clean commit (label=0)",
+                markerfacecolor=scatter.cmap(scatter.norm(0)),
+                markersize=8,
+            ),
+            Line2D(
+                [0], [0],
+                marker="o",
+                color="w",
+                label="Defect-inducing commit (label=1)",
+                markerfacecolor=scatter.cmap(scatter.norm(1)),
+                markersize=8,
+            ),
+        ]
+
+        plt.legend(
+            handles=legend_elements,
+            title="Target label",
+            fontsize=legend_size,
+            title_fontsize=legend_size * 1.1,
+        )
+
+        plt.title(
+            f"PCA projection of {emb_name} colored by target label",
+            fontsize=title_size,
+        )
+
+        plt.xlabel(
+            f"PC1 ({var_explained[0]:.1%} variance)",
+            fontsize=label_size,
+        )
+
+        plt.ylabel(
+            f"PC2 ({var_explained[1]:.1%} variance)",
+            fontsize=label_size,
+        )
+
+        plt.xticks(fontsize=tick_size)
+        plt.yticks(fontsize=tick_size)
+
+        plt.grid(alpha=0.25)
+
         if experiment_dir:
-            experiment_dir.mkdir(parents=True, exist_ok=True)
             save_path = experiment_dir / f"2D_{emb_name}_embedding_separability.pdf"
             plt.savefig(save_path, bbox_inches="tight", dpi=300)
+            logger.log_result(f"Saved embedding separability plot to: {save_path}")
+            plt.close()
         else:
             plt.show()
 
-    
-    return results_df
+    return pd.DataFrame(results)

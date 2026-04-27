@@ -85,12 +85,14 @@ class NumFeatureSets:
     engineered_cols: list
     embedding_cols: list
     tfidf_vectorized_cols: list
+    # limit_features: list = None
 
     def all_numeric_cols(self):
         return self.embedding_cols + self.tfidf_vectorized_cols + self.numeric_cols
 
     @staticmethod
-    def extract_features(df: pd.DataFrame, logger: MyLogger):
+    def extract_features(df: pd.DataFrame, logger: MyLogger, limit_features: list = None):
+      
         logger.log_check("Checking numeric features...")
         num_cols = df.select_dtypes(include=[np.number, np.bool]).columns.tolist()
         num_cols.remove('label')  # exclude target
@@ -101,6 +103,17 @@ class NumFeatureSets:
 
         numeric_cols = [c for c in num_cols if not is_embedding_column(c) and not is_tfidf_vectorized(c) and not is_engineered(c)]
 
+        # limit features for EDA
+        if limit_features is not None:
+            # lets also check if the specified features are actually in the dataframe
+            for f in limit_features:
+                if f not in df.columns:
+                    raise ValueError(f"Specified feature '{f}' not found in dataframe columns.")
+                
+            embedding_cols = [f for f in embedding_cols if f in limit_features]
+            tfidf_vectorized_cols = [f for f in tfidf_vectorized_cols if f in limit_features]
+            engineered_cols = [f for f in engineered_cols if f in limit_features]
+            numeric_cols = [f for f in numeric_cols if f in limit_features]
 
 
         logger.log_result(f"Embeddings: {embedding_cols}")
@@ -111,6 +124,7 @@ class NumFeatureSets:
         logger.log_result("")
 
         logger.log_result(f"Structural: {numeric_cols}")
+        logger.log_result(f"Engineered: {engineered_cols}")
         logger.log_result(f"Size: {len(numeric_cols)}")
 
         return NumFeatureSets(
@@ -143,3 +157,13 @@ def log_negative_time_since_last_change(df: pd.DataFrame, logger: MyLogger):
     sns.countplot(x='repo', data=neg_times)
     plt.title("Negative time_since_last_change by Repository")
     plt.show()
+
+
+# def limit_features(df: pd.DataFrame, features: list, logger: MyLogger):
+#     # lets also check if the specified features are actually in the dataframe
+#         for f in limit_features:
+#             if f not in df.columns:
+#                 raise ValueError(f"Specified feature '{f}' not found in dataframe columns.")
+            
+#         features = [f for f in features if f in limit_features]
+#         logger.log_check(f"Using specified features for boxplots: {features}")

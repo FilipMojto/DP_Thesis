@@ -12,49 +12,7 @@ from src_code.ml_pipeline.EDA.utils import NumFeatureSets
 from src_code.utils.utils import is_binary
 
 
-# def plot_boxplots_with_outliers(df: pd.DataFrame, features: Iterable[str], logger: MyLogger, cols: int = 4, experiment_dir: Path = None):
-#     logger.log_check("Boxplot outlier analysis (feature, outlier%, bounds, mean, std, min, max)...")
 
-#     rows = math.ceil(len(features) / cols)
-#     plt.figure(figsize=(cols * 5, rows * 3.5))
-
-#     gen = grid_paginator(features, 'structural', experiment_dir, n_cols=1, rows_per_page=5, preset='a4-portrait')
-
-
-#     for i, feature in enumerate(features, 1):
-#         series = df[feature].dropna()
-
-#         Q1 = series.quantile(0.25)
-#         Q3 = series.quantile(0.75)
-#         IQR = Q3 - Q1
-#         lower = Q1 - 1.5 * IQR
-#         upper = Q3 + 1.5 * IQR
-
-#         outlier_mask = (series < lower) | (series > upper)
-#         outlier_ratio = float(outlier_mask.mean())
-#         n_outliers = int(outlier_mask.sum())
-
-#         # Additional stats
-#         mean = float(series.mean())
-#         std = float(series.std())
-#         min_val = float(series.min())
-#         max_val = float(series.max())
-
-#         # ---- LOG ENTRY (1 line per feature) ----
-#         logger.log_result(
-#             f"{feature}: outliers={outlier_ratio:.2%} ({n_outliers} rows), "
-#             f"bounds=({lower:.3f}, {upper:.3f}), "
-#             f"min={min_val:.3f}, max={max_val:.3f}, "
-#             f"mean={mean:.3f}, std={std:.3f}"
-#         )
-
-#         # ---- PLOT ----
-#         plt.subplot(rows, cols, i)
-#         sns.boxplot(x=series, linewidth=1)
-#         plt.title(f"{feature}\nOutliers: {outlier_ratio:.2%}")
-
-#     plt.tight_layout()
-#     plt.show()
 
 def plot_boxplots_with_outliers(
     df: pd.DataFrame, 
@@ -64,10 +22,20 @@ def plot_boxplots_with_outliers(
     drop_binaries: bool = True,
     n_rows_per_page: int = 3,
     n_cols_per_page: int = 2,
+    # limit_features: Iterable[str] = None,
 ):
     logger.log_check("Boxplot outlier analysis with paginated output...")
     features = feature_sets.numeric_cols + feature_sets.engineered_cols
 
+    # if limit_features is not None:
+    #     # # lets also check if the specified features are actually in the dataframe
+    #     # for f in limit_features:
+    #     #     if f not in df.columns:
+    #     #         raise ValueError(f"Specified feature '{f}' not found in dataframe columns.")
+            
+    #     # features = [f for f in features if f in limit_features]
+    #     # logger.log_check(f"Using specified features for boxplots: {features}")
+        
  
     if drop_binaries:
         logger.log_check("Dropping binaries...")
@@ -91,7 +59,6 @@ def plot_boxplots_with_outliers(
         n_cols=n_cols_per_page, 
         rows_per_page=n_rows_per_page, 
         preset='a4-portrait',
-        
     )
 
     # 2. Iterate directly over the generator

@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from typing import Dict, get_args
+from notebooks.constants import TARGET
 from notebooks.logging_config import MyLogger
 from src_code.config import ENGINEERED_DATA_DIR, LOG_DIR
 from src_code.ml_pipeline.data_utils import save_df
@@ -104,10 +105,15 @@ def early_preprocess(
 
         output_path = output_dfs_paths[df.metadata.type].next_base_output
 
+        if TARGET not in df.data.columns:
+            logger.log_result(f"Warning: Target column '{TARGET}' not found in engineered dataframe columns.", print_to_console=True)
+
         nrows, ncols = df.data.shape
         results.preprocessed_datasets.append(DfMetadata(type=df.metadata.type, rows=nrows, cols=ncols, src_path=output_path))
     
+        
         save_df(df=df.data, df_file_path=output_path, logger=logger)
+        logger.log_result("Dimensions of engineered dataframe: " + str(df.data.shape))
         logger.log_result(f"Column data types: {df.data.dtypes.to_dict()}")
 
     return results
